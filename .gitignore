@@ -1,0 +1,140 @@
+﻿# =========================
+# Unreal Engine 通用
+# =========================
+
+# 编译输出
+Binaries/
+Build/*/Binaries/
+
+# 中间文件（最重要必须忽略）
+Intermediate/
+
+# 缓存（极大，必须忽略）
+DerivedDataCache/
+
+# 运行时/编辑器生成数据
+Saved/
+
+# 自动生成的项目文件
+.vs/
+.idea/
+.vscode/
+
+# Unreal 自动生成的解决方案（可选保留）
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.VC.db
+
+# Mac / Linux
+.DS_Store
+*.swp
+*.swo
+
+
+# =========================
+# Unreal 特定文件
+# =========================
+
+# 自动生成的配置（保留 Config 下的 Default*.ini）
+Config/DefaultEditorPerProjectUserSettings.ini
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+
+# Crash dumps
+*.dmp
+
+# 自动保存
+Saved/Autosaves/
+Saved/Backup/
+
+
+# =========================
+# Shader / 编译缓存
+# =========================
+
+# Shader 缓存（很大）
+Saved/Shaders/
+DerivedDataCache/Compressed.ddp
+DerivedDataCache/Boot.ddc
+
+
+# =========================
+# 打包/构建输出
+# =========================
+
+# 打包结果
+Build/*/Pak/
+Build/*/StagedBuilds/
+
+# Cook 输出
+Saved/Cooked/
+
+
+# =========================
+# 插件（Plugins）
+# =========================
+
+# 插件编译产物
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+
+# 插件缓存
+Plugins/*/Saved/
+
+
+# =========================
+# IDE 相关
+# =========================
+
+# Visual Studio
+*.opensdf
+*.sdf
+*.pdb
+*.ipch
+*.obj
+*.tlog
+
+# Rider
+.idea/
+
+# VSCode
+.vscode/
+
+
+# =========================
+# Python / 工具链（如果你用）
+# =========================
+
+__pycache__/
+*.pyc
+
+
+# =========================
+# Git LFS 建议（不要忽略）
+# =========================
+# ⚠️ 以下文件不要忽略，应使用 Git LFS 管理
+# *.uasset
+# *.umap
+
+
+# =========================
+# 保留的重要目录（白名单逻辑）
+# =========================
+# 以下是你应该提交的核心内容：
+
+# 源码
+!Source/
+
+# 配置
+!Config/
+
+# 内容资源（重要）
+!Content/
+
+# 项目文件
+!*.uproject
