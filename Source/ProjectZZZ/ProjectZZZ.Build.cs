@@ -25,19 +25,7 @@ public class ProjectZZZ : ModuleRules
 
 		PublicIncludePaths.AddRange(new string[] {
 			"ProjectZZZ",
-			"ProjectZZZ/Variant_Platforming",
-			"ProjectZZZ/Variant_Platforming/Animation",
-			"ProjectZZZ/Variant_Combat",
-			"ProjectZZZ/Variant_Combat/AI",
-			"ProjectZZZ/Variant_Combat/Animation",
-			"ProjectZZZ/Variant_Combat/Gameplay",
-			"ProjectZZZ/Variant_Combat/Interfaces",
-			"ProjectZZZ/Variant_Combat/UI",
-			"ProjectZZZ/Variant_SideScrolling",
-			"ProjectZZZ/Variant_SideScrolling/AI",
-			"ProjectZZZ/Variant_SideScrolling/Gameplay",
-			"ProjectZZZ/Variant_SideScrolling/Interfaces",
-			"ProjectZZZ/Variant_SideScrolling/UI"
+			"ProjectZZZ/Public"
 		});
 
 		// Uncomment if you are using Slate UI
