@@ -1,0 +1,169 @@
+﻿// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "InputMappingContext.h"
+#include "Components/ActorComponent.h"
+#include "PlayerInputHandlerComponent.generated.h"
+
+struct FCharacterFrameDataBus;
+class ACharacterBase;
+struct FInputActionInstance;
+
+UENUM(BlueprintType, meta = (Bitflags))
+enum class EInputAction : uint8
+{
+	EInputAction_None							= 0		UMETA(DisplayName = "None"),
+	EInputActionFlag_Movement					= 1		UMETA(DisplayName = "Movement"),
+	EInputActionFlag_Look						= 2		UMETA(DisplayName = "Look"),
+	EInputActionFlag_Dodge						= 3		UMETA(DisplayName = "Dodge"),
+	EInputActionFlag_Basic_Attack				= 4		UMETA(DisplayName = "Basic_Attack"),
+	EInputActionFlag_Special_Attack				= 5		UMETA(DisplayName = "Special_Attack"),
+	EInputActionFlag_Ultimate					= 6		UMETA(DisplayName = "Ultimate"),
+	EInputActionFlag_SwitchCharacter_Previous	= 7		UMETA(DisplayName = "SwitchCharacter_Previous"),
+	EInputActionFlag_SwitchCharacter_Next		= 8		UMETA(DisplayName = "SwitchCharacter_Next"),
+	EInputActionFlag_Chain_Attack_Left			= 9		UMETA(DisplayName = "Chain_Attack_Left"),
+	EInputActionFlag_Chain_Attack_Right			= 10	UMETA(DisplayName = "Chain_Attack_Right"),
+	EInputActionFlag_Chain_Attack_Cancel		= 11	UMETA(DisplayName = "Chain_Attack_Cancel"),
+
+	// todo: UI Input
+	EInputActionFlag_Max								UMETA(Hidden)
+};
+
+static_assert(static_cast<uint8>(EInputAction::EInputActionFlag_Max) <= 32, "Bitset Exceeded");
+
+USTRUCT(BlueprintType)
+struct FInputBitmask
+{
+	GENERATED_BODY()
+
+	FInputBitmask() : MaskData(0) {}
+public:
+	FORCEINLINE void Set(EInputAction Action, bool bActive)
+	{
+		checkf(static_cast<uint8>(Action) < 32, TEXT("Input Action Out of Boundary"));
+
+		if (bActive)
+		{
+			MaskData |= (1U << static_cast<uint8>(Action));
+		} else
+		{
+			MaskData &= ~(1U << static_cast<uint8>(Action));
+		}
+	}
+
+	FORCEINLINE bool Test(EInputAction Action) const
+	{
+		checkf(static_cast<uint8>(Action) < 32, TEXT("Input Action Out of Boundary"));
+
+		return (MaskData & (1U << static_cast<uint8>(Action)));
+	}
+
+	FORCEINLINE void Reset() { MaskData = 0; }
+
+	FORCEINLINE bool Any() const { return MaskData != 0; }
+
+	// Todo: check if needed
+	FORCEINLINE bool TestAll(const FInputBitmask& Other) const
+	{
+		return (MaskData & Other.MaskData) == Other.MaskData; 
+	}
+
+	FORCEINLINE bool TestAny(const FInputBitmask& Other) const
+	{
+		return (MaskData & Other.MaskData) != 0;
+	} 
+	
+private:
+	uint32 MaskData;
+};
+
+UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
+class PROJECTZZZ_API UPlayerInputHandlerComponent : public UActorComponent
+{
+	GENERATED_BODY()
+
+public:
+	UPlayerInputHandlerComponent(const FObjectInitializer& ObjectInitializer);
+
+	// ActorComponent Interface
+public:
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void InitializeComponent() override;
+protected:
+	virtual void BeginPlay() override;
+	// ~ActorComponent Interface
+
+public:
+	void BuildCharacterFrameDataBus(FCharacterFrameDataBus& DataBus);
+	void RegisterInput();
+	
+private:
+	// On_Input_XXX Function
+	void On_Input_Movement(const FInputActionInstance& Instance);
+	void On_Input_Look(const FInputActionInstance& Instance);
+	void On_Input_Dodge(const FInputActionInstance& Instance);
+	void On_Input_Basic_Attack(const FInputActionInstance& Instance);
+	void On_Input_Special_Attack(const FInputActionInstance& Instance);
+	void On_Input_Ultimate(const FInputActionInstance& Instance);
+	void On_Input_SwitchCharacter_Previous(const FInputActionInstance& Instance);
+	void On_Input_SwitchCharacter_Next(const FInputActionInstance& Instance);
+	void On_Input_ChainAttack_Left(const FInputActionInstance& Instance);
+	void On_Input_ChainAttack_Right(const FInputActionInstance& Instance);
+	void On_Input_ChainAttack_Cancel(const FInputActionInstance& Instance);
+
+public:
+	// Input Action Asset
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input | IMC")
+	TObjectPtr<UInputMappingContext> DefaultInputMappingContext;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input | IMC", meta=(ClampMin = "0", UIMin = "0"))
+	uint8 DefaultInputMappingContextPriority{0};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* Movement_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* Look_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* Dodge_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* Basic_Attack_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* Special_Attack_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* Ultimate_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SwitchCharacter_Previous_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SwitchCharacter_Next_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* ChainAttack_Left_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* ChainAttack_Right_Action{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* ChainAttack_Cancel_Action{nullptr};
+private:
+	FInputBitmask InputActionBitmask;
+
+	FVector2D RawInputMovementVector{FVector::ZeroVector};
+	FVector2D RawInputLookVector{FVector::ZeroVector};
+	
+
+	UPROPERTY()
+	TObjectPtr<ACharacterBase> PlayerCharacter{nullptr};
+
+	UPROPERTY()
+	UEnhancedInputComponent* EnhancedInputComponent{nullptr};
+};
+ 
