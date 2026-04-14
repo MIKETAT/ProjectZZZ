@@ -3,7 +3,9 @@
 
 #include "Player/PlayerCharacter.h"
 
+#include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Character/Component/CharacterCombatComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 
@@ -41,6 +43,7 @@ void APlayerCharacter::Tick(float DeltaTime)
 		PlayerInputHandlerComponent->BuildCharacterFrameDataBus(CharacterFrameDataBus);
 		ProcessMovementInput(DeltaTime);
 		ProcessLookInput(DeltaTime);
+		ProcessCombatActionInput(DeltaTime);
 	}
 }
 
@@ -55,6 +58,16 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 	{
 		return;
 	}
+
+	check(CombatComponent);
+
+	if (CombatComponent->IsAllowMovementCancelAction())
+	{
+		CombatComponent->CancelCurrentAction();
+		return;
+	}	
+
+	
 	float Right = CharacterFrameDataBus.RawMovementInput.X;
 	float Forward = CharacterFrameDataBus.RawMovementInput.Y;
 	
@@ -78,6 +91,14 @@ void APlayerCharacter::ProcessLookInput(float DeltaTime)
 	{
 		AddControllerYawInput(CharacterFrameDataBus.RawLookInput.X);
 		AddControllerPitchInput(CharacterFrameDataBus.RawLookInput.Y);	
+	}
+}
+
+void APlayerCharacter::ProcessCombatActionInput(float DeltaTime)
+{
+	if (CombatComponent.Get())
+	{
+		CombatComponent->InputActionBitmask = CharacterFrameDataBus.InputActionBitmask; 
 	}
 }
 

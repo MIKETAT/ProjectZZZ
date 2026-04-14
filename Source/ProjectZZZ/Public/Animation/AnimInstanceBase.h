@@ -4,14 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "CharacterAnimationPreset.h"
+#include "GameplayTagContainer.h"
 #include "State/LocomotionAnimationState.h"
 #include "AnimInstanceBase.generated.h"
 
 class ACharacterBase;
 class UCharacterAnimationPreset_Locomotion;
-/**
- * 
- */
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCombatWindowChanged, FGameplayTag, WindowTag, bool, bIsOpen, UAnimMontage*, SourceMontage);
+
 UCLASS()
 class PROJECTZZZ_API UAnimInstanceBase : public UAnimInstance
 {
@@ -20,9 +21,7 @@ class PROJECTZZZ_API UAnimInstanceBase : public UAnimInstance
 public:
 	virtual  void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
-
 	virtual void NativeBeginPlay() override;
-	
 public:
 	// Get Locomotion Asset
 	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
@@ -66,14 +65,13 @@ protected:
 	const UCharacterAnimationPreset_Locomotion* GetLocomotionAnimPreset() const; 
 
 private:
-
 	void RefreshLocomotionAnimationStateOnGameThread(const float DeltaSeconds);
-	
+
+public:
+	FOnCombatWindowChanged OnCombatWindowChanged;
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Asset")
 	TObjectPtr<UCharacterAnimationPreset_Locomotion> AnimPreset_Locomotion{nullptr};
-
-
 		
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient)
 	TObjectPtr<ACharacterBase> Character;

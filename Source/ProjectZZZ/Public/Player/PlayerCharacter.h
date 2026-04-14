@@ -24,6 +24,7 @@ public:
 
 	void ProcessMovementInput(float DeltaTime);
 	void ProcessLookInput(float DeltaTime);
+	void ProcessCombatActionInput(float DeltaTime);
 
 // Components
 	UPROPERTY(VisibleAnywhere)

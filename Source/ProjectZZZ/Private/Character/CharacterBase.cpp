@@ -3,6 +3,10 @@
 #include "Character/CharacterBase.h"
 #include "EnhancedInputComponent.h"
 #include "ProjectZZZ.h"
+#include "AbilitySystem/AgentAbilitySystemComponent.h"
+#include "AbilitySystem/AgentAttributeSet.h"
+#include "Animation/Component/CombatAnimSchedulerComponent.h"
+#include "Character/Component/CharacterCombatComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
@@ -32,6 +36,13 @@ ACharacterBase::ACharacterBase()
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
+
+	CombatComponent = CreateDefaultSubobject<UCharacterCombatComponent>(TEXT("CombatComponent"));
+	CombatAnimSchedulerComponent = CreateDefaultSubobject<UCombatAnimSchedulerComponent>(TEXT("CombatAnimSchedulerComponent"));
+
+	AgentAbilitySystemComponent = CreateDefaultSubobject<UAgentAbilitySystemComponent>(TEXT("AgentAbilitySystemComponent"));
+	AgentAbilitySystemComponent->SetIsReplicated(true);
+	AgentAttributeSet = CreateDefaultSubobject<UAgentAttributeSet>(TEXT("AgentAttributeSet"));
 }
 
 void ACharacterBase::BeginPlay()
@@ -53,13 +64,29 @@ void ACharacterBase::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 	check(NewController);
-	CharacterFrameDataBus.bIsLocalPlayer = NewController->IsLocalPlayerController(); 
+	CharacterFrameDataBus.bIsLocalPlayer = NewController->IsLocalPlayerController();
+
+	if (AgentAbilitySystemComponent)
+	{
+		AgentAbilitySystemComponent->InitAbilityActorInfo(this, this);
+	}
+	InitializeAttributes();
+	
 }
 
 void ACharacterBase::UnPossessed()
 {
 	Super::UnPossessed();
 	CharacterFrameDataBus.bIsLocalPlayer = false;
+}
+
+void ACharacterBase::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	if (IsValid(CombatComponent))
+	{
+		CombatComponent->TryInitComponents();
+	}
 }
 
 void ACharacterBase::RefreshInput(const float DeltaTime)
@@ -83,4 +110,18 @@ void ACharacterBase::RefreshLocomotionState(const float DeltaTime)
 	
 	LocomotionState.WorldAcceleration2D = FVector{WorldAcceleration.X, WorldAcceleration.Y, 0.0f};
 	LocomotionState.LocalAcceleration2D = YawRotation.UnrotateVector(LocomotionState.WorldAcceleration2D); 
+}
+
+void ACharacterBase::InitializeAttributes()
+{
+	if (AgentAbilitySystemComponent && IsValid(InitAttributes))
+	{
+		FGameplayEffectContextHandle ContextHandle = AgentAbilitySystemComponent->MakeEffectContext();
+		ContextHandle.AddSourceObject(this);
+
+		if (FGameplayEffectSpecHandle SpecHandle = AgentAbilitySystemComponent->MakeOutgoingSpec(InitAttributes, 1, ContextHandle); SpecHandle.IsValid())
+		{
+			AgentAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+		}
+	}
 }

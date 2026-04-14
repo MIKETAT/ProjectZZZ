@@ -14,24 +14,24 @@ struct FInputActionInstance;
 UENUM(BlueprintType, meta = (Bitflags))
 enum class EInputAction : uint8
 {
-	EInputAction_None							= 0		UMETA(DisplayName = "None"),
-	EInputActionFlag_Movement					= 1		UMETA(DisplayName = "Movement"),
-	EInputActionFlag_Look						= 2		UMETA(DisplayName = "Look"),
-	EInputActionFlag_Dodge						= 3		UMETA(DisplayName = "Dodge"),
-	EInputActionFlag_Basic_Attack				= 4		UMETA(DisplayName = "Basic_Attack"),
-	EInputActionFlag_Special_Attack				= 5		UMETA(DisplayName = "Special_Attack"),
-	EInputActionFlag_Ultimate					= 6		UMETA(DisplayName = "Ultimate"),
-	EInputActionFlag_SwitchCharacter_Previous	= 7		UMETA(DisplayName = "SwitchCharacter_Previous"),
-	EInputActionFlag_SwitchCharacter_Next		= 8		UMETA(DisplayName = "SwitchCharacter_Next"),
-	EInputActionFlag_Chain_Attack_Left			= 9		UMETA(DisplayName = "Chain_Attack_Left"),
-	EInputActionFlag_Chain_Attack_Right			= 10	UMETA(DisplayName = "Chain_Attack_Right"),
-	EInputActionFlag_Chain_Attack_Cancel		= 11	UMETA(DisplayName = "Chain_Attack_Cancel"),
+	EInputActionFlag_Movement					= 0		UMETA(DisplayName = "Movement"),
+	EInputActionFlag_Look						= 1		UMETA(DisplayName = "Look"),
+	EInputActionFlag_Dodge						= 2		UMETA(DisplayName = "Dodge"),
+	EInputActionFlag_Basic_Attack				= 3		UMETA(DisplayName = "Basic_Attack"),
+	EInputActionFlag_Special_Attack				= 4		UMETA(DisplayName = "Special_Attack"),
+	EInputActionFlag_Ultimate					= 5		UMETA(DisplayName = "Ultimate"),
+	EInputActionFlag_SwitchCharacter_Previous	= 6		UMETA(DisplayName = "SwitchCharacter_Previous"),
+	EInputActionFlag_SwitchCharacter_Next		= 7		UMETA(DisplayName = "SwitchCharacter_Next"),
+	EInputActionFlag_Chain_Attack_Left			= 8		UMETA(DisplayName = "Chain_Attack_Left"),
+	EInputActionFlag_Chain_Attack_Right			= 9	UMETA(DisplayName = "Chain_Attack_Right"),
+	EInputActionFlag_Chain_Attack_Cancel		= 10	UMETA(DisplayName = "Chain_Attack_Cancel"),
 
 	// todo: UI Input
-	EInputActionFlag_Max								UMETA(Hidden)
+	EInputAction_Max								UMETA(Hidden)
+
 };
 
-static_assert(static_cast<uint8>(EInputAction::EInputActionFlag_Max) <= 32, "Bitset Exceeded");
+static_assert(static_cast<uint8>(EInputAction::EInputAction_Max) <= 32, "Bitset Exceeded");
 
 USTRUCT(BlueprintType)
 struct FInputBitmask
@@ -74,8 +74,23 @@ public:
 	{
 		return (MaskData & Other.MaskData) != 0;
 	} 
+
+public:
+	template<typename Func>
+	void ForEachSetAction(Func&& Fn) const
+	{
+		uint32 Bits = MaskData;
+		
+		while (Bits)
+		{
+			uint32 Index = FMath::CountTrailingZeros(Bits);
+			Fn(static_cast<EInputAction>(Index));
+
+			Bits &= (Bits - 1);
+		}
+	}
 	
-private:
+public:
 	uint32 MaskData;
 };
 
@@ -159,7 +174,6 @@ private:
 	FVector2D RawInputMovementVector{FVector::ZeroVector};
 	FVector2D RawInputLookVector{FVector::ZeroVector};
 	
-
 	UPROPERTY()
 	TObjectPtr<ACharacterBase> PlayerCharacter{nullptr};
 
