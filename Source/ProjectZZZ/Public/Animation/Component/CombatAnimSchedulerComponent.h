@@ -4,9 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimMontage.h"
+#include "Character/Combat/CombatStep.h"
 #include "Components/ActorComponent.h"
 #include "CombatAnimSchedulerComponent.generated.h"
 
+enum class ECombatActionPriority : uint8;
 class ACharacterBase;
 class UAnimInstanceBase;
 
@@ -38,7 +40,7 @@ struct FCombatAnimExecutionRequest
 	UAnimMontage* Montage{nullptr};
 
 	UPROPERTY()
-	int32 Priority{-1};
+	ECombatActionPriority Priority{ECombatActionPriority::None};
 
 	UPROPERTY()
 	float PlayRate{1.f};

@@ -10,4 +10,5 @@ namespace Combat::CombatWindows
 	UE_DEFINE_GAMEPLAY_TAG(ProceedWindow, FName(TEXTVIEW("Combat.Window.ProceedWindow")))
 	UE_DEFINE_GAMEPLAY_TAG(IsRecoveryWindow, FName(TEXTVIEW("Combat.Window.IsRecoveryWindow")))
 	UE_DEFINE_GAMEPLAY_TAG(ParryWindow, FName(TEXTVIEW("Combat.Window.ParryWindow")))
+	UE_DEFINE_GAMEPLAY_TAG(MovementInterruptWindow, FName(TEXTVIEW("Combat.Window.MovementInterruptWindow")))
 }

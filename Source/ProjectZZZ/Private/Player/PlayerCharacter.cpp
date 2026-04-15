@@ -61,7 +61,7 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 
 	check(CombatComponent);
 
-	if (CombatComponent->IsAllowMovementCancelAction())
+	if (CombatComponent->IsAllowMovementInterruptAction())
 	{
 		CombatComponent->CancelCurrentAction();
 		return;

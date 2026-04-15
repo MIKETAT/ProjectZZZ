@@ -128,12 +128,12 @@ void UCharacterCombatComponent::ProcessBufferedInput(const float DeltaTime)
 	}
 }
 
-const UCombatActionStep* UCharacterCombatComponent::SelectTargetAction() const
+UCombatActionStep* UCharacterCombatComponent::SelectTargetAction()
 {
-	const UCombatActionStep* TargetAction{nullptr};
+	UCombatActionStep* TargetAction{nullptr};
 	CurrentInputActionBitmask.ForEachSetAction([&](EInputAction InputAction)
 	{
-		const UCombatActionStep* ThisAction{SelectComboActionIntent(InputAction)};
+		UCombatActionStep* ThisAction{SelectComboActionIntent(InputAction)};
 		if (ThisAction == nullptr)
 		{
 			ThisAction = SelectCombatActionIntent(InputAction);
@@ -143,7 +143,7 @@ const UCombatActionStep* UCharacterCombatComponent::SelectTargetAction() const
 		if (TargetAction == nullptr)
 		{
 			TargetAction = ThisAction;
-		} else if (ThisAction->Priority > TargetAction->Priority)
+		} else if (ThisAction && ThisAction->Priority > TargetAction->Priority)
 		{
 			TargetAction = ThisAction;
 		}
@@ -151,13 +151,13 @@ const UCombatActionStep* UCharacterCombatComponent::SelectTargetAction() const
 
 	if (TargetAction)
 	{
-		TargetAction->Montage = TargetAction->GetAnimMontage();
+		TargetAction->Montage = TargetAction->GetAnimMontage(Character->GetCharacterFrameDataBus());
 	}
 	
 	return TargetAction;
 }
 
-const UCombatActionStep* UCharacterCombatComponent::SelectComboActionIntent(const EInputAction Input) const
+UCombatActionStep* UCharacterCombatComponent::SelectComboActionIntent(const EInputAction Input)
 {
 	if (CurrentExecutionState.CurrentStep == nullptr || CurrentExecutionState.bInputBufferWindowOpen == false)
 	{
@@ -175,9 +175,9 @@ const UCombatActionStep* UCharacterCombatComponent::SelectComboActionIntent(cons
 	return nullptr;
 }
 
-const UCombatActionStep* UCharacterCombatComponent::SelectCombatActionIntent(const EInputAction Input) const
+UCombatActionStep* UCharacterCombatComponent::SelectCombatActionIntent(const EInputAction Input)
 {
-	for (const UCombatActionStep* Step : CombatActionList)
+	for (UCombatActionStep* Step : CombatActionList)
 	{
 		if (!Step || Input != Step->TriggerInput)
 		{
@@ -267,9 +267,9 @@ void UCharacterCombatComponent::TryInitComponents()
 	}
 }
 
-bool UCharacterCombatComponent::IsAllowMovementCancelAction() const
+bool UCharacterCombatComponent::IsAllowMovementInterruptAction() const
 {
-	return CurrentExecutionState.CurrentStep && CurrentExecutionState.bProceedWindowOpen;
+	return CurrentExecutionState.CurrentStep && CurrentExecutionState.bMovementInterruptWindowOpen;
 }
 
 void UCharacterCombatComponent::HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason)
@@ -298,7 +298,7 @@ void UCharacterCombatComponent::HandleCombatWindowChange(const FGameplayTag Tag,
 		return;
 	}
 	
-	// Proceed Window
+	// Process Window
 	if (Tag == Combat::CombatWindows::ProceedWindow)
 	{
 		CurrentExecutionState.bProceedWindowOpen = bIsOpen;
@@ -316,6 +316,13 @@ void UCharacterCombatComponent::HandleCombatWindowChange(const FGameplayTag Tag,
 	if (Tag == Combat::CombatWindows::ParryWindow)
 	{
 		CurrentExecutionState.bParryWindowOpen = bIsOpen;
+		return;
+	}
+
+	// Movement Interrupt
+	if (Tag == Combat::CombatWindows::MovementInterruptWindow)
+	{
+		CurrentExecutionState.bMovementInterruptWindowOpen = bIsOpen;
 		return;
 	}
 	

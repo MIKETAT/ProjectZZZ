@@ -32,7 +32,7 @@ public:
 public:
 	void TryInitComponents();
 
-	bool IsAllowMovementCancelAction() const;
+	bool IsAllowMovementInterruptAction() const;
 
 	void CancelCurrentAction();
 	
@@ -51,9 +51,9 @@ private:
 	void ProcessInputAction(const float DeltaTime);
 	void ProcessBufferedInput(const float DeltaTime);
 	
-	const UCombatActionStep* SelectTargetAction() const;
-	const UCombatActionStep* SelectComboActionIntent(const EInputAction Input) const;
-	const UCombatActionStep* SelectCombatActionIntent(const EInputAction Input) const;
+	UCombatActionStep* SelectTargetAction();
+	UCombatActionStep* SelectComboActionIntent(const EInputAction Input);
+	UCombatActionStep* SelectCombatActionIntent(const EInputAction Input);
 	
 	void BufferInputIntent(const UCombatActionStep* ActionToBuffer);
 
@@ -94,7 +94,7 @@ private:
 	FBufferedIntent PendingIntent;
 
 	UPROPERTY(Transient)
-	TArray<const UCombatActionStep*> CombatActionList;
+	TArray<UCombatActionStep*> CombatActionList;
 	
 	// Double Buffering. Use CurrentInputActionBitmask.
 public:

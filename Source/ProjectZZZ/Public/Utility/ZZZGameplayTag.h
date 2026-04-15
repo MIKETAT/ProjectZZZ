@@ -22,4 +22,5 @@ namespace Combat::CombatWindows
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ProceedWindow)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(IsRecoveryWindow)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ParryWindow)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(MovementInterruptWindow)
 }

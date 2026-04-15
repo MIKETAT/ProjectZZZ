@@ -10,6 +10,21 @@
 class UGameplayEffect;
 enum class EInputAction : uint8;
 
+UENUM(BlueprintType)
+enum class ECombatActionPriority : uint8
+{
+	None = 0					UMETA(DisplayName = "None"),
+	BasicAttack = 10			UMETA(DisplayName = "Attack"),
+	Dodge = 20					UMETA(DisplayName = "Dodge"),
+
+	CounterAttack = 50			UMETA(DisplayName = "CounterAttack"),
+	
+	Ultimate = 80				UMETA(DisplayName = "Ultimate"),	
+	
+	HitReaction = 100			UMETA(DisplayName = "HitReaction"),
+	Dead = 255					UMETA(DisplayName = "Dead"),
+};
+
 UCLASS(BlueprintType)
 class PROJECTZZZ_API UCombatActionStep : public UDataAsset
 {
@@ -21,7 +36,6 @@ public:
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 	TObjectPtr<UAnimMontage> Montage;		// AnimSequence?
-
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	EInputAction TriggerInput{EInputAction::EInputAction_Max};
@@ -36,13 +50,13 @@ public:
 	TSubclassOf<UGameplayEffect> CostGameplayEffect;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 Priority{-1};		// Todo: Use Enum?
+	ECombatActionPriority Priority{ECombatActionPriority::None};
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTagContainer RequiredTags;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	TMap<EInputAction, const TObjectPtr<UCombatActionStep>> ComboLinks;
+	TMap<EInputAction, TObjectPtr<UCombatActionStep>> ComboLinks;
 	
 	// Todo: Cost for Special_Attack or Ultimate or Dodge cooldown
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -71,12 +85,12 @@ struct FBufferedIntent
 
 	float ExpirationTime{0.0f};
 
-	int32 Priority{INDEX_NONE};
+	ECombatActionPriority Priority{ECombatActionPriority::None};
 	
 public:
 	bool IsValid() const { return ActionStep != nullptr; }
 
-	void SetIntent(const UCombatActionStep* InCombatStep, const float InExpirationTime, const float InPriority)
+	void SetIntent(const UCombatActionStep* InCombatStep, const float InExpirationTime, const ECombatActionPriority InPriority)
 	{
 		ActionStep = InCombatStep;
 		ExpirationTime = InExpirationTime;
@@ -87,7 +101,7 @@ public:
 	{
 		ActionStep = nullptr;
 		ExpirationTime = 0.0f;
-		Priority = INDEX_NONE;
+		Priority = ECombatActionPriority::None;
 	}
 };
 
@@ -119,6 +133,7 @@ public:
 	// Todo: use Bitmask
 	uint8 bInputBufferWindowOpen : 1 {false};
 	uint8 bProceedWindowOpen : 1 {false};
+	uint8 bMovementInterruptWindowOpen : 1 {false};
 	uint8 bIsRecoveryWindowOpen : 1 {false};
 	uint8 bParryWindowOpen  : 1 {false};	// only parry?
 	uint8 bHasSuccessfullyStarted : 1 {false};

@@ -30,7 +30,7 @@ public:
 	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	const UAnimSequenceBase* GetLocomotionAnim_Idle_AFK() const;
 
-	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	/*UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	const UAnimSequenceBase* GetLocomotionAnim_Walk() const;
 
 	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
@@ -40,7 +40,7 @@ public:
 	const UAnimSequenceBase* GetLocomotionAnim_Walk_End() const;
 
 	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
-	const UAnimSequenceBase* GetLocomotionAnim_Walk_Start_End() const;
+	const UAnimSequenceBase* GetLocomotionAnim_Walk_Start_End() const;*/
 
 	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	const UAnimSequenceBase* GetLocomotionAnim_Run() const;
@@ -53,6 +53,9 @@ public:
 
 	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	const UAnimSequenceBase* GetLocomotionAnim_Run_Start_End() const;
+
+	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
+	const UAnimSequenceBase* GetLocomotionAnim_Sprint() const;
 
 	UFUNCTION(BlueprintPure, meta = (BlueprintThreadSafe))
 	const UAnimSequenceBase* GetLocomotionAnim_Turn_Back() const;

@@ -47,6 +47,8 @@ public:
 	// !GAS Interface
 	
 public:
+	const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
+	
 	const FLocomotionState& GetLocomotionState() const { return LocomotionState; }
 
 	UAgentAttributeSet* GetAgentAttributeSet() { return AgentAttributeSet; }

@@ -1,0 +1,40 @@
+﻿// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "CombatStep.h"
+#include "UCombatDodgeAction.generated.h"
+
+/**
+ * 
+ */
+
+USTRUCT(BlueprintType)
+struct FDodgeDirectionEntry
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimMontage> Montage;
+	
+	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "-180", ClampMax = "180"))
+	float MinAngle;
+    
+	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "-180", ClampMax = "180"))
+	float MaxAngle;
+};
+
+
+UCLASS()
+class PROJECTZZZ_API UUCombatDodgeAction : public UCombatActionStep
+{
+	GENERATED_BODY()
+
+public:
+	virtual UAnimMontage* GetAnimMontage(const FCharacterFrameDataBus& Data) const override;
+
+public:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	TArray<FDodgeDirectionEntry> DodgeEntries;
+};
