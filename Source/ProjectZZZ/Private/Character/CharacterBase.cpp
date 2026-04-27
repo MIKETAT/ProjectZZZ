@@ -5,6 +5,7 @@
 #include "ProjectZZZ.h"
 #include "AbilitySystem/AgentAbilitySystemComponent.h"
 #include "AbilitySystem/AgentAttributeSet.h"
+#include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/Component/CharacterCombatComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -42,7 +43,7 @@ ACharacterBase::ACharacterBase()
 
 	AgentAbilitySystemComponent = CreateDefaultSubobject<UAgentAbilitySystemComponent>(TEXT("AgentAbilitySystemComponent"));
 	AgentAbilitySystemComponent->SetIsReplicated(true);
-	AgentAttributeSet = CreateDefaultSubobject<UAgentAttributeSet>(TEXT("AgentAttributeSet"));
+	BaseCombatAttribute = CreateDefaultSubobject<UBaseCombatAttributeSet>(TEXT("BaseCombatAttributeSet"));
 }
 
 void ACharacterBase::BeginPlay()
@@ -71,7 +72,6 @@ void ACharacterBase::PossessedBy(AController* NewController)
 		AgentAbilitySystemComponent->InitAbilityActorInfo(this, this);
 	}
 	InitializeAttributes();
-	
 }
 
 void ACharacterBase::UnPossessed()
@@ -114,12 +114,18 @@ void ACharacterBase::RefreshLocomotionState(const float DeltaTime)
 
 void ACharacterBase::InitializeAttributes()
 {
-	if (AgentAbilitySystemComponent && IsValid(InitAttributes))
+	ApplyGameplayEffectToSelf(BaseInitGE);
+	ApplyGameplayEffectToSelf(GetExclusiveInitGE());
+}
+
+void ACharacterBase::ApplyGameplayEffectToSelf(const TSubclassOf<UGameplayEffect>& Effect)
+{
+	if (AgentAbilitySystemComponent && IsValid(Effect))
 	{
 		FGameplayEffectContextHandle ContextHandle = AgentAbilitySystemComponent->MakeEffectContext();
 		ContextHandle.AddSourceObject(this);
 
-		if (FGameplayEffectSpecHandle SpecHandle = AgentAbilitySystemComponent->MakeOutgoingSpec(InitAttributes, 1, ContextHandle); SpecHandle.IsValid())
+		if (FGameplayEffectSpecHandle SpecHandle = AgentAbilitySystemComponent->MakeOutgoingSpec(Effect, 1, ContextHandle); SpecHandle.IsValid())
 		{
 			AgentAbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 		}

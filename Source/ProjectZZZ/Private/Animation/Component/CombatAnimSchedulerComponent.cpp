@@ -90,8 +90,6 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 
 		FMontageBlendSettings BlendInSetting{GetMontageBlendInSetting(AddedRequest.Montage)};
 		AnimInstance->Montage_PlayWithBlendSettings(AddedRequest.Montage, BlendInSetting, AddedRequest.PlayRate);
-
-		UE_LOG(LogTemp, Error, TEXT("Now Playing Montage: %s"), *AddedRequest.Montage->GetFName().ToString());
 		
 		BindMontageNativeDelegates(AddedRequest.Montage, AddedRequest.RequestID);
 		

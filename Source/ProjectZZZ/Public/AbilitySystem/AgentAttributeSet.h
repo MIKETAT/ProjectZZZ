@@ -23,34 +23,24 @@ public:
 	virtual void PostAttributeBaseChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) const override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
-	
-
 	UFUNCTION()
-	virtual void OnRep_Health(const FGameplayAttributeData& OldHealth);
+	void OnRep_Impact(const FGameplayAttributeData& OldImpact);
 	
 	UFUNCTION()
-	virtual void OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth);
+	void OnRep_Energy(const FGameplayAttributeData& OldEnergy);
+
+	UFUNCTION()
+	void OnRep_MaxEnergy(const FGameplayAttributeData& OldMaxEnergy);
+
+	UFUNCTION()
+	void OnRep_Decibels(const FGameplayAttributeData& OldDecibels);
+
+	UFUNCTION()
+	void OnRep_MaxDecibels(const FGameplayAttributeData& OldMaxDecibels);
 	
-	UFUNCTION()
-	virtual void OnRep_Energy(const FGameplayAttributeData& OldEnergy);
-
-	UFUNCTION()
-	virtual void OnRep_MaxEnergy(const FGameplayAttributeData& OldMaxEnergy);
-
-	UFUNCTION()
-	virtual void OnRep_Decibels(const FGameplayAttributeData& OldDecibels);
-
-	UFUNCTION()
-	virtual void OnRep_MaxDecibels(const FGameplayAttributeData& OldMaxDecibels);
-	
-	// Common Attributes
-	UPROPERTY(BlueprintReadOnly, Category = "Attributes", ReplicatedUsing = OnRep_Health)
-	FGameplayAttributeData Health;
-	ATTRIBUTE_ACCESSORS(UAgentAttributeSet, Health)
-
-	UPROPERTY(BlueprintReadOnly, Category = "Attributes", ReplicatedUsing = OnRep_MaxHealth)
-	FGameplayAttributeData MaxHealth;
-	ATTRIBUTE_ACCESSORS(UAgentAttributeSet, MaxHealth)
+	UPROPERTY(BlueprintReadOnly, Category = "Attributes", ReplicatedUsing = OnRep_Impact)
+	FGameplayAttributeData Impact;
+	ATTRIBUTE_ACCESSORS(UAgentAttributeSet, Impact)
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Attributes", ReplicatedUsing = OnRep_Energy)
 	FGameplayAttributeData Energy;

@@ -3,11 +3,13 @@
 
 #include "Player/PlayerCharacter.h"
 
-#include "Animation/Component/CombatAnimSchedulerComponent.h"
+#include "AbilitySystem/AgentAttributeSet.h"
 #include "Camera/CameraComponent.h"
+#include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/CharacterCombatComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
+#include "Utility/ZZZGameplayTag.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -26,12 +28,20 @@ APlayerCharacter::APlayerCharacter()
 	
 	// Input Handler
 	PlayerInputHandlerComponent = CreateDefaultSubobject<UPlayerInputHandlerComponent>(TEXT("InputHandlerComponent"));
+
+	AgentAttributeSet = CreateDefaultSubobject<UAgentAttributeSet>(TEXT("AgentAttributeSet"));
 }
 
 void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	// Test
+	if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>()) {
+		FCombatEventDelegate Callback;
+		Callback.BindUObject(this, &APlayerCharacter::HandleEnemyDeath);
+		DeathListenerHandle = EventBus->Subscribe(Combat::Event::Death, this,10, Callback);
+	}
 }
 
 void APlayerCharacter::Tick(float DeltaTime)
@@ -52,6 +62,12 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 
+ECombatEventHandleResult APlayerCharacter::HandleEnemyDeath(const FCombatEventMessage& Msg)
+{
+	UE_LOG(LogTemp, Error, TEXT("PlayCharacter now heard Enemy Death Msg, EventTag = %s"), *Msg.EventTag.ToString());
+	return ECombatEventHandleResult::Consumed;
+}
+
 void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 {
 	if (!CharacterFrameDataBus.bIsLocalPlayer || CharacterFrameDataBus.RawMovementInput.IsNearlyZero())
@@ -66,7 +82,6 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 		CombatComponent->CancelCurrentAction();
 		return;
 	}	
-
 	
 	float Right = CharacterFrameDataBus.RawMovementInput.X;
 	float Forward = CharacterFrameDataBus.RawMovementInput.Y;

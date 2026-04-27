@@ -21,7 +21,7 @@ public class ProjectZZZ : ModuleRules
 			"Slate",
 			"GameplayTags",
 			"GameplayAbilities",
-			"GameplayTasks"
+			"GameplayTasks",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });

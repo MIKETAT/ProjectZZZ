@@ -25,9 +25,7 @@ void AProjectZZZPlayerController::BeginPlay()
 			MobileControlsWidget->AddToPlayerScreen(0);
 
 		} else {
-
 			UE_LOG(LogProjectZZZ, Error, TEXT("Could not spawn mobile controls widget."));
-
 		}
 
 	}

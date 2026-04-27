@@ -25,6 +25,25 @@ enum class ECombatActionPriority : uint8
 	Dead = 255					UMETA(DisplayName = "Dead"),
 };
 
+USTRUCT(BlueprintType)
+struct FHitPayloadConfig
+{
+	GENERATED_BODY()
+
+// 数值相关
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float DamageMultiplier{1.f};	// 伤害倍率
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float DazeMultiplier{1.5f};		// 失衡倍率
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<TSubclassOf<UGameplayEffect>> EffectOnTarget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<TSubclassOf<UGameplayEffect>> EffectOnSelf;
+};
+
 UCLASS(BlueprintType)
 class PROJECTZZZ_API UCombatActionStep : public UDataAsset
 {
@@ -64,6 +83,9 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 bIsBasicAttack : 1 {false};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FHitPayloadConfig HitPayloadConfig;
 };
 
 UCLASS(BlueprintType)

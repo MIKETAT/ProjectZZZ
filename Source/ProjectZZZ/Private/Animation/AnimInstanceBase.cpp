@@ -76,8 +76,6 @@ void UAnimInstanceBase::RefreshLocomotionAnimationStateOnGameThread(const float 
 	LocomotionAnimState.DisplacementSinceLastUpdate = (Character->GetActorLocation() - LocomotionAnimState.WorldLocation).Size2D();
 	LocomotionAnimState.DisplacementSpeed = UKismetMathLibrary::SafeDivide(LocomotionAnimState.DisplacementSinceLastUpdate, DeltaSeconds);
 	
-	//UE_LOG(LogTemp, Error, TEXT("Displacement = %f  DisplacementSpeed = %f"), LocomotionAnimState.DisplacementSinceLastUpdate, LocomotionAnimState.DisplacementSpeed);
-	
 	LocomotionAnimState.WorldLocation = LocomotionState.WorldLocation;
 	LocomotionAnimState.WorldRotation = LocomotionState.WorldRotation;
 	LocomotionAnimState.WorldVelocity = LocomotionState.WorldVelocity;

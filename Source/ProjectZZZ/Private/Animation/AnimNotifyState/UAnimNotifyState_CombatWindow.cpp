@@ -30,7 +30,6 @@ void UUAnimNotifyState_CombatWindow::BroadcastCombatWindowChanged(USkeletalMeshC
 		if (UAnimMontage* SourceMontage = Cast<UAnimMontage>(Animation))
 		{
 			AnimInstance->OnCombatWindowChanged.Broadcast(Tag, bIsOpen, SourceMontage);
-			UE_LOG(LogTemp, Warning, TEXT("Combat Window.  Tag = %s, IsOpen = %s"), *Tag.ToString(), bIsOpen ? TEXT("true") : TEXT("false"));
 		}
 	}
 }

@@ -10,6 +10,7 @@
 #include "State/LocomotionState.h"
 #include "CharacterBase.generated.h"
 
+class UBaseCombatAttributeSet;
 class UCombatAnimSchedulerComponent;
 class UGameplayEffect;
 class UAgentAbilitySystemComponent;
@@ -48,40 +49,47 @@ public:
 	
 public:
 	const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
-	
 	const FLocomotionState& GetLocomotionState() const { return LocomotionState; }
-
-	UAgentAttributeSet* GetAgentAttributeSet() { return AgentAttributeSet; }
+	UBaseCombatAttributeSet* GetBaseCombatAttribute() const { return BaseCombatAttribute; }
 	UCombatAnimSchedulerComponent* GetCombatAnimSchedulerComponent() const { return CombatAnimSchedulerComponent; }
+	UCharacterCombatComponent* GetCombatComponent() const { return CombatComponent; }
+
+	// Todo:
+public:
+	virtual void Die() {};
+	
 protected:
 	void RefreshInput(const float DeltaTime);
 	void RefreshLocomotionState(const float DeltaTime);
-	
 	void InitializeAttributes();
+
+private:
+	void ApplyGameplayEffectToSelf(const TSubclassOf<UGameplayEffect>& Effect);
+	virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const { return nullptr; };
 	
 public:
-// Components
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
+	TSubclassOf<UGameplayEffect> BaseInitGE;
+	
+	// todo: 规范替代下面的Loco State 变量
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", meta = (AllowPrivateAccess = "true"))
+	uint8 bHasMovementInput : 1 {false};
+	
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCharacterCombatComponent> CombatComponent{nullptr};
 	
-// todo: 规范替代下面的Loco State 变量
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State")
-	uint8 bHasMovementInput : 1 {false};
-
 	UPROPERTY()
 	TObjectPtr<UAgentAbilitySystemComponent> AgentAbilitySystemComponent;
 
 	UPROPERTY()
 	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent;
-	
-	UPROPERTY()
-	TObjectPtr<UAgentAttributeSet> AgentAttributeSet;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
-	TSubclassOf<UGameplayEffect> InitAttributes;
+
+	UPROPERTY()
+	TObjectPtr<UBaseCombatAttributeSet> BaseCombatAttribute;
 	
-protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", meta = (AllowPrivateAccess = "true"))
 	FLocomotionState LocomotionState;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))

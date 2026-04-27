@@ -2,7 +2,6 @@
 
 
 #include "AbilitySystem/AgentAttributeSet.h"
-
 #include "Net/UnrealNetwork.h"
 
 void UAgentAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
@@ -15,30 +14,23 @@ void UAgentAttributeSet::PostAttributeBaseChange(const FGameplayAttribute& Attri
 {
 	Super::PostAttributeBaseChange(Attribute, OldValue, NewValue);
 
-	// broadcast to ui..
 }
 
 void UAgentAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	
-	DOREPLIFETIME_CONDITION_NOTIFY(UAgentAttributeSet, Health, COND_None, REPNOTIFY_Always);
-	DOREPLIFETIME_CONDITION_NOTIFY(UAgentAttributeSet, MaxHealth, COND_None, REPNOTIFY_Always);
+
+	DOREPLIFETIME_CONDITION_NOTIFY(UAgentAttributeSet, Impact, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UAgentAttributeSet, Energy, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UAgentAttributeSet, MaxEnergy, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UAgentAttributeSet, Decibels, COND_None, REPNOTIFY_Always);
 	DOREPLIFETIME_CONDITION_NOTIFY(UAgentAttributeSet, MaxDecibels, COND_None, REPNOTIFY_Always);
 }
 
-void UAgentAttributeSet::OnRep_Health(const FGameplayAttributeData& OldHealth)
+void UAgentAttributeSet::OnRep_Impact(const FGameplayAttributeData& OldImpact)
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(UAgentAttributeSet, Health, OldHealth);
 }
 
-void UAgentAttributeSet::OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth)
-{
-	GAMEPLAYATTRIBUTE_REPNOTIFY(UAgentAttributeSet, MaxHealth, OldMaxHealth);
-}
 
 void UAgentAttributeSet::OnRep_Energy(const FGameplayAttributeData& OldEnergy)
 {
