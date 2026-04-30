@@ -5,6 +5,7 @@
 
 #include "AbilitySystem/AgentAttributeSet.h"
 #include "Camera/CameraComponent.h"
+#include "Character/ZZZPlayerController.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/CharacterCombatComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -26,9 +27,6 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 	
-	// Input Handler
-	PlayerInputHandlerComponent = CreateDefaultSubobject<UPlayerInputHandlerComponent>(TEXT("InputHandlerComponent"));
-
 	AgentAttributeSet = CreateDefaultSubobject<UAgentAttributeSet>(TEXT("AgentAttributeSet"));
 }
 
@@ -48,18 +46,29 @@ void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	if (CharacterFrameDataBus.bIsLocalPlayer)
-	{
-		PlayerInputHandlerComponent->BuildCharacterFrameDataBus(CharacterFrameDataBus);
-		ProcessMovementInput(DeltaTime);
-		ProcessLookInput(DeltaTime);
-		ProcessCombatActionInput(DeltaTime);
-	}
+	ProcessMovementInput(DeltaTime);
+	ProcessLookInput(DeltaTime);
+	ProcessCombatActionInput(DeltaTime);
 }
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+}
+
+void APlayerCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	
+	CharacterFrameDataBus.bIsLocalPlayer = NewController->IsLocalPlayerController();
+	OwnerController = Cast<AZZZPlayerController>(GetController());
+}
+
+void APlayerCharacter::UnPossessed()
+{
+	Super::UnPossessed();
+	CharacterFrameDataBus.bIsLocalPlayer = false;
+	OwnerController = nullptr;
 }
 
 ECombatEventHandleResult APlayerCharacter::HandleEnemyDeath(const FCombatEventMessage& Msg)
@@ -68,9 +77,28 @@ ECombatEventHandleResult APlayerCharacter::HandleEnemyDeath(const FCombatEventMe
 	return ECombatEventHandleResult::Consumed;
 }
 
+void APlayerCharacter::SwitchToOnField()
+{
+	SetAgentPresence(EAgentPresenceState::Active);
+	SetActorHiddenInGame(false);
+	SetActorEnableCollision(true);
+}
+
+void APlayerCharacter::SwitchToOffField()
+{
+	if (Controller)
+	{
+		Controller->UnPossess();
+	}
+	
+	SetAgentPresence(EAgentPresenceState::OffField);
+	SetActorHiddenInGame(true);
+	SetActorEnableCollision(false);
+}
+
 void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 {
-	if (!CharacterFrameDataBus.bIsLocalPlayer || CharacterFrameDataBus.RawMovementInput.IsNearlyZero())
+	if (!CharacterFrameDataBus.bIsLocalPlayer || !CharacterFrameDataBus.HasMovementInput())
 	{
 		return;
 	}
@@ -83,8 +111,8 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 		return;
 	}	
 	
-	float Right = CharacterFrameDataBus.RawMovementInput.X;
-	float Forward = CharacterFrameDataBus.RawMovementInput.Y;
+	float Right = CharacterFrameDataBus.PlayerInputs.RawMovementInput.X;
+	float Forward = CharacterFrameDataBus.PlayerInputs.RawMovementInput.Y;
 	
 	const FRotator Rotation = GetController()->GetControlRotation();
 	const FRotator YawRotation(0, Rotation.Yaw, 0);
@@ -98,14 +126,14 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 
 void APlayerCharacter::ProcessLookInput(float DeltaTime)
 {
-	if (!CharacterFrameDataBus.bIsLocalPlayer || CharacterFrameDataBus.RawLookInput.IsNearlyZero())
+	if (!CharacterFrameDataBus.bIsLocalPlayer || CharacterFrameDataBus.PlayerInputs.RawLookInput.IsNearlyZero())
 	{
 		return;
 	}
 	if (GetController())
 	{
-		AddControllerYawInput(CharacterFrameDataBus.RawLookInput.X);
-		AddControllerPitchInput(CharacterFrameDataBus.RawLookInput.Y);	
+		AddControllerYawInput(CharacterFrameDataBus.PlayerInputs.RawLookInput.X);
+		AddControllerPitchInput(CharacterFrameDataBus.PlayerInputs.RawLookInput.Y);	
 	}
 }
 
@@ -113,7 +141,7 @@ void APlayerCharacter::ProcessCombatActionInput(float DeltaTime)
 {
 	if (CombatComponent.Get())
 	{
-		CombatComponent->InputActionBitmask = CharacterFrameDataBus.InputActionBitmask; 
+		CombatComponent->InputActionBitmask = CharacterFrameDataBus.PlayerInputs.InputActionBitmask; 
 	}
 }
 

@@ -16,26 +16,20 @@ UPlayerInputHandlerComponent::UPlayerInputHandlerComponent(const FObjectInitiali
 void UPlayerInputHandlerComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	// update PlayerCharacter here for now, fix this later
-	if (!IsValid(PlayerCharacter))
-	{
-		PlayerCharacter = Cast<ACharacterBase>(GetOwner());
-	}
 	RegisterInput();
 }
 
-void UPlayerInputHandlerComponent::BuildCharacterFrameDataBus(FCharacterFrameDataBus& DataBus)
+void UPlayerInputHandlerComponent::BuildCharacterFrameDataBus()
 {
-	DataBus.InputActionBitmask = InputActionBitmask;
-	DataBus.RawMovementInput = RawInputMovementVector;
-	DataBus.RawLookInput = RawInputLookVector;
+	DataBus.PlayerInputs.InputActionBitmask = InputActionBitmask;
+	DataBus.PlayerInputs.RawMovementInput = RawInputMovementVector;
+	DataBus.PlayerInputs.RawLookInput = RawInputLookVector;
 }
 
 void UPlayerInputHandlerComponent::RegisterInput()
 {
-	checkf(IsValid(PlayerCharacter), TEXT("Register Input but PlayerCharacter is Invalid"));
 	UEnhancedInputLocalPlayerSubsystem* InputSubSystem{nullptr};
-	if (const APlayerController* PlayerController = Cast<APlayerController>(PlayerCharacter->GetController()))
+	if (const APlayerController* PlayerController = Cast<APlayerController>(GetOwner()))
 	{
 		EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerController->InputComponent);
 		if (const ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
@@ -82,16 +76,12 @@ void UPlayerInputHandlerComponent::RegisterInput()
 void UPlayerInputHandlerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	BuildCharacterFrameDataBus();
 }
 
 void UPlayerInputHandlerComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
-	PlayerCharacter = Cast<ACharacterBase>(GetOwner());
-	if (!PlayerCharacter)
-	{
-		UE_LOG(LogTemp, Error, TEXT("PlayerCharacter is null"));
-	}
 }
 
 void UPlayerInputHandlerComponent::On_Input_Movement(const FInputActionInstance& Instance)

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "InputMappingContext.h"
+#include "Character/CharacterFrameDataBus.h"
 #include "Components/ActorComponent.h"
 #include "PlayerInputHandlerComponent.generated.h"
 
@@ -94,6 +95,37 @@ public:
 	uint32 MaskData;
 };
 
+USTRUCT()
+struct FPlayerInputs
+{
+	GENERATED_BODY()
+
+public:
+	void ConsumeInputAction(EInputAction Action)
+	{
+		InputActionBitmask.Set(Action, false);	
+	}
+	
+	FInputBitmask InputActionBitmask;
+	FVector2D RawMovementInput{FVector2D::ZeroVector};
+	FVector2D RawLookInput{FVector2D::ZeroVector};
+};
+
+USTRUCT(BlueprintType)
+struct PROJECTZZZ_API FCharacterFrameDataBus
+{
+	GENERATED_BODY()
+	
+public:
+	bool HasMovementInput() const { return !PlayerInputs.RawMovementInput.IsNearlyZero(); }
+	
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+	uint8 bIsLocalPlayer : 1 {false};
+	
+	FPlayerInputs PlayerInputs;
+};
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTZZZ_API UPlayerInputHandlerComponent : public UActorComponent
 {
@@ -105,15 +137,20 @@ public:
 	// ActorComponent Interface
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	
 	virtual void InitializeComponent() override;
 protected:
 	virtual void BeginPlay() override;
 	// ~ActorComponent Interface
 
 public:
-	void BuildCharacterFrameDataBus(FCharacterFrameDataBus& DataBus);
+	void BuildCharacterFrameDataBus();
+	
 	void RegisterInput();
 	
+	FCharacterFrameDataBus& GetCharacterFrameDataBus() { return DataBus; };
+
+	bool HasMovementInput() const { return DataBus.HasMovementInput(); };
 private:
 	// On_Input_XXX Function
 	void On_Input_Movement(const FInputActionInstance& Instance);
@@ -169,13 +206,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* ChainAttack_Cancel_Action{nullptr};
 private:
+	UPROPERTY()
+	FCharacterFrameDataBus DataBus;
+	
 	FInputBitmask InputActionBitmask;
-
 	FVector2D RawInputMovementVector{FVector::ZeroVector};
 	FVector2D RawInputLookVector{FVector::ZeroVector};
-	
-	UPROPERTY()
-	TObjectPtr<ACharacterBase> PlayerCharacter{nullptr};
 
 	UPROPERTY()
 	UEnhancedInputComponent* EnhancedInputComponent{nullptr};

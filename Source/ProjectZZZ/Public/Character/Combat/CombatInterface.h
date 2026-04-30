@@ -6,6 +6,7 @@
 #include "UObject/Interface.h"
 #include "CombatInterface.generated.h"
 
+class UCombatComponentBase;
 class UCharacterCombatComponent;
 class UAbilitySystemComponent;
 // This class does not need to be modified.
@@ -26,5 +27,5 @@ class PROJECTZZZ_API ICombatInterface
 public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComp() const PURE_VIRTUAL(ICombatInterface::GetAbilitySystemComp, return nullptr; ); 
 
-	virtual UCharacterCombatComponent* GetCombatComp() const PURE_VIRTUAL(ICombatInterface::GetCombatComp, return nullptr; );
+	virtual UCombatComponentBase* GetCombatComp() const PURE_VIRTUAL(ICombatInterface::GetCombatComp, return nullptr; );
 };

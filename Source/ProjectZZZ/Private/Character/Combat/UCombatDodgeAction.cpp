@@ -7,7 +7,7 @@
 
 UAnimMontage* UUCombatDodgeAction::GetAnimMontage(const FCharacterFrameDataBus& Data) const
 {
-	FVector2D Input = Data.RawMovementInput;
+	FVector2D Input = Data.PlayerInputs.RawMovementInput;
 	if (Input.IsNearlyZero())
 	{
 		return Montage;

@@ -9,18 +9,13 @@
 #include "AbilitySystem/EnemyAttributeSet.h"
 #include "DamageExecutionCalculation.generated.h"
 
-
 struct FDamageStatics
 {
 	DECLARE_ATTRIBUTE_CAPTUREDEF(Attack);
 	DECLARE_ATTRIBUTE_CAPTUREDEF(Impact);
-	
 	DECLARE_ATTRIBUTE_CAPTUREDEF(Defence);
 	DECLARE_ATTRIBUTE_CAPTUREDEF(StunDMGMultiplier);
-	/*DECLARE_ATTRIBUTE_CAPTUREDEF(Health);
-	DECLARE_ATTRIBUTE_CAPTUREDEF(Daze);*/
 	
-
 	FDamageStatics()
 	{
 		DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseCombatAttributeSet, Attack, Source, false);
@@ -28,8 +23,6 @@ struct FDamageStatics
 		
 		DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseCombatAttributeSet, Defence, Target, false);
 		DEFINE_ATTRIBUTE_CAPTUREDEF(UEnemyAttributeSet, StunDMGMultiplier, Target, false);
-		//DEFINE_ATTRIBUTE_CAPTUREDEF(UBaseCombatAttributeSet, Health, Target, false);
-		//DEFINE_ATTRIBUTE_CAPTUREDEF(UEnemyAttributeSet, Daze, Target, false);
 	}
 };
 

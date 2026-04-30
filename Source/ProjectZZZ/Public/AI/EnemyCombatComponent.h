@@ -3,16 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AbilitySystemComponent.h"
-#include "AgentAbilitySystemComponent.generated.h"
+#include "Character/Component/CombatComponentBase.h"
+#include "EnemyCombatComponent.generated.h"
+
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class PROJECTZZZ_API UAgentAbilitySystemComponent : public UAbilitySystemComponent
+class PROJECTZZZ_API UEnemyCombatComponent : public UCombatComponentBase
 {
 	GENERATED_BODY()
 
 public:
-	UAgentAbilitySystemComponent();
+	UEnemyCombatComponent();
 
 protected:
 	virtual void BeginPlay() override;

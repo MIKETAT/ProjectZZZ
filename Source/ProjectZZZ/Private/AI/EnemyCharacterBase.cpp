@@ -43,9 +43,12 @@ void AEnemyCharacterBase::Die()
 
 void AEnemyCharacterBase::PrintDebugInfo()
 {
-	GEngine->ClearOnScreenDebugMessages();
-	PrintAttributeSet(BaseCombatAttribute.Get());
-	PrintAttributeSet(EnemyAttributeSet.Get());
+	if (bPrintDebugInfo)
+	{
+		GEngine->ClearOnScreenDebugMessages();
+		PrintAttributeSet(BaseCombatAttribute.Get());
+		PrintAttributeSet(EnemyAttributeSet.Get());	
+	}
 }
 
 void AEnemyCharacterBase::PrintAttributeSet(UAttributeSet* Attribute)

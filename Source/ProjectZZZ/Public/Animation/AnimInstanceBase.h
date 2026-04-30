@@ -20,7 +20,9 @@ class PROJECTZZZ_API UAnimInstanceBase : public UAnimInstance
 
 public:
 	virtual void NativeInitializeAnimation() override;
+	
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
+	
 	virtual void NativeBeginPlay() override;
 public:
 	// Get Locomotion Asset

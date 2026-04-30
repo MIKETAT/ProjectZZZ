@@ -136,5 +136,7 @@ __pycache__/
 # 内容资源（重要）
 !Content/
 
+Content/Asset/**
+
 # 项目文件
 !*.uproject

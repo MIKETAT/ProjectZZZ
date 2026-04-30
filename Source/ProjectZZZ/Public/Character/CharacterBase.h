@@ -6,10 +6,12 @@
 #include "AbilitySystemInterface.h"
 #include "AbilitySystem/AgentAbilitySystemComponent.h"
 #include "Character/CharacterFrameDataBus.h"
+#include "Combat/CombatInterface.h"
 #include "GameFramework/Character.h"
 #include "State/LocomotionState.h"
 #include "CharacterBase.generated.h"
 
+class UCombatComponentBase;
 class UBaseCombatAttributeSet;
 class UCombatAnimSchedulerComponent;
 class UGameplayEffect;
@@ -24,21 +26,23 @@ class USpringArmComponent;
 class UInputAction;
 
 UCLASS()
-class PROJECTZZZ_API ACharacterBase : public ACharacter, public IAbilitySystemInterface
+class PROJECTZZZ_API ACharacterBase : public ACharacter, public ICombatInterface, public IAbilitySystemInterface
 {
 	GENERATED_BODY()
 
 public:
 	ACharacterBase();
 
-	// Interface
 protected:
 	virtual void BeginPlay() override;
 
 public:
 	virtual void Tick(float DeltaTime) override;
+	
 	virtual void PossessedBy(AController* NewController) override;
+	
 	virtual void UnPossessed() override;
+	
 	virtual void PostInitializeComponents() override;
 	// ~Interface
 
@@ -46,25 +50,34 @@ public:
 public:
 	UAbilitySystemComponent* GetAbilitySystemComponent() const { return AgentAbilitySystemComponent.Get(); }
 	// !GAS Interface
+
+	// ICombatInterface
+	virtual UAbilitySystemComponent* GetAbilitySystemComp() const override { return AgentAbilitySystemComponent.Get(); }
 	
+	//virtual UCombatComponentBase* GetCombatComp() const override { return CombatComponent.Get(); };
+	// ~ICombatInterface
 public:
-	const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
 	const FLocomotionState& GetLocomotionState() const { return LocomotionState; }
+	
 	UBaseCombatAttributeSet* GetBaseCombatAttribute() const { return BaseCombatAttribute; }
+	
 	UCombatAnimSchedulerComponent* GetCombatAnimSchedulerComponent() const { return CombatAnimSchedulerComponent; }
+	
 	UCharacterCombatComponent* GetCombatComponent() const { return CombatComponent; }
 
-	// Todo:
 public:
 	virtual void Die() {};
 	
 protected:
 	void RefreshInput(const float DeltaTime);
+	
 	void RefreshLocomotionState(const float DeltaTime);
+	
 	void InitializeAttributes();
 
 private:
 	void ApplyGameplayEffectToSelf(const TSubclassOf<UGameplayEffect>& Effect);
+	
 	virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const { return nullptr; };
 	
 public:
@@ -84,14 +97,10 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent;
-
-
+	
 	UPROPERTY()
 	TObjectPtr<UBaseCombatAttributeSet> BaseCombatAttribute;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", meta = (AllowPrivateAccess = "true"))
 	FLocomotionState LocomotionState;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	FCharacterFrameDataBus CharacterFrameDataBus;
 };

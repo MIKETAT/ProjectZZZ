@@ -25,7 +25,6 @@ struct FDodgeDirectionEntry
 	float MaxAngle;
 };
 
-
 UCLASS()
 class PROJECTZZZ_API UUCombatDodgeAction : public UCombatActionStep
 {

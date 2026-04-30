@@ -10,21 +10,25 @@
 class UEnemyAttributeSet;
 
 UCLASS()
-class PROJECTZZZ_API AEnemyCharacterBase : public ACharacterBase, public ICombatInterface
+class PROJECTZZZ_API AEnemyCharacterBase : public ACharacterBase
 {
 	GENERATED_BODY()
 
 public:
 	AEnemyCharacterBase();
+	
 	virtual void Tick(float DeltaTime) override;
+	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	
 protected:
 	virtual void BeginPlay() override;
 
 	// Combat Interface
 public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComp() const override { return GetAbilitySystemComponent(); }
-	virtual UCharacterCombatComponent* GetCombatComp() const override { return GetCombatComponent(); }
+	
+	//virtual UCharacterCombatComponent* GetCombatComp() const override { return GetCombatComponent(); }
 	// ~Combat Interface
 
 	virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const override { return EnemyExclusiveInitGE; }
@@ -34,6 +38,7 @@ public:
 	
 private:
 	void PrintDebugInfo();
+	
 	void PrintAttributeSet(UAttributeSet* Attribute);
 	
 public:
@@ -42,4 +47,7 @@ public:
 
 	UPROPERTY()
 	TObjectPtr<UEnemyAttributeSet> EnemyAttributeSet;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
+	bool bPrintDebugInfo{false};
 };

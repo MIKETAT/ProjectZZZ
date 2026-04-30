@@ -47,6 +47,7 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 	int32 MontageID{INDEX_NONE};
 	if (!IsValid(AnimInstance) || !Request.IsValid())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid Request or Invalid AnimInstance"));
 		return MontageID;
 	}
 

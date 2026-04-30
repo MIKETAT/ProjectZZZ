@@ -4,14 +4,23 @@
 
 #include "CoreMinimal.h"
 #include "Character/CharacterBase.h"
-#include "Character/Combat/CombatInterface.h"
+#include "Input/PlayerInputHandlerComponent.h"
 #include "PlayerCharacter.generated.h"
 
+class AZZZPlayerController;
 struct FCombatEventMessage;
-enum class ECombatEventHandleResult : uint8;
+enum class ECombatEventHandleResult : uint8;	//?
+
+UENUM(BlueprintType)
+enum class EAgentPresenceState : uint8
+{
+	Active,
+	Lingering,
+	OffField
+};
 
 UCLASS()
-class PROJECTZZZ_API APlayerCharacter : public ACharacterBase, public ICombatInterface
+class PROJECTZZZ_API APlayerCharacter : public ACharacterBase
 {
 	GENERATED_BODY()
 
@@ -25,28 +34,37 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	virtual void PossessedBy(AController* NewController) override;
+	
+	virtual void UnPossessed() override;
 public:
-	// Combat Interface
-	virtual UAbilitySystemComponent* GetAbilitySystemComp() const override { return GetAbilitySystemComponent(); }
-	// !Combat Interface
+	EAgentPresenceState GetAgentPresence() const { return AgentPresenceState; };
+
+	void SetAgentPresence(const EAgentPresenceState NewPresence) { AgentPresenceState = NewPresence; }
 	
 	UAgentAttributeSet* GetAgentAttributeSet() const { return AgentAttributeSet; }
+	
 	virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const override { return AgentExclusiveInitGE; }
 
+	const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
+
+	void RefreshCharacterFrameInputData(const FCharacterFrameDataBus& DataBus) { CharacterFrameDataBus.PlayerInputs = DataBus.PlayerInputs; }
 
 	ECombatEventHandleResult HandleEnemyDeath(const FCombatEventMessage& Msg);
 
+	void SwitchToOnField();
 	
+	void SwitchToOffField();
 private:
 	void ProcessMovementInput(float DeltaTime);
+	
 	void ProcessLookInput(float DeltaTime);
+	
 	void ProcessCombatActionInput(float DeltaTime);
 
 public:
 // Components
-	UPROPERTY(VisibleAnywhere)
-	TObjectPtr<UPlayerInputHandlerComponent> PlayerInputHandlerComponent{nullptr};
-	
 	// 暂时使用默认的相机
 	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
@@ -61,5 +79,13 @@ private:
 	UPROPERTY()
 	TObjectPtr<UAgentAttributeSet> AgentAttributeSet;
 
-	FDelegateHandle DeathListenerHandle;
+	UPROPERTY()
+	TWeakObjectPtr<AZZZPlayerController> OwnerController;
+	
+	FDelegateHandle DeathListenerHandle;		//
+
+	EAgentPresenceState AgentPresenceState{EAgentPresenceState::OffField};
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	FCharacterFrameDataBus CharacterFrameDataBus;
 };

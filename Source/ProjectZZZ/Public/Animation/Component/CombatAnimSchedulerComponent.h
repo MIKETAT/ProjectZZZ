@@ -77,7 +77,7 @@ public:
 
 	void CancelAnimRequest(const int32 RequestID);
 
-	bool CanInterruptCurrentAction() const;
+	//bool CanInterruptCurrentAction() const;
 private:
 	bool IsRequestMontageBlendingOut(const FCombatAnimExecutionRequest* Request) const;
 

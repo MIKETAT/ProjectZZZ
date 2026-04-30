@@ -3,11 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Character/Combat/AttackDetection.h"
 #include "Character/Combat/CombatStep.h"
 #include "Components/ActorComponent.h"
 #include "CombatComponentBase.generated.h"
 
 
+class UCombatAnimSchedulerComponent;
+enum ECombatAnimRequestFinishReason : uint8;
+struct FOnAttributeChangeData;
+class UAnimInstanceBase;
+class UAgentAbilitySystemComponent;
 struct FHitShapeConfig;
 class UAbilitySystemComponent;
 class UCombatActionStep;
@@ -76,16 +82,73 @@ class PROJECTZZZ_API UCombatComponentBase : public UActorComponent
 
 public:
 	UCombatComponentBase();
+
+	virtual void BeginPlay() override;
+
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	
 public:
-	//virtual UAbilitySystemComponent* GetAbilitySystemComponent() const PURE_VIRTUAL(UCombatComponentBase::GetAbilitySystemComponent, return nullptr;);
-	
-	virtual void ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config/*, UCombatActionStep* SourceAction*/) PURE_VIRTUAL(UCombatComponentBase::ProcessHitEvent,);
-
-	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult) PURE_VIRTUAL(UCombatComponentBase::HandleIncomingDamage,);
-	
 	virtual void ProcessHitFeedback(const FAttackResult& Result) PURE_VIRTUAL(UCombatComponentBase::ProcessHitFeedback,);
+	
+	virtual void ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config/*, UCombatActionStep* SourceAction*/);// PURE_VIRTUAL(UCombatComponentBase::ProcessHitEvent,);
 
-	virtual void EnableAttackDetection(UCombatActionStep* ActionStep, const FHitShapeConfig& ShapeConfig) PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
+	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult);// PURE_VIRTUAL(UCombatComponentBase::HandleIncomingDamage,);
+	
+	virtual void EnableAttackDetection(UCombatActionStep* ActionStep, const FHitShapeConfig& ShapeConfig);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
 
-	virtual void DisableAttackDetection() PURE_VIRTUAL(UCombatComponentBase::DisableAttackDetection, )
+	virtual void DisableAttackDetection();// PURE_VIRTUAL(UCombatComponentBase::DisableAttackDetection, )
+
+	bool IsAnyActionActive() const;
+	
+	void CancelCurrentAction();
+	
+	bool CanInterruptCurrentAction(const UCombatActionStep* Step) const;
+
+	// AttackDetection
+	FTransform CalculateShapeWorldTransform() const;
+
+	void RefreshAttackDetection(float DeltaTime);
+	
+	void RefreshWeaponSweepDirection(float DeltaTime);
+	
+	virtual void InjectAndBindASC(UAgentAbilitySystemComponent* InASC);
+	
+	virtual void BindExclusiveAttributes() PURE_VIRTUAL(UCombatComponentBase::BindExclusiveAttributes, ); 
+protected:
+	void CachePointers();
+	
+	int32 ExecuteAction(const UCombatActionStep* Step);
+	
+	UFUNCTION()
+	void HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason);
+	
+	void OnHealthChanged(const FOnAttributeChangeData& Data);
+
+	void HandleDeath();
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<UGameplayEffect> DamageEffectClass;	// todo
+
+protected:
+		
+	UPROPERTY()
+	TObjectPtr<ACharacterBase> Character{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<USkeletalMeshComponent> Mesh{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<UAnimInstanceBase> AnimInstance{nullptr};
+	
+	UPROPERTY()
+	TObjectPtr<UAgentAbilitySystemComponent> AbilitySystemComponent{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent{nullptr};
+	
+	UPROPERTY()
+	FCombatExecutionState CurrentExecutionState;
+	
+	// Attack Detection
+	FAttackDetectionConfig AttackDetectionConfig;
 };

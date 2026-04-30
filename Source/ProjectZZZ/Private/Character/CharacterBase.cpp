@@ -1,8 +1,6 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Character/CharacterBase.h"
-#include "EnhancedInputComponent.h"
-#include "ProjectZZZ.h"
 #include "AbilitySystem/AgentAbilitySystemComponent.h"
 #include "AbilitySystem/AgentAttributeSet.h"
 #include "AbilitySystem/BaseCombatAttributeSet.h"
@@ -10,7 +8,6 @@
 #include "Character/Component/CharacterCombatComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Input/PlayerInputHandlerComponent.h"
 
 
 ACharacterBase::ACharacterBase()
@@ -64,12 +61,15 @@ void ACharacterBase::Tick(float DeltaTime)
 void ACharacterBase::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
-	check(NewController);
-	CharacterFrameDataBus.bIsLocalPlayer = NewController->IsLocalPlayerController();
 
 	if (AgentAbilitySystemComponent)
 	{
 		AgentAbilitySystemComponent->InitAbilityActorInfo(this, this);
+
+		if (CombatComponent)
+		{
+			CombatComponent->InjectAndBindASC(AgentAbilitySystemComponent);
+		}
 	}
 	InitializeAttributes();
 }
@@ -77,16 +77,11 @@ void ACharacterBase::PossessedBy(AController* NewController)
 void ACharacterBase::UnPossessed()
 {
 	Super::UnPossessed();
-	CharacterFrameDataBus.bIsLocalPlayer = false;
 }
 
 void ACharacterBase::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	if (IsValid(CombatComponent))
-	{
-		CombatComponent->TryInitComponents();
-	}
 }
 
 void ACharacterBase::RefreshInput(const float DeltaTime)

@@ -105,6 +105,7 @@ public:
 	
 	// UnSubscribe
 	void Unsubscribe(const FGameplayTag& EventTag, FDelegateHandle Handle);
+	
 private:
 	void Dispatch(const FCombatEventMessage& Message);
 
