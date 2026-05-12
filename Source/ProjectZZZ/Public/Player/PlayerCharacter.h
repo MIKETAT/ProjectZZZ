@@ -4,9 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Character/CharacterBase.h"
+#include "Character/Component/CharacterCombatComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "PlayerCharacter.generated.h"
 
+class UImage;
 class AZZZPlayerController;
 struct FCombatEventMessage;
 enum class ECombatEventHandleResult : uint8;	//?
@@ -38,14 +40,26 @@ public:
 	virtual void PossessedBy(AController* NewController) override;
 	
 	virtual void UnPossessed() override;
+
+	virtual void InitializeAttributes() override;
 public:
+	bool IsAnyActionActive() const { return AgentCombatComponent && AgentCombatComponent->IsAnyActionActive(); };
+
+	bool IsMoving() const;
+
+	bool HasMovementInput() const { return CharacterFrameDataBus.HasMovementInput(); };
+	
+	UTexture2D* GetAgentHead() const { return AgentHead; }
+	
+	UCharacterCombatComponent* GetAgentCombatComponent() const { return AgentCombatComponent; }
+	
 	EAgentPresenceState GetAgentPresence() const { return AgentPresenceState; };
 
 	void SetAgentPresence(const EAgentPresenceState NewPresence) { AgentPresenceState = NewPresence; }
 	
 	UAgentAttributeSet* GetAgentAttributeSet() const { return AgentAttributeSet; }
 	
-	virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const override { return AgentExclusiveInitGE; }
+	//virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const override { return AgentExclusiveInitGE; }
 
 	const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
 
@@ -56,6 +70,7 @@ public:
 	void SwitchToOnField();
 	
 	void SwitchToOffField();
+	
 private:
 	void ProcessMovementInput(float DeltaTime);
 	
@@ -78,6 +93,9 @@ public:
 private:
 	UPROPERTY()
 	TObjectPtr<UAgentAttributeSet> AgentAttributeSet;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCharacterCombatComponent> AgentCombatComponent{nullptr};
 
 	UPROPERTY()
 	TWeakObjectPtr<AZZZPlayerController> OwnerController;
@@ -88,4 +106,7 @@ private:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	FCharacterFrameDataBus CharacterFrameDataBus;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UTexture2D> AgentHead;
 };

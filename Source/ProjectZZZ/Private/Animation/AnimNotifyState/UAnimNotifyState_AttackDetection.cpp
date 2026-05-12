@@ -3,17 +3,17 @@
 #include "Animation/AnimNotifyState/UAnimNotifyState_AttackDetection.h"
 #include "Character/Component/CombatComponentBase.h"
 
-void UUAnimNotifyState_AttackDetection::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
+void UAnimNotifyState_AttackDetection::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
                                                     float TotalDuration, const FAnimNotifyEventReference& EventReference)
 {
 	Super::NotifyBegin(MeshComp, Animation, TotalDuration, EventReference);
 	if (GetCombatComponentBase(MeshComp))
 	{
-		GetCombatComponentBase(MeshComp)->EnableAttackDetection(ActionStep.Get(), ShapeConfig);	
+		GetCombatComponentBase(MeshComp)->EnableAttackDetection(ShapeConfig);	
 	}
 }
 
-void UUAnimNotifyState_AttackDetection::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
+void UAnimNotifyState_AttackDetection::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
 	const FAnimNotifyEventReference& EventReference)
 {
 	Super::NotifyEnd(MeshComp, Animation, EventReference);
@@ -24,7 +24,7 @@ void UUAnimNotifyState_AttackDetection::NotifyEnd(USkeletalMeshComponent* MeshCo
 }
 
 
-UCombatComponentBase* UUAnimNotifyState_AttackDetection::GetCombatComponentBase(
+UCombatComponentBase* UAnimNotifyState_AttackDetection::GetCombatComponentBase(
 	const USkeletalMeshComponent* MeshComp) const
 {
 	if (!IsValid(MeshComp))

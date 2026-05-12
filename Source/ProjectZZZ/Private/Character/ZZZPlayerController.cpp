@@ -6,21 +6,25 @@
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
 #include "InputMappingContext.h"
+#include "Blueprint/UserWidget.h"
 #include "Character/Component/SquadManagerComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
+#include "UI/QTEWidget/QTEWidget.h"
 
 AZZZPlayerController::AZZZPlayerController()
 {
 	// Input Handler
 	PlayerInputHandlerComponent = CreateDefaultSubobject<UPlayerInputHandlerComponent>(TEXT("InputHandlerComponent"));
 
-	// 
 	SquadManager = CreateDefaultSubobject<USquadManagerComponent>(TEXT("SquadManager"));
 }
 
 void AZZZPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+
+	CreateQTEWidget();
+	BindQTEDelegate();
 }
 
 void AZZZPlayerController::SetupInputComponent()
@@ -38,5 +42,31 @@ void AZZZPlayerController::SetupInputComponent()
 				Subsystem->AddMappingContext(CurrentContext, 0);
 			}
 		}
+	}
+}
+
+void AZZZPlayerController::CreateQTEWidget()
+{
+	if (IsValid(QTEWidgetClass))
+	{
+		QTEWidget = CreateWidget<UQTEWidget>(this, QTEWidgetClass);
+		if (QTEWidget)
+		{
+			QTEWidget->InitializePtr(SquadManager);
+			QTEWidget->AddToViewport();
+			QTEWidget->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	} else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to create QTEWidget class"));
+	}
+}
+
+void AZZZPlayerController::BindQTEDelegate()
+{
+	if (SquadManager && QTEWidget)
+	{
+		SquadManager->OnTriggerChainAttack.AddUObject(QTEWidget, &UQTEWidget::StartQTEWindow);
+		SquadManager->OnFinishChainAttack.AddUObject(QTEWidget, &UQTEWidget::ResetAndCloseQTEWindow);
 	}
 }

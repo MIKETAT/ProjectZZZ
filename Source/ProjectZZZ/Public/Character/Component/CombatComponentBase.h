@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Character/Combat/AttackDetection.h"
@@ -9,6 +7,7 @@
 #include "CombatComponentBase.generated.h"
 
 
+class UCharacterCombatComponent;
 class UCombatAnimSchedulerComponent;
 enum ECombatAnimRequestFinishReason : uint8;
 struct FOnAttributeChangeData;
@@ -74,6 +73,7 @@ struct FAttackResult
 	bool bWasDead{false};
 };
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatActionFinished, class APlayerCharacter*);
 
 UCLASS(Abstract)
 class PROJECTZZZ_API UCombatComponentBase : public UActorComponent
@@ -90,11 +90,11 @@ public:
 public:
 	virtual void ProcessHitFeedback(const FAttackResult& Result) PURE_VIRTUAL(UCombatComponentBase::ProcessHitFeedback,);
 	
-	virtual void ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config/*, UCombatActionStep* SourceAction*/);// PURE_VIRTUAL(UCombatComponentBase::ProcessHitEvent,);
+	virtual void ProcessHitEvent(ACharacterBase* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config/*, UCombatActionStep* SourceAction*/);// PURE_VIRTUAL(UCombatComponentBase::ProcessHitEvent,);
 
 	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult);// PURE_VIRTUAL(UCombatComponentBase::HandleIncomingDamage,);
 	
-	virtual void EnableAttackDetection(UCombatActionStep* ActionStep, const FHitShapeConfig& ShapeConfig);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
+	virtual void EnableAttackDetection(const FHitShapeConfig& ShapeConfig);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
 
 	virtual void DisableAttackDetection();// PURE_VIRTUAL(UCombatComponentBase::DisableAttackDetection, )
 
@@ -117,7 +117,7 @@ public:
 protected:
 	void CachePointers();
 	
-	int32 ExecuteAction(const UCombatActionStep* Step);
+	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep);
 	
 	UFUNCTION()
 	void HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason);
@@ -128,11 +128,17 @@ protected:
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UGameplayEffect> DamageEffectClass;	// todo
-
+	
+	FOnCombatActionFinished OnCombatActionFinished;
 protected:
-		
 	UPROPERTY()
-	TObjectPtr<ACharacterBase> Character{nullptr};
+	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent{nullptr};
+
+	
+	
+protected:
+	UPROPERTY()
+	TObjectPtr<APlayerCharacter> Character{nullptr};
 
 	UPROPERTY()
 	TObjectPtr<USkeletalMeshComponent> Mesh{nullptr};
@@ -143,8 +149,6 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UAgentAbilitySystemComponent> AbilitySystemComponent{nullptr};
 
-	UPROPERTY()
-	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent{nullptr};
 	
 	UPROPERTY()
 	FCombatExecutionState CurrentExecutionState;

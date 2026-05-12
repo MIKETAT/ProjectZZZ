@@ -106,7 +106,7 @@ struct FAttackDetectionConfig
 	FWeaponSweepDirectionState WeaponSweepState;
 	
 	UPROPERTY()
-	TObjectPtr<UCombatActionStep> AttackingAction{nullptr};
+	TObjectPtr<const UCombatActionStep> AttackingAction{nullptr};
 
 	UPROPERTY()
 	TArray<AActor*> HitActors;

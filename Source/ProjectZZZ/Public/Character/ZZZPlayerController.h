@@ -7,6 +7,7 @@
 #include "Input/PlayerInputHandlerComponent.h"
 #include "ZZZPlayerController.generated.h"
 
+class UQTEWidget;
 class USquadManagerComponent;
 class UPlayerInputHandlerComponent;
 class UInputMappingContext;
@@ -15,13 +16,29 @@ UCLASS()
 class PROJECTZZZ_API AZZZPlayerController : public APlayerController
 {
 	GENERATED_BODY()
-
-	AZZZPlayerController();
-
+	
 public:
+	AZZZPlayerController();
+	
+	/** Gameplay initialization */
+	virtual void BeginPlay() override;
+
+	/** Input mapping context setup */
+	virtual void SetupInputComponent() override;
+	
 	UPlayerInputHandlerComponent* GetPlayerInputHandlerComponent() const { return PlayerInputHandlerComponent; }
 
 	bool HasMovementInput() const {return PlayerInputHandlerComponent && PlayerInputHandlerComponent->HasMovementInput(); }
+
+private:
+	void CreateQTEWidget();
+
+	void BindQTEDelegate();
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<UQTEWidget> QTEWidgetClass;
+	
 protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPlayerInputHandlerComponent> PlayerInputHandlerComponent{nullptr};
@@ -29,15 +46,12 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<USquadManagerComponent> SquadManager{nullptr};
 
+	UPROPERTY()
+	TObjectPtr<UQTEWidget> QTEWidget{nullptr};
+	
 // Default	
 	/** Input Mapping Contexts */
 	UPROPERTY(EditAnywhere, Category ="Input|Input Mappings")
 	TArray<UInputMappingContext*> DefaultMappingContexts;
-	
-	/** Gameplay initialization */
-	virtual void BeginPlay() override;
-
-	/** Input mapping context setup */
-	virtual void SetupInputComponent() override;
-
 };
+

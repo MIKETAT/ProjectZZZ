@@ -21,11 +21,6 @@ void UCombatComponentBase::BeginPlay()
 	Super::BeginPlay();
 	
 	CachePointers();
-
-	if (IsValid(CombatAnimSchedulerComponent))
-	{
-		CombatAnimSchedulerComponent->OnAnimRequestFinished.AddDynamic(this, &ThisClass::HandleAnimFinished);
-	}
 }
 
 void UCombatComponentBase::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -35,11 +30,12 @@ void UCombatComponentBase::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	RefreshAttackDetection(DeltaTime);
 }
 
-void UCombatComponentBase::ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config)
+void UCombatComponentBase::ProcessHitEvent(ACharacterBase* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config)
 {
 	if (!IsValid(Victim) || !IsValid(Character))
 	{
 		return;
+		
 	}
 	
 	FAttackContext AttackContext;
@@ -48,10 +44,11 @@ void UCombatComponentBase::ProcessHitEvent(AActor* Victim, const FHitResult& Hit
 	AttackContext.PayloadConfig = Config;
 	AttackContext.SourceASC = AbilitySystemComponent;
 	
-	if (UCombatComponentBase* Component = Victim->FindComponentByClass<UCombatComponentBase>())
+	//Victim
+	if (UCombatComponentBase* CombatComponent = Victim->GetCombatComp())
 	{
 		FAttackResult Result;
-		Component->HandleIncomingDamage(AttackContext, Result);
+		CombatComponent->HandleIncomingDamage(AttackContext, Result);
 	}
 }
 
@@ -107,11 +104,11 @@ void UCombatComponentBase::HandleIncomingDamage(const FAttackContext& Context, F
 	TargetASC->ApplyGameplayEffectSpecToSelf(*Spec);
 }
 
-void UCombatComponentBase::EnableAttackDetection(UCombatActionStep* ActionStep, const FHitShapeConfig& ShapeConfig)
+void UCombatComponentBase::EnableAttackDetection(const FHitShapeConfig& ShapeConfig)
 {
 	AttackDetectionConfig.bEnableAttackDetection = true;
 	AttackDetectionConfig.ShapeConfig = ShapeConfig;
-	AttackDetectionConfig.AttackingAction = ActionStep;
+	AttackDetectionConfig.AttackingAction = CurrentExecutionState.CurrentStep;
 	AttackDetectionConfig.WeaponSweepState.Reset();
 	AttackDetectionConfig.HitActors.Empty();
 }
@@ -144,7 +141,7 @@ bool UCombatComponentBase::CanInterruptCurrentAction(const UCombatActionStep* St
 		return false;
 	} 
 	// Todo: Define explicit interruption conditions
-	return Step->Priority > CurrentExecutionState.CurrentStep->Priority || CurrentExecutionState.bIsRecoveryWindowOpen;
+	return  Step->Priority > CurrentExecutionState.CurrentStep->Priority || CurrentExecutionState.bIsRecoveryWindowOpen;
 }
 
 FTransform UCombatComponentBase::CalculateShapeWorldTransform() const
@@ -262,9 +259,12 @@ void UCombatComponentBase::RefreshAttackDetection(float DeltaTime)
 		 	{
 		 		AttackDetectionConfig.HitActors.Add(HitActor);
 		 		UE_LOG(LogTemp, Error, TEXT("Hit Actor: %s"), *HitActor->GetName());
+
+				ACharacterBase* Victim{Cast<ACharacterBase>(HitActor)};
+		 		
 		 		if (IsValid(AttackDetectionConfig.AttackingAction))
 		 		{
-		 			ProcessHitEvent(HitActor, Hit, AttackDetectionConfig.AttackingAction.Get()->HitPayloadConfig);	
+		 			ProcessHitEvent(Victim, Hit, AttackDetectionConfig.AttackingAction.Get()->HitPayloadConfig);
 		 		}
 		 	}
 		 }
@@ -297,7 +297,7 @@ void UCombatComponentBase::RefreshWeaponSweepDirection(float DeltaTime)
 
 void UCombatComponentBase::CachePointers()
 {
-	Character = Cast<ACharacterBase>(GetOwner());
+	Character = Cast<APlayerCharacter>(GetOwner());
 	Mesh = Character ? Character->GetMesh() : nullptr;
 
 	if (Character && Mesh)
@@ -310,22 +310,8 @@ void UCombatComponentBase::CachePointers()
 
 int32 UCombatComponentBase::ExecuteAction(const UCombatActionStep* Step)
 {
-	if (!IsValid(Step) || !IsValid(CombatAnimSchedulerComponent))
-	{
-		return INDEX_NONE;
-	}
-
-	if (IsAnyActionActive())
-	{
-		CombatAnimSchedulerComponent->CancelAnimRequest(CurrentExecutionState.MontageInstanceId);
-	}
-	
-	FCombatAnimExecutionRequest Request;
-	Request.Montage = Step->Montage;
-	Request.Priority = Step->Priority;
-	return CombatAnimSchedulerComponent->ExecuteAnimRequest(Request);
+	return INDEX_NONE;
 }
-
 
 void UCombatComponentBase::HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason)
 {
@@ -333,15 +319,19 @@ void UCombatComponentBase::HandleAnimFinished(int32 RequestID, ECombatAnimReques
 	{
 		return;
 	}
-	CurrentExecutionState.Reset();
 
-	if (APlayerCharacter* Player = Cast<APlayerCharacter>(Character))
+	// todo: 先cast. 后续根据敌人是否拥有同样的逻辑(HandleAnimFinished是否是玩家独有的)修改
+	OnCombatActionFinished.Broadcast(Cast<APlayerCharacter>(Character));
+	
+	CurrentExecutionState.Reset();
+	
+	/*if (APlayerCharacter* Player = Cast<APlayerCharacter>(Character))
 	{
 		if (Player->GetAgentPresence() == EAgentPresenceState::Lingering)
 		{
 			Player->SwitchToOffField();
 		}
-	}
+	}*/
 }
 
 void UCombatComponentBase::InjectAndBindASC(UAgentAbilitySystemComponent* InASC)
@@ -353,18 +343,11 @@ void UCombatComponentBase::InjectAndBindASC(UAgentAbilitySystemComponent* InASC)
 
 	AbilitySystemComponent = InASC;
 
-	if (const UBaseCombatAttributeSet* BaseAttributeSet = AbilitySystemComponent->GetSet<UBaseCombatAttributeSet>())
+	if (AbilitySystemComponent->GetSet<UBaseCombatAttributeSet>())
 	{
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
 			UBaseCombatAttributeSet::GetHealthAttribute()).AddUObject(this, &UCombatComponentBase::OnHealthChanged);
 	}
-	
-	// EnemyAttribute Set
-	/*if (const UEnemyAttributeSet* EnemyAttributeSet = AbilitySystemComponent->GetSet<UEnemyAttributeSet>())
-	{
-		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
-			UEnemyAttributeSet::GetDazeAttribute()).AddUObject(this, &UCharacterCombatComponent::OnDazeChanged);
-	}*/
 }
 
 

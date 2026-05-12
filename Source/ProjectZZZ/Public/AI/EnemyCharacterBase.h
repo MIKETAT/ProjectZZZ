@@ -7,6 +7,7 @@
 #include "Character/Combat/CombatInterface.h"
 #include "EnemyCharacterBase.generated.h"
 
+class UEnemyCombatComponent;
 class UEnemyAttributeSet;
 
 UCLASS()
@@ -28,11 +29,13 @@ protected:
 public:
 	virtual UAbilitySystemComponent* GetAbilitySystemComp() const override { return GetAbilitySystemComponent(); }
 	
-	//virtual UCharacterCombatComponent* GetCombatComp() const override { return GetCombatComponent(); }
 	// ~Combat Interface
 
-	virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const override { return EnemyExclusiveInitGE; }
+	//virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const override { return EnemyExclusiveInitGE; }
 
+	UEnemyCombatComponent* GetEnemyCombatComponent() const { return EnemyCombatComponent; }
+
+	virtual void InitializeAttributes() override;
 	// Test
 	virtual void Die() override;
 	
@@ -47,7 +50,11 @@ public:
 
 	UPROPERTY()
 	TObjectPtr<UEnemyAttributeSet> EnemyAttributeSet;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Debug")
 	bool bPrintDebugInfo{false};
+
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UEnemyCombatComponent> EnemyCombatComponent{nullptr};
 };

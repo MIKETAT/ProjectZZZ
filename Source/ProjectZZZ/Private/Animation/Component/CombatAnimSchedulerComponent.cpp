@@ -86,7 +86,7 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 		int32 NewId = ++NextIDGenerator;
 		FCombatAnimExecutionRequest AddedRequest = Request;
 		AddedRequest.RequestID = NewId;
-		AddedRequest.MontageEventFlags |= (uint8)EMontageStatusFlag::EMontageStatus_Started;
+		AddedRequest.MontageEventFlags |= static_cast<uint8>(EMontageStatusFlag::EMontageStatus_Started);
 		ProceedingRequests.Add(NewId, AddedRequest);
 
 		FMontageBlendSettings BlendInSetting{GetMontageBlendInSetting(AddedRequest.Montage)};
@@ -97,6 +97,7 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 		return AddedRequest.RequestID;
 	}
 	// Can't Execute
+	UE_LOG(LogTemp, Error, TEXT("Can not Execute Anim Request. Montage = %s"), *Request.Montage->GetName());
 	return INDEX_NONE;
 }
 
@@ -107,8 +108,7 @@ void UCombatAnimSchedulerComponent::CancelAnimRequest(const int32 RequestID)
 		return;
 	}
 
-	const FCombatAnimExecutionRequest* Request = ProceedingRequests.Find(RequestID);
-	if (Request)
+	if (const FCombatAnimExecutionRequest* Request = ProceedingRequests.Find(RequestID))
 	{
 		FMontageBlendSettings BlendSettings;
 		BlendSettings.Blend = Request->Montage->BlendIn;
@@ -124,7 +124,7 @@ bool UCombatAnimSchedulerComponent::IsRequestMontageBlendingOut(const FCombatAni
 	{
 		return false;
 	}
-	return Request->MontageEventFlags & (uint8)EMontageStatusFlag::EMontageStatus_BlendingOut;
+	return Request->MontageEventFlags & static_cast<uint8>(EMontageStatusFlag::EMontageStatus_BlendingOut);
 }
 
 int32 UCombatAnimSchedulerComponent::CheckIfRequestMontageAlreadyPlaying(const FCombatAnimExecutionRequest& Request) const

@@ -35,11 +35,12 @@ ACharacterBase::ACharacterBase()
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 
-	CombatComponent = CreateDefaultSubobject<UCharacterCombatComponent>(TEXT("CombatComponent"));
+	//CombatComponent = CreateDefaultSubobject<UCharacterCombatComponent>(TEXT("CombatComponent"));
 	CombatAnimSchedulerComponent = CreateDefaultSubobject<UCombatAnimSchedulerComponent>(TEXT("CombatAnimSchedulerComponent"));
 
 	AgentAbilitySystemComponent = CreateDefaultSubobject<UAgentAbilitySystemComponent>(TEXT("AgentAbilitySystemComponent"));
 	AgentAbilitySystemComponent->SetIsReplicated(true);
+	
 	BaseCombatAttribute = CreateDefaultSubobject<UBaseCombatAttributeSet>(TEXT("BaseCombatAttributeSet"));
 }
 
@@ -61,16 +62,6 @@ void ACharacterBase::Tick(float DeltaTime)
 void ACharacterBase::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
-
-	if (AgentAbilitySystemComponent)
-	{
-		AgentAbilitySystemComponent->InitAbilityActorInfo(this, this);
-
-		if (CombatComponent)
-		{
-			CombatComponent->InjectAndBindASC(AgentAbilitySystemComponent);
-		}
-	}
 	InitializeAttributes();
 }
 
@@ -105,12 +96,6 @@ void ACharacterBase::RefreshLocomotionState(const float DeltaTime)
 	
 	LocomotionState.WorldAcceleration2D = FVector{WorldAcceleration.X, WorldAcceleration.Y, 0.0f};
 	LocomotionState.LocalAcceleration2D = YawRotation.UnrotateVector(LocomotionState.WorldAcceleration2D); 
-}
-
-void ACharacterBase::InitializeAttributes()
-{
-	ApplyGameplayEffectToSelf(BaseInitGE);
-	ApplyGameplayEffectToSelf(GetExclusiveInitGE());
 }
 
 void ACharacterBase::ApplyGameplayEffectToSelf(const TSubclassOf<UGameplayEffect>& Effect)

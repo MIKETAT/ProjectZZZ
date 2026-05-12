@@ -11,7 +11,7 @@ class UCombatActionStep;
 class UCombatComponentBase;
 
 UCLASS()
-class PROJECTZZZ_API UUAnimNotifyState_AttackDetection : public UAnimNotifyState
+class PROJECTZZZ_API UAnimNotifyState_AttackDetection : public UAnimNotifyState
 {
 	GENERATED_BODY()
 
@@ -25,7 +25,4 @@ private:
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FHitShapeConfig ShapeConfig;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TWeakObjectPtr<UCombatActionStep> ActionStep;
 };

@@ -5,6 +5,7 @@
 
 #include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "AbilitySystem/EnemyAttributeSet.h"
+#include "AI/EnemyCombatComponent.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
 #include "Utility/ZZZGameplayTag.h"
@@ -13,12 +14,21 @@ AEnemyCharacterBase::AEnemyCharacterBase()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	EnemyAttributeSet = CreateDefaultSubobject<UEnemyAttributeSet>(TEXT("EnemyAttributeSet"));
+
+	EnemyCombatComponent = CreateDefaultSubobject<UEnemyCombatComponent>(TEXT("EnemyCombatComponent"));
+	CombatBase = EnemyCombatComponent;
 }
 
 void AEnemyCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
-}
+	
+	if (AgentAbilitySystemComponent)
+	{
+		AgentAbilitySystemComponent->InitAbilityActorInfo(this, this);
+		InitializeAttributes();
+	}
+} 
 
 void AEnemyCharacterBase::Tick(float DeltaTime)
 {
@@ -29,6 +39,12 @@ void AEnemyCharacterBase::Tick(float DeltaTime)
 void AEnemyCharacterBase::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+}
+
+void AEnemyCharacterBase::InitializeAttributes()
+{
+	ApplyGameplayEffectToSelf(BaseInitGE);
+	ApplyGameplayEffectToSelf(EnemyExclusiveInitGE);
 }
 
 void AEnemyCharacterBase::Die()
@@ -47,13 +63,16 @@ void AEnemyCharacterBase::PrintDebugInfo()
 	{
 		GEngine->ClearOnScreenDebugMessages();
 		PrintAttributeSet(BaseCombatAttribute.Get());
-		PrintAttributeSet(EnemyAttributeSet.Get());	
+		PrintAttributeSet(EnemyAttributeSet.Get());
 	}
 }
 
 void AEnemyCharacterBase::PrintAttributeSet(UAttributeSet* Attribute)
 {
-	if (!GEngine || !Attribute)							return;
+	if (!GEngine || !Attribute)
+	{
+		return;
+	}
 
 	const UClass* SetClass = Attribute->GetClass();
 	

@@ -48,4 +48,5 @@ namespace Combat::Data
 namespace Combat::Event
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Death)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ChainAttack)
 }

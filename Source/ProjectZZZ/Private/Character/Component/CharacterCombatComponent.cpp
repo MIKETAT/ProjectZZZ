@@ -3,15 +3,11 @@
 #include "Character/Component/CharacterCombatComponent.h"
 
 #include "GameplayEffect.h"
-#include "KismetTraceUtils.h"
 #include "AbilitySystem/AgentAttributeSet.h"
-#include "AbilitySystem/BaseCombatAttributeSet.h"
-#include "AbilitySystem/EnemyAttributeSet.h"
 #include "Animation/AnimInstanceBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/CharacterBase.h"
 #include "Player/PlayerCharacter.h"
-#include "Utility/KismetCustomTraceUtils.h"
 #include "Utility/ZZZGameplayTag.h"
 
 UCharacterCombatComponent::UCharacterCombatComponent()
@@ -29,6 +25,11 @@ void UCharacterCombatComponent::BeginPlay()
 	if (IsValid(AnimInstance))
 	{
 		AnimInstance->OnCombatWindowChanged.AddDynamic(this, &ThisClass::HandleCombatWindowChange);
+	}
+
+	if (IsValid(CombatAnimSchedulerComponent))
+	{
+		CombatAnimSchedulerComponent->OnAnimRequestFinished.AddDynamic(this, &ThisClass::HandleAnimFinished);
 	}
 }
 
@@ -58,27 +59,11 @@ void UCharacterCombatComponent::ProcessInputAction(const float DeltaTime)
 	{
 		return;
 	}
-
+	
 	if (!IsAnyActionActive() || CanInterruptCurrentAction(TargetAction))
 	{
 		// Execute Target Action immediately
-		int32 InstanceID = ExecuteAction(TargetAction);
-
-		if (InstanceID != INDEX_NONE)
-		{
-			// Execute successfully. Apply Cost. Reset Status.
-			PayActionCost(TargetAction);
-			if (CurrentExecutionState.CurrentStep)
-			{
-				UE_LOG(LogTemp, Error, TEXT("Execute New Action: %s. ReSet Previous State"), *CurrentExecutionState.CurrentStep->ActionName.ToString());	
-			}
-			CurrentExecutionState.Reset();
-			CurrentExecutionState.CurrentStep = TargetAction;
-			CurrentExecutionState.MontageInstanceId = InstanceID;
-			CurrentExecutionState.bHasSuccessfullyStarted = true;
-			
-			PendingIntent.Reset();
-		}
+		ExecuteAction(TargetAction);
 	} else if (CurrentExecutionState.bInputBufferWindowOpen)
 	{
 		// Todo: check buffer window and other window
@@ -102,10 +87,6 @@ void UCharacterCombatComponent::ProcessBufferedInput(const float DeltaTime)
 		{
 			// Execute successfully. Apply Cost. Reset Status.
 			PayActionCost(PendingIntent.ActionStep);
-			if (CurrentExecutionState.CurrentStep)
-			{
-				UE_LOG(LogTemp, Error, TEXT("Execute Buffered Action: %s. ReSet Previous State"), *CurrentExecutionState.CurrentStep->ActionName.ToString());	
-			}
 			CurrentExecutionState.Reset();
 			CurrentExecutionState.CurrentStep = PendingIntent.ActionStep;
 			CurrentExecutionState.MontageInstanceId = InstanceID;
@@ -212,6 +193,36 @@ void UCharacterCombatComponent::BufferInputIntent(const UCombatActionStep* Actio
 	}
 }
 
+int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep)
+{
+	if (!IsValid(ActionStep) || !IsValid(CombatAnimSchedulerComponent))
+	{
+		return INDEX_NONE;
+	}
+
+	if (IsAnyActionActive())
+	{
+		CombatAnimSchedulerComponent->CancelAnimRequest(CurrentExecutionState.MontageInstanceId);
+	}
+	
+	FCombatAnimExecutionRequest Request;
+	Request.Montage = ActionStep->Montage;
+	Request.Priority = ActionStep->Priority;
+	int32 InstanceID = CombatAnimSchedulerComponent->ExecuteAnimRequest(Request);
+	if (InstanceID != INDEX_NONE)
+	{
+		// Execute successfully. Apply Cost. Reset Status.
+		PayActionCost(ActionStep);
+		CurrentExecutionState.Reset();
+		CurrentExecutionState.CurrentStep = ActionStep;
+		CurrentExecutionState.MontageInstanceId = InstanceID;
+		CurrentExecutionState.bHasSuccessfullyStarted = true;
+			
+		PendingIntent.Reset();
+	}
+	return InstanceID;
+}
+
 void UCharacterCombatComponent::RefreshInputActionBitmask(const float DeltaTime)
 {
 	CurrentInputActionBitmask = InputActionBitmask;
@@ -298,6 +309,11 @@ bool UCharacterCombatComponent::CanAffordActionCost(const UCombatActionStep* Ste
 	return false;
 }
 
+bool UCharacterCombatComponent::CanExecuteSwitchAction(const UCombatActionStep* Step) const
+{
+	return Character && Character->GetAgentPresence() == EAgentPresenceState::OffField;
+}
+
 void UCharacterCombatComponent::PayActionCost(const UCombatActionStep* Step)
 {
 	if (!IsValid(AbilitySystemComponent) || !IsValid(Step) || !IsValid(Step->CostGameplayEffect))
@@ -324,7 +340,7 @@ void UCharacterCombatComponent::InjectAndBindASC(UAgentAbilitySystemComponent* I
 	}
 	
 	// Agent Attribute Set
-	if (const UAgentAttributeSet* AgentAttributeSet = AbilitySystemComponent->GetSet<UAgentAttributeSet>())
+	if (AbilitySystemComponent->GetSet<UAgentAttributeSet>())
 	{
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
 			UAgentAttributeSet::GetEnergyAttribute()).AddUObject(this, &UCharacterCombatComponent::OnEnergyChanged);
@@ -335,40 +351,21 @@ void UCharacterCombatComponent::InjectAndBindASC(UAgentAbilitySystemComponent* I
 
 void UCharacterCombatComponent::ExecuteSwitchInAction()
 {
-	ExecuteSwitchAction(SwitchInMontage);
+	ExecuteSwitchAction(SwitchInAction);
 }
 
 void UCharacterCombatComponent::ExecuteSwitchOutAction()
 {
-	ExecuteSwitchAction(SwitchOutMontage);
+	ExecuteSwitchAction(SwitchOutAction);
 }
 
-void UCharacterCombatComponent::ExecuteSwitchAction(UAnimMontage* Montage)
+void UCharacterCombatComponent::ExecuteSwitchAction(UCombatActionStep* Action)
 {
-	if (!IsValid(Montage))
+	if (!IsAnyActionActive() || CanInterruptCurrentAction(Action))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Invalid Switch Montage"));
-		return;
+		UE_LOG(LogTemp, Error, TEXT("ExecuteSwitchAction"));
+		ExecuteAction(Action);
 	}
-	
-	if (IsAnyActionActive())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Exists Active Action. Play Switch In Action Failed"));
-		return;
-	}
-
-	if (!IsValid(CombatAnimSchedulerComponent))
-	{
-		return;
-	}
-	
-	FCombatAnimExecutionRequest Request;
-	Request.Montage = Montage;
-	
-	// todo: CurrentExecutionState的更新需要规范一下
-	CurrentExecutionState.CurrentStep = nullptr;
-	CurrentExecutionState.MontageInstanceId = CombatAnimSchedulerComponent->ExecuteAnimRequest(Request);
-	CurrentExecutionState.bHasSuccessfullyStarted = true;
 }
 
 
@@ -379,28 +376,3 @@ void UCharacterCombatComponent::OnEnergyChanged(const FOnAttributeChangeData& Da
 void UCharacterCombatComponent::OnDecibelsChanged(const FOnAttributeChangeData& Data)
 {
 }
-
-void UCharacterCombatComponent::OnDazeChanged(const FOnAttributeChangeData& Data)
-{
-	// todo: IsDead
-
-	float MaxDaze = AbilitySystemComponent->GetNumericAttribute(UEnemyAttributeSet::GetMaxDazeAttribute());
-	if (Data.NewValue >= MaxDaze/* not stun yet */)
-	{
-		// stun
-		CancelCurrentAction();
-
-		HandleStun();
-
-	}
-	
-	
-}
-
-
-
-void UCharacterCombatComponent::HandleStun()
-{
-	
-}
-

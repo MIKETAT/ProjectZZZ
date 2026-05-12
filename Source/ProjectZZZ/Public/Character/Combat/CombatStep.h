@@ -14,6 +14,8 @@ UENUM(BlueprintType)
 enum class ECombatActionPriority : uint8
 {
 	None = 0					UMETA(DisplayName = "None"),
+	Switch = 5					UMETA(DisplayName = "Switch"),
+	
 	BasicAttack = 10			UMETA(DisplayName = "Attack"),
 	Dodge = 20					UMETA(DisplayName = "Dodge"),
 
@@ -36,6 +38,9 @@ struct FHitPayloadConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float DazeMultiplier{1.5f};		// 失衡倍率
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIsHeavyAttack{false};		// 重击效果
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<TSubclassOf<UGameplayEffect>> EffectOnTarget;
@@ -76,10 +81,6 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TMap<EInputAction, TObjectPtr<UCombatActionStep>> ComboLinks;
-	
-	// Todo: Cost for Special_Attack or Ultimate or Dodge cooldown
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	uint8 bIsHeavyAttack : 1 {false};
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 bIsBasicAttack : 1 {false};
@@ -148,7 +149,7 @@ public:
 	}
 	
 	UPROPERTY()
-	const UCombatActionStep* CurrentStep{nullptr};
+	TObjectPtr<const UCombatActionStep> CurrentStep{nullptr};
 
 	int32 MontageInstanceId{INDEX_NONE};
 	

@@ -23,9 +23,9 @@ class PROJECTZZZ_API UEnemyAttributeSet : public UAttributeSet
 public:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	
-	virtual void PostAttributeBaseChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) const override;
-	
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+
+	virtual void PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data) override;
 	
 	UFUNCTION()
 	void OnRep_Daze(const FGameplayAttributeData& OldDaze);

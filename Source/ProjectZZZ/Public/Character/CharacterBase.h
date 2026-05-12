@@ -54,7 +54,7 @@ public:
 	// ICombatInterface
 	virtual UAbilitySystemComponent* GetAbilitySystemComp() const override { return AgentAbilitySystemComponent.Get(); }
 	
-	//virtual UCombatComponentBase* GetCombatComp() const override { return CombatComponent.Get(); };
+	virtual UCombatComponentBase* GetCombatComp() const override { return CombatBase.Get(); };
 	// ~ICombatInterface
 public:
 	const FLocomotionState& GetLocomotionState() const { return LocomotionState; }
@@ -62,8 +62,6 @@ public:
 	UBaseCombatAttributeSet* GetBaseCombatAttribute() const { return BaseCombatAttribute; }
 	
 	UCombatAnimSchedulerComponent* GetCombatAnimSchedulerComponent() const { return CombatAnimSchedulerComponent; }
-	
-	UCharacterCombatComponent* GetCombatComponent() const { return CombatComponent; }
 
 public:
 	virtual void Die() {};
@@ -73,12 +71,11 @@ protected:
 	
 	void RefreshLocomotionState(const float DeltaTime);
 	
-	void InitializeAttributes();
+	virtual void InitializeAttributes() PURE_VIRTUAL(ACharacterBase::InitializeAttributes, );
 
-private:
 	void ApplyGameplayEffectToSelf(const TSubclassOf<UGameplayEffect>& Effect);
-	
-	virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const { return nullptr; };
+private:
+	//virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const { return nullptr; };
 	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
@@ -89,8 +86,8 @@ public:
 	uint8 bHasMovementInput : 1 {false};
 	
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UCharacterCombatComponent> CombatComponent{nullptr};
+	UPROPERTY()
+	TObjectPtr<UCombatComponentBase> CombatBase;
 	
 	UPROPERTY()
 	TObjectPtr<UAgentAbilitySystemComponent> AgentAbilitySystemComponent;

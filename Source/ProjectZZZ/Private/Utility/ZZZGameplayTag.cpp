@@ -44,4 +44,5 @@ namespace Combat::Data
 namespace Combat::Event
 {
 	UE_DEFINE_GAMEPLAY_TAG(Death, FName(TEXTVIEW("Combat.Event.Death")));
+	UE_DEFINE_GAMEPLAY_TAG(ChainAttack, FName(TEXTVIEW("Combat.Event.ChainAttack")));
 }

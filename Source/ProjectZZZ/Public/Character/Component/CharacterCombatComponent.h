@@ -39,7 +39,7 @@ public:
 	/*
 	virtual void ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config) override;
 
-	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult ) override;
+	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult) override;
 	
 	virtual void EnableAttackDetection(UCombatActionStep* ActionStep, const FHitShapeConfig& ShapeConfig) override;
 	
@@ -49,27 +49,25 @@ public:
 
 	virtual void InjectAndBindASC(UAgentAbilitySystemComponent* InASC) override;
 
+	bool CanExecuteSwitchInAction() const { return CanExecuteSwitchAction(SwitchInAction); }
+	
 	void ExecuteSwitchInAction();
 	
 	void ExecuteSwitchOutAction();
 
-	void ExecuteSwitchAction(UAnimMontage* Montage);
+	void ExecuteSwitchAction(UCombatActionStep* Action);
 	
 	void OnEnergyChanged(const FOnAttributeChangeData& Data);
 
 	void OnDecibelsChanged(const FOnAttributeChangeData& Data);
 
-	void OnDazeChanged(const FOnAttributeChangeData& Data);
-	
-	void HandleStun();
-
 	UFUNCTION()
 	void HandleCombatWindowChange(const FGameplayTag Tag, bool bIsOpen, UAnimMontage* SourceMontage);
-
-
-private:
-
 	
+	bool CanExecuteSwitchAction(const UCombatActionStep* Step) const;
+	
+	bool CanAffordActionCost(const UCombatActionStep* Step) const;
+private:
 	// Input
 	void RefreshInputActionBitmask(const float DeltaTime);
 	
@@ -88,16 +86,14 @@ private:
 	
 	void BufferInputIntent(const UCombatActionStep* ActionToBuffer);
 
-	bool CanAffordActionCost(const UCombatActionStep* Step) const;
+	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep) override;
+
+
 
 	void PayActionCost(const UCombatActionStep* Step);
 	
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<UAnimMontage> SwitchInMontage;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<UAnimMontage> SwitchOutMontage;
+	
 private:
 	float GlobalBufferLifespan{0.3f}; 
 	
@@ -106,12 +102,25 @@ private:
 
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UAgentCombatSteps> AgentCombatSteps{nullptr};
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimMontage> SwitchInMontage;
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UAnimMontage> SwitchOutMontage;
+	
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UCombatActionStep> SwitchInAction{nullptr};
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UCombatActionStep> SwitchOutAction{nullptr};
 	
 	UPROPERTY()
 	FBufferedIntent PendingIntent;
 
 	UPROPERTY(Transient)
 	TArray<UCombatActionStep*> CombatActionList;
+
 	
 	// Double Buffering. Use CurrentInputActionBitmask.
 public:

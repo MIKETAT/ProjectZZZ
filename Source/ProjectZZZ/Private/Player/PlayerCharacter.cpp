@@ -8,6 +8,7 @@
 #include "Character/ZZZPlayerController.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/CharacterCombatComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "Utility/ZZZGameplayTag.h"
@@ -28,6 +29,8 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->bUsePawnControlRotation = false;
 	
 	AgentAttributeSet = CreateDefaultSubobject<UAgentAttributeSet>(TEXT("AgentAttributeSet"));
+	AgentCombatComponent = CreateDefaultSubobject<UCharacterCombatComponent>(TEXT("CombatComponent"));
+	CombatBase = AgentCombatComponent;
 }
 
 void APlayerCharacter::BeginPlay()
@@ -62,6 +65,16 @@ void APlayerCharacter::PossessedBy(AController* NewController)
 	
 	CharacterFrameDataBus.bIsLocalPlayer = NewController->IsLocalPlayerController();
 	OwnerController = Cast<AZZZPlayerController>(GetController());
+
+	if (AgentAbilitySystemComponent)
+	{
+		AgentAbilitySystemComponent->InitAbilityActorInfo(this, this);
+	}
+	
+	if (AgentCombatComponent)
+	{
+		AgentCombatComponent->InjectAndBindASC(AgentAbilitySystemComponent);
+	}
 }
 
 void APlayerCharacter::UnPossessed()
@@ -71,9 +84,19 @@ void APlayerCharacter::UnPossessed()
 	OwnerController = nullptr;
 }
 
+void APlayerCharacter::InitializeAttributes()
+{
+	ApplyGameplayEffectToSelf(BaseInitGE);
+	ApplyGameplayEffectToSelf(AgentExclusiveInitGE);
+}
+
+bool APlayerCharacter::IsMoving() const
+{
+	return  GetCharacterMovement() && !GetCharacterMovement()->Velocity.IsNearlyZero();
+}
+
 ECombatEventHandleResult APlayerCharacter::HandleEnemyDeath(const FCombatEventMessage& Msg)
 {
-	UE_LOG(LogTemp, Error, TEXT("PlayCharacter now heard Enemy Death Msg, EventTag = %s"), *Msg.EventTag.ToString());
 	return ECombatEventHandleResult::Consumed;
 }
 
@@ -103,11 +126,11 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 		return;
 	}
 
-	check(CombatComponent);
+	check(AgentCombatComponent);
 
-	if (CombatComponent->IsAllowMovementInterruptAction())
+	if (AgentCombatComponent->IsAllowMovementInterruptAction())
 	{
-		CombatComponent->CancelCurrentAction();
+		AgentCombatComponent->CancelCurrentAction();
 		return;
 	}	
 	
@@ -139,9 +162,9 @@ void APlayerCharacter::ProcessLookInput(float DeltaTime)
 
 void APlayerCharacter::ProcessCombatActionInput(float DeltaTime)
 {
-	if (CombatComponent.Get())
+	if (AgentCombatComponent.Get())
 	{
-		CombatComponent->InputActionBitmask = CharacterFrameDataBus.PlayerInputs.InputActionBitmask; 
+		AgentCombatComponent->InputActionBitmask = CharacterFrameDataBus.PlayerInputs.InputActionBitmask; 
 	}
 }
 
