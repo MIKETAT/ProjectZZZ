@@ -5,11 +5,14 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemComponent.h"
 #include "CombatComponentBase.h"
+#include "Animation/CharacterAnimInstance.h"
 #include "Character/Combat/CombatStep.h"
 #include "Components/ActorComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "CharacterCombatComponent.generated.h"
 
+class UCharacterAnimInstance;
+class AEnemyCharacterBase;
 class UCombatAnimSchedulerComponent;
 class UAnimInstanceBase;
 enum ECombatAnimRequestFinishReason : uint8;
@@ -31,22 +34,29 @@ public:
 	virtual void InitializeComponent() override;
 // ~Interface
 public:
+	FORCEINLINE UCharacterAnimInstance* GetAgentAnimInstance() const { return Cast<UCharacterAnimInstance>(AnimInstance); }
+	
 	bool IsAllowMovementInterruptAction() const;
+
+	UCombatActionStep* GetSpecialAction(const FGameplayTag& Tag) const;
 	
 	// CombatComponentBase Interface
-	virtual void ProcessHitFeedback(const FAttackResult& Result) override;
 	
-	/*
-	virtual void ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config) override;
+	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& Result) override;
 
-	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult) override;
+	// Only process the effects of this attack on self
+	virtual void ProcessHitFeedback(const FAttackResult& Result) override;
+	/*
+	
+	virtual void ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config) override;
+	
+	
 	
 	virtual void EnableAttackDetection(UCombatActionStep* ActionStep, const FHitShapeConfig& ShapeConfig) override;
 	
 	virtual void DisableAttackDetection() override;*/
 	// !Interface
-
-
+	
 	virtual void InjectAndBindASC(UAgentAbilitySystemComponent* InASC) override;
 
 	bool CanExecuteSwitchInAction() const { return CanExecuteSwitchAction(SwitchInAction); }
@@ -88,7 +98,11 @@ private:
 
 	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep) override;
 
+	void TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep);
 
+	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance); 
+	
+	FTransform CalculateWarpTargetLocation(const UCombatActionStep* ActionStep, AEnemyCharacterBase* Enemy);
 
 	void PayActionCost(const UCombatActionStep* Step);
 	
@@ -103,6 +117,15 @@ private:
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UAgentCombatSteps> AgentCombatSteps{nullptr};
 
+	UPROPERTY(EditDefaultsOnly, Category = "Combat | Special Action")
+	TObjectPtr<UCombatActionStep> ChainAttackAction{nullptr};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Combat | Special Action")
+	TObjectPtr<UCombatActionStep> DefensiveAssistAction{nullptr};
+	
+	UPROPERTY(EditDefaultsOnly, Category = "Combat | Special Action")
+	TObjectPtr<UCombatActionStep> QuickAssistAction{nullptr};
+	
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UAnimMontage> SwitchInMontage;
 

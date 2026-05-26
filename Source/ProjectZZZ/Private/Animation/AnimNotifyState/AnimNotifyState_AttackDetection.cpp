@@ -1,6 +1,6 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
-#include "Animation/AnimNotifyState/UAnimNotifyState_AttackDetection.h"
+#include "Animation/AnimNotifyState/AnimNotifyState_AttackDetection.h"
 #include "Character/Component/CombatComponentBase.h"
 
 void UAnimNotifyState_AttackDetection::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
@@ -9,7 +9,7 @@ void UAnimNotifyState_AttackDetection::NotifyBegin(USkeletalMeshComponent* MeshC
 	Super::NotifyBegin(MeshComp, Animation, TotalDuration, EventReference);
 	if (GetCombatComponentBase(MeshComp))
 	{
-		GetCombatComponentBase(MeshComp)->EnableAttackDetection(ShapeConfig);	
+		GetCombatComponentBase(MeshComp)->EnableAttackDetection(ActionTag, DetectionConfig);	
 	}
 }
 

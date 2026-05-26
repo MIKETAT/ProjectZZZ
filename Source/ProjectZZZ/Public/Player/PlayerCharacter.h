@@ -47,9 +47,15 @@ public:
 
 	bool IsMoving() const;
 
-	bool HasMovementInput() const { return CharacterFrameDataBus.HasMovementInput(); };
+	bool IsActive() const { return bIsActive; }
+
+	void SetAgentActive(bool bActive) { bIsActive = bActive; }
+	
+	bool HasMovementInput() const { return CharacterFrameDataBus.HasMovementInput(); }
 	
 	UTexture2D* GetAgentHead() const { return AgentHead; }
+
+	UMotionWarpingComponent* GetMotionWarpingComponent() const { return MotionWarpingComponent; }
 	
 	UCharacterCombatComponent* GetAgentCombatComponent() const { return AgentCombatComponent; }
 	
@@ -71,6 +77,8 @@ public:
 	
 	void SwitchToOffField();
 	
+	UCombatActionStep* GetSpecialAction(const FGameplayTag& Tag) const { return AgentCombatComponent ? AgentCombatComponent->GetSpecialAction(Tag) : nullptr;};
+	
 private:
 	void ProcessMovementInput(float DeltaTime);
 	
@@ -90,6 +98,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
 	TSubclassOf<UGameplayEffect> AgentExclusiveInitGE;
+
 private:
 	UPROPERTY()
 	TObjectPtr<UAgentAttributeSet> AgentAttributeSet;
@@ -109,4 +118,6 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UTexture2D> AgentHead;
+
+	bool bIsActive{false};
 };

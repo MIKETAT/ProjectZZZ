@@ -7,6 +7,7 @@
 #include "Character/Combat/CombatInterface.h"
 #include "EnemyCharacterBase.generated.h"
 
+class UWidgetComponent;
 class UEnemyCombatComponent;
 class UEnemyAttributeSet;
 
@@ -38,6 +39,9 @@ public:
 	virtual void InitializeAttributes() override;
 	// Test
 	virtual void Die() override;
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void BP_OnParryWindowOpened();
 	
 private:
 	void PrintDebugInfo();
@@ -57,4 +61,10 @@ public:
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UEnemyCombatComponent> EnemyCombatComponent{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UWidgetComponent> ParryFlashWidget{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat", meta = (AllowPrivateAccess = "true"))
+	FName ParrySocketName{FName("Bip001Head")};
 };

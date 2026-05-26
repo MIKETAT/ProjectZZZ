@@ -8,6 +8,8 @@
 #include "AI/EnemyCombatComponent.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
+#include "Components/WidgetComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Utility/ZZZGameplayTag.h"
 
 AEnemyCharacterBase::AEnemyCharacterBase()
@@ -17,6 +19,15 @@ AEnemyCharacterBase::AEnemyCharacterBase()
 
 	EnemyCombatComponent = CreateDefaultSubobject<UEnemyCombatComponent>(TEXT("EnemyCombatComponent"));
 	CombatBase = EnemyCombatComponent;
+
+	ParryFlashWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("ParryFlashWidget"));
+	if (ParryFlashWidget)
+	{
+		ParryFlashWidget->SetupAttachment(GetMesh(), ParrySocketName);
+		ParryFlashWidget->SetWidgetSpace(EWidgetSpace::Screen);
+	}
+
+	GetCharacterMovement()->MaxWalkSpeed = 500.f;
 }
 
 void AEnemyCharacterBase::BeginPlay()

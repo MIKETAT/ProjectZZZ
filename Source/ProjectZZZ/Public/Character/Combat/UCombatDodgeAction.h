@@ -19,10 +19,10 @@ struct FDodgeDirectionEntry
 	TObjectPtr<UAnimMontage> Montage;
 	
 	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "-180", ClampMax = "180"))
-	float MinAngle;
+	float MinAngle{0.f};
     
 	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "-180", ClampMax = "180"))
-	float MaxAngle;
+	float MaxAngle{0.f};
 };
 
 UCLASS()

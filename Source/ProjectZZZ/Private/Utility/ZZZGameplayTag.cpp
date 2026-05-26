@@ -1,7 +1,37 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿#include "Utility/ZZZGameplayTag.h"
 
+namespace Combat::ActionTag
+{
+	UE_DEFINE_GAMEPLAY_TAG(Enemy_Attack, FName(TEXTVIEW("Combat.ActionTag.Enemy_Attack")))
+	
+	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_1, FName(TEXTVIEW("Combat.ActionTag.Basic_Attack_1")))
+	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_2, FName(TEXTVIEW("Combat.ActionTag.Basic_Attack_2")))
+	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_3, FName(TEXTVIEW("Combat.ActionTag.Basic_Attack_3")))
+	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_4, FName(TEXTVIEW("Combat.ActionTag.Basic_Attack_4")))
+	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_5, FName(TEXTVIEW("Combat.ActionTag.Basic_Attack_5")))
+	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_6, FName(TEXTVIEW("Combat.ActionTag.Basic_Attack_6")))
 
-#include "Utility/ZZZGameplayTag.h"
+	UE_DEFINE_GAMEPLAY_TAG(Special_Attack, FName(TEXTVIEW("Combat.ActionTag.Special_Attack")))
+	UE_DEFINE_GAMEPLAY_TAG(Special_Attack_EX, FName(TEXTVIEW("Combat.ActionTag.Special_Attack_EX")))
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ultimate, FName(TEXTVIEW("Combat.ActionTag.Ultimate")))
+	
+	UE_DEFINE_GAMEPLAY_TAG(Switch_In, FName(TEXTVIEW("Combat.ActionTag.Switch_In")))
+	UE_DEFINE_GAMEPLAY_TAG(Switch_Out, FName(TEXTVIEW("Combat.ActionTag.Switch_Out")))
+	UE_DEFINE_GAMEPLAY_TAG(Chain_Attack, FName(TEXTVIEW("Combat.ActionTag.Chain_Attack")))
+	
+	UE_DEFINE_GAMEPLAY_TAG(Dodge, FName(TEXTVIEW("Combat.ActionTag.Dodge")))
+	UE_DEFINE_GAMEPLAY_TAG(Rush_Attack, FName(TEXTVIEW("Combat.ActionTag.Rush_Attack")))
+
+	UE_DEFINE_GAMEPLAY_TAG(Quick_Assist, FName(TEXTVIEW("Combat.ActionTag.Quick_Assist")))
+	UE_DEFINE_GAMEPLAY_TAG(Defensive_Assist, FName(TEXTVIEW("Combat.ActionTag.Defensive_Assist")))
+}
+
+namespace Team
+{
+	UE_DEFINE_GAMEPLAY_TAG(Agent, FName(TEXTVIEW("Team.Agent")))
+	UE_DEFINE_GAMEPLAY_TAG(Enemy, FName(TEXTVIEW("Team.Enemy")))
+}
 
 namespace Combat::Gait
 {
@@ -11,9 +41,15 @@ namespace Combat::Gait
 	UE_DEFINE_GAMEPLAY_TAG(Dodge, FName(TEXTVIEW("Combat.Gait.Dodge")))
 }
 
-namespace Combat::Status
+namespace Combat::Status::Agent
 {
-	UE_DEFINE_GAMEPLAY_TAG(Daze, FName(TEXTVIEW("Combat.Status.Daze")))
+	UE_DEFINE_GAMEPLAY_TAG(Dodge, FName(TEXTVIEW("Combat.Status.Agent.Dodge")))
+	UE_DEFINE_GAMEPLAY_TAG(Parry, FName(TEXTVIEW("Combat.Status.Agent.Parry")))
+}
+
+namespace Combat::Status::Enemy
+{
+	UE_DEFINE_GAMEPLAY_TAG(Daze, FName(TEXTVIEW("Combat.Status.Enemy.Daze")))
 }
 
 /*namespace Combat::StatusTags
@@ -45,4 +81,12 @@ namespace Combat::Event
 {
 	UE_DEFINE_GAMEPLAY_TAG(Death, FName(TEXTVIEW("Combat.Event.Death")));
 	UE_DEFINE_GAMEPLAY_TAG(ChainAttack, FName(TEXTVIEW("Combat.Event.ChainAttack")));
+	UE_DEFINE_GAMEPLAY_TAG(PerfectAssist, FName(TEXTVIEW("Combat.Event.PerfectAssist")));
+}
+
+namespace Combat::SpecialAction
+{
+	UE_DEFINE_GAMEPLAY_TAG(ChainAttack, FName(TEXTVIEW("Combat.SpecialAction.ChainAttack")))
+	UE_DEFINE_GAMEPLAY_TAG(QuickAssist, FName(TEXTVIEW("Combat.SpecialAction.QuickAssist")))
+	UE_DEFINE_GAMEPLAY_TAG(DefensiveAssist, FName(TEXTVIEW("Combat.SpecialAction.DefensiveAssist")))
 }

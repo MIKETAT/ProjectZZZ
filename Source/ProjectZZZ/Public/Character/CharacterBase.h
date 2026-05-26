@@ -11,6 +11,8 @@
 #include "State/LocomotionState.h"
 #include "CharacterBase.generated.h"
 
+class UHitStopComponent;
+class UMotionWarpingComponent;
 class UCombatComponentBase;
 class UBaseCombatAttributeSet;
 class UCombatAnimSchedulerComponent;
@@ -54,8 +56,10 @@ public:
 	// ICombatInterface
 	virtual UAbilitySystemComponent* GetAbilitySystemComp() const override { return AgentAbilitySystemComponent.Get(); }
 	
-	virtual UCombatComponentBase* GetCombatComp() const override { return CombatBase.Get(); };
+	virtual UCombatComponentBase* GetCombatComp() const override { return CombatBase.Get(); }
 	// ~ICombatInterface
+
+	virtual UHitStopComponent* GetHitStopComponent() const { return HitStopComponent.Get(); }
 public:
 	const FLocomotionState& GetLocomotionState() const { return LocomotionState; }
 	
@@ -88,12 +92,18 @@ public:
 protected:
 	UPROPERTY()
 	TObjectPtr<UCombatComponentBase> CombatBase;
+
+	UPROPERTY()
+	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
 	
 	UPROPERTY()
 	TObjectPtr<UAgentAbilitySystemComponent> AgentAbilitySystemComponent;
 
 	UPROPERTY()
 	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent;
+
+	UPROPERTY()
+	TObjectPtr<UHitStopComponent> HitStopComponent;
 	
 	UPROPERTY()
 	TObjectPtr<UBaseCombatAttributeSet> BaseCombatAttribute;

@@ -30,6 +30,9 @@ public:
 
 	bool HasMovementInput() const {return PlayerInputHandlerComponent && PlayerInputHandlerComponent->HasMovementInput(); }
 
+	UFUNCTION(BlueprintCallable)
+	USquadManagerComponent* GetSquadManagerComponent() const { return SquadManager; }
+	
 private:
 	void CreateQTEWidget();
 

@@ -26,7 +26,7 @@ struct FAttackContext
 public:
 	bool IsContextValid() const
 	{
-		return IsValid(Instigator);	// todo: 根据最终结构体成员进行修改 
+		return IsValid(Instigator) && IsValid(Target);	// todo: 根据最终结构体成员进行修改 
 	}
 
 public:
@@ -34,7 +34,10 @@ public:
 	TObjectPtr<AActor> Instigator{nullptr};
 
 	UPROPERTY()
-	TWeakObjectPtr<UAbilitySystemComponent> SourceASC{nullptr};
+	TObjectPtr<AActor> Target{nullptr};
+
+	UPROPERTY()
+	TWeakObjectPtr<UAbilitySystemComponent> InstigatorASC{nullptr};
 	
 	UPROPERTY()
 	FHitResult HitResult;
@@ -44,21 +47,16 @@ public:
 
 	UPROPERTY()
 	FHitPayloadConfig PayloadConfig;
-	
-	/*UPROPERTY()
-	UCombatActionStep* SourceAction{nullptr};*/
 };
 
 UENUM(BlueprintType)
-enum class EDamageResolveType : uint8
+enum class EAttackResultType : uint8
 {
 	Invalid,
+	Hit,
+	Killed,
 	Dodged,
 	Parried,
-	Blocked,
-	Immune,
-	Hit,
-	Kill
 };
 
 USTRUCT(BlueprintType)
@@ -66,11 +64,16 @@ struct FAttackResult
 {
 	GENERATED_BODY()
 
-	bool bWasDodged{false};
+	EAttackResultType ResultType{EAttackResultType::Invalid};
 
-	bool bWasParried{false};
+	UPROPERTY()
+	TSubclassOf<UGameplayEffect> HitFeedbackEffectOnSelf{nullptr};
 
-	bool bWasDead{false};
+	UPROPERTY()
+	float HitStopDuration{0.f};
+
+	UPROPERTY()
+	float HitStopTimeScale{1.f};
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatActionFinished, class APlayerCharacter*);
@@ -92,9 +95,9 @@ public:
 	
 	virtual void ProcessHitEvent(ACharacterBase* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config/*, UCombatActionStep* SourceAction*/);// PURE_VIRTUAL(UCombatComponentBase::ProcessHitEvent,);
 
-	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult);// PURE_VIRTUAL(UCombatComponentBase::HandleIncomingDamage,);
+	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& Result)  PURE_VIRTUAL(UCombatComponentBase::HandleIncomingDamage,);
 	
-	virtual void EnableAttackDetection(const FHitShapeConfig& ShapeConfig);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
+	virtual void EnableAttackDetection(const FGameplayTag& Tag, UAttackDetectionConfig* DetectionConfig);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
 
 	virtual void DisableAttackDetection();// PURE_VIRTUAL(UCombatComponentBase::DisableAttackDetection, )
 
@@ -104,16 +107,20 @@ public:
 	
 	bool CanInterruptCurrentAction(const UCombatActionStep* Step) const;
 
-	// AttackDetection
-	FTransform CalculateShapeWorldTransform() const;
-
 	void RefreshAttackDetection(float DeltaTime);
-	
-	void RefreshWeaponSweepDirection(float DeltaTime);
+
+	void SubStepAttackDetection(const FTransform& LastWeaponRootTransform, const FTransform& LastWeaponTipTransform,
+								const FTransform& CurrentWeaponRootTransform, const FTransform& CurrentWeaponTipTransform);
 	
 	virtual void InjectAndBindASC(UAgentAbilitySystemComponent* InASC);
 	
-	virtual void BindExclusiveAttributes() PURE_VIRTUAL(UCombatComponentBase::BindExclusiveAttributes, ); 
+	virtual void BindExclusiveAttributes() PURE_VIRTUAL(UCombatComponentBase::BindExclusiveAttributes, );
+
+	UAbilitySystemComponent* GetAbilitySystemComponent() const;
+
+	void ApplyGameplayEffectOnTarget(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, const TSubclassOf<UGameplayEffect>& GE);
+
+	void ApplyImpactEffectOnTarget(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, const FAttackContext& Context);
 protected:
 	void CachePointers();
 	
@@ -125,20 +132,21 @@ protected:
 	void OnHealthChanged(const FOnAttributeChangeData& Data);
 
 	void HandleDeath();
+
+private:
+	void DebugPrintCurrentActionState();
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<UGameplayEffect> DamageEffectClass;	// todo
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<UGameplayEffect> DamageEffectClass;	// todo*/
 	
 	FOnCombatActionFinished OnCombatActionFinished;
 protected:
 	UPROPERTY()
 	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent{nullptr};
-
-	
 	
 protected:
 	UPROPERTY()
-	TObjectPtr<APlayerCharacter> Character{nullptr};
+	TObjectPtr<ACharacterBase> Character{nullptr};
 
 	UPROPERTY()
 	TObjectPtr<USkeletalMeshComponent> Mesh{nullptr};
@@ -148,11 +156,13 @@ protected:
 	
 	UPROPERTY()
 	TObjectPtr<UAgentAbilitySystemComponent> AbilitySystemComponent{nullptr};
-
 	
 	UPROPERTY()
 	FCombatExecutionState CurrentExecutionState;
 	
 	// Attack Detection
-	FAttackDetectionConfig AttackDetectionConfig;
+	FAttackDetectionStatus DetectionStatus;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Debug", meta = (AllowPrivateAccess = "true"))
+	FDetectionDebugConfig DebugConfig;
 };

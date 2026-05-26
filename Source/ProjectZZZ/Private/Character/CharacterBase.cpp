@@ -1,13 +1,17 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Character/CharacterBase.h"
+
+#include "MotionWarpingComponent.h"
 #include "AbilitySystem/AgentAbilitySystemComponent.h"
 #include "AbilitySystem/AgentAttributeSet.h"
 #include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/Component/CharacterCombatComponent.h"
+#include "Character/Component/HitStopComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/KismetMathLibrary.h"
 
 
 ACharacterBase::ACharacterBase()
@@ -38,8 +42,12 @@ ACharacterBase::ACharacterBase()
 	//CombatComponent = CreateDefaultSubobject<UCharacterCombatComponent>(TEXT("CombatComponent"));
 	CombatAnimSchedulerComponent = CreateDefaultSubobject<UCombatAnimSchedulerComponent>(TEXT("CombatAnimSchedulerComponent"));
 
+	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
+	
 	AgentAbilitySystemComponent = CreateDefaultSubobject<UAgentAbilitySystemComponent>(TEXT("AgentAbilitySystemComponent"));
 	AgentAbilitySystemComponent->SetIsReplicated(true);
+
+	HitStopComponent = CreateDefaultSubobject<UHitStopComponent>(TEXT("HitStopComponent"));
 	
 	BaseCombatAttribute = CreateDefaultSubobject<UBaseCombatAttributeSet>(TEXT("BaseCombatAttributeSet"));
 }
@@ -83,19 +91,24 @@ void ACharacterBase::RefreshInput(const float DeltaTime)
 
 void ACharacterBase::RefreshLocomotionState(const float DeltaTime)
 {
+	LocomotionState.DisplacementSinceLastUpdate = (GetActorLocation() - LocomotionState.WorldLocation).Size2D();
+	LocomotionState.DisplacementSinceLastUpdate = UKismetMathLibrary::SafeDivide(LocomotionState.DisplacementSinceLastUpdate, DeltaTime);
+	LocomotionState.bIsMoving = LocomotionState.DisplacementSinceLastUpdate > UE_KINDA_SMALL_NUMBER;
+	
 	LocomotionState.WorldLocation = GetActorLocation();
 	LocomotionState.WorldRotation = GetActorRotation();
 	LocomotionState.WorldVelocity = GetVelocity();
 	LocomotionState.WorldVelocity2D = FVector{LocomotionState.WorldVelocity.X, LocomotionState.WorldVelocity.Y, 0.0f};
-
-	const FRotator YawRotation{0.f, LocomotionState.WorldRotation.Yaw, 0.f};
 	
+	const FRotator YawRotation{0.f, LocomotionState.WorldRotation.Yaw, 0.f};
 	LocomotionState.LocalVelocity2D = YawRotation.UnrotateVector(LocomotionState.WorldVelocity2D);
 	
 	const FVector WorldAcceleration{GetCharacterMovement()->GetCurrentAcceleration()};
-	
 	LocomotionState.WorldAcceleration2D = FVector{WorldAcceleration.X, WorldAcceleration.Y, 0.0f};
-	LocomotionState.LocalAcceleration2D = YawRotation.UnrotateVector(LocomotionState.WorldAcceleration2D); 
+	LocomotionState.LocalAcceleration2D = YawRotation.UnrotateVector(LocomotionState.WorldAcceleration2D);
+
+	LocomotionState.Speed2D = LocomotionState.LocalAcceleration2D.Size();
+	LocomotionState.Acceleration2D = LocomotionState.LocalAcceleration2D.Size();
 }
 
 void ACharacterBase::ApplyGameplayEffectToSelf(const TSubclassOf<UGameplayEffect>& Effect)

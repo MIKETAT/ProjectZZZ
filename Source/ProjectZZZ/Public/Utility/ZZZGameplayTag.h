@@ -5,6 +5,39 @@
 #include "CoreMinimal.h"
 #include "NativeGameplayTags.h"
 
+namespace Combat::ActionTag
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Enemy_Attack)
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_1)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_2)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_3)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_4)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_5)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_6)
+
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Special_Attack)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Special_Attack_EX)
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ultimate)
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Switch_In)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Switch_Out)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Chain_Attack)
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Dodge)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Rush_Attack)
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Quick_Assist)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Defensive_Assist)
+}
+
+namespace Team
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Agent)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Enemy)
+}
+
 namespace Combat::Gait
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Idle)
@@ -13,7 +46,14 @@ namespace Combat::Gait
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Dodge)
 }
 
-namespace Combat::Status
+namespace Combat::Status::Agent
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Parry)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Dodge)
+	
+}
+
+namespace Combat::Status::Enemy
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Daze)
 }
@@ -49,4 +89,12 @@ namespace Combat::Event
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Death)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ChainAttack)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(PerfectAssist)
+}
+
+namespace Combat::SpecialAction
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ChainAttack)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(QuickAssist)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(DefensiveAssist)
 }

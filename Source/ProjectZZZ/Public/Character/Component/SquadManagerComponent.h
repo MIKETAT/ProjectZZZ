@@ -4,9 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
+#include "Player/PlayerCharacter.h"
 #include "SquadManagerComponent.generated.h"
 
 
+class AEnemyCharacterBase;
 class UCombatComponentBase;
 class UCharacterCombatComponent;
 enum class EAgentPresenceState : uint8;
@@ -20,6 +22,7 @@ class UImage;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTriggerChainAttack, UTexture2D*, UTexture2D*);
 DECLARE_MULTICAST_DELEGATE(FOnFinishChainAttack);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveAgentChanged, APlayerCharacter*, APlayerCharacter*)
 
 USTRUCT(BlueprintType)
 struct FChainAttackWindowStatus
@@ -30,7 +33,10 @@ public:
 	void ResetChainAttackWindow();
 	
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY()
+	TObjectPtr<AEnemyCharacterBase> Enemy{nullptr};
+	
+	UPROPERTY(EditDefaultsOnly)
 	float QTEDuration{3.f};
 	
 	UPROPERTY()
@@ -40,12 +46,31 @@ public:
 	bool bActive{false};
 };
 
+USTRUCT()
+struct FPerfectAssistWindowStatus
+{
+	GENERATED_BODY()
+	
+public:
+	void ResetPerfectAssistWindow();
+	
+	UPROPERTY()
+	bool bPerfectAssistWindowOpen{false};
+	
+	UPROPERTY()
+	TObjectPtr<AEnemyCharacterBase> TargetEnemy{nullptr};
+
+	UPROPERTY()
+	float ParryReferenceOffset{0.f};
+};
+
 UENUM(BlueprintType)
 enum class EAgentSwitchOutMode : uint8
 {
 	ExitImmediately,
 	ExitWithSwitchOutAnim,
-	FinishActionThenExit
+	FinishActionThenExit,
+	None		// for initial spawn
 };
 
 UENUM(BlueprintType)
@@ -54,15 +79,20 @@ enum class EAgentSwitchInMode : uint8
 	InitialIdle,
 	InheritLocomotion,
 	EnterWithSwitchInAnim,
-	ExecuteSpecialAction
+	//ExecuteSpecialAction,
+	ExecuteDefensiveAssist,
+	ExecuteChainAttack,
+	ExecuteQuickAssist,
 };
 
 UENUM(BlueprintType)
 enum class EAgentSpawnPolicy : uint8
 {
-	AbsoluteTransform,
-	RelativeRight,
-	FaceTarget			// Chain Attack/ Parry Assist/ Quick Assist
+	InitialSpawn,
+	AgentRelativeLeft,
+	AgentRelativeRight,
+	ParryAssistFacingTarget,
+	// Chain Attack/ Parry Assist/ Quick Assist
 };
 
 USTRUCT(BlueprintType)
@@ -77,20 +107,19 @@ struct FAgentTransitionRequest
 	EAgentSwitchInMode SwitchInMode{EAgentSwitchInMode::EnterWithSwitchInAnim};
 
 	UPROPERTY()
-	EAgentSwitchOutMode SwitchOutMode{EAgentSwitchOutMode::ExitWithSwitchOutAnim};
+	EAgentSwitchOutMode SwitchOutMode{EAgentSwitchOutMode::None};
 
 	UPROPERTY()
-	EAgentSpawnPolicy SpawnPolicy{EAgentSpawnPolicy::AbsoluteTransform};
-
-	UPROPERTY()
-	FTransform SpawnTransform{FTransform::Identity};
+	EAgentSpawnPolicy SpawnPolicy{EAgentSpawnPolicy::InitialSpawn};
 	
 	UPROPERTY()
 	TObjectPtr<UCombatActionStep> SpecialActionToExecute;
 	
-	// Motion Warping
 	UPROPERTY()
-	TObjectPtr<AActor> MotionWarpTarget{nullptr};
+	TObjectPtr<AEnemyCharacterBase> Enemy{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<APlayerCharacter> CurrentAgent{nullptr};
 };
 
 USTRUCT()
@@ -124,7 +153,12 @@ public:
 	virtual void InitializeComponent() override;
 	
 	// Getter and Setter
-	APlayerCharacter* GetActivePlayerCharacter() const;
+	UFUNCTION(BlueprintCallable)
+	APlayerCharacter* GetActiveAgent() const;
+
+	APlayerCharacter* GetTargetAgent(const int32 TargetIndex) const;
+
+	bool IsActiveAgentExecutingAction() const { return GetActiveAgent() && GetActiveAgent()->IsAnyActionActive(); }
 	
 	FChainAttackWindowStatus GetChainAttackWindowStatus() const { return ChainAttackStatus; }
 private:
@@ -147,7 +181,7 @@ private:
 
 	FAgentTransitionSnapshot GetInitialSnapshot();
 
-	FTransform CalculateSwitchInTransform(const EAgentSpawnPolicy Policy, APlayerCharacter* OldAgent) const;
+	//FTransform CalculateSwitchInTransform(const EAgentSpawnPolicy Policy, APlayerCharacter* OldAgent) const;
 
 	void HandleAgentSwitchIn(APlayerCharacter* NewAgent, const FAgentTransitionRequest& Request, const FAgentTransitionSnapshot& Snapshot);
 
@@ -159,12 +193,14 @@ private:
 	
 	void SwitchToNextAgent();
 	
-	void SwitchToAgent(const int32 TargetIndex);
+	void SwitchToAgent(const int32 TargetIndex, bool bIsPrevious);
 
-	void AgentChainAttack(const int32 TargetIndex);
+	void AgentChainAttack(const int32 TargetIndex, bool bIsPrevious);
 
+	void AgentDefensiveAssist(const int32 TargetIndex, bool bIsPrevious);
+
+	void ExecuteDefensiveAssist(APlayerCharacter* NewAgent, const FAgentTransitionRequest& Request);
 private:
-	
 	// Squad 
 	void InitializeAgentSquad();
 		
@@ -188,6 +224,8 @@ private:
 	bool SquadConsumeInput(FCharacterFrameDataBus& DataBus);
 
 	void ConsumeChainAttackInput(FCharacterFrameDataBus& DataBus);
+
+	bool ConsumePerfectAssistInput(FCharacterFrameDataBus& DataBus);
 	
 	void AgentConsumeInput(FCharacterFrameDataBus& DataBus);
 
@@ -198,8 +236,14 @@ private:
 	
 	void QTEAdvanceCountDown(float DeltaTime);
 
-	//void OpenChainAttackWindow();
+	// Perfect Assist
+	ECombatEventHandleResult TriggerPerfectAssistWindow(const FCombatEventMessage& CombatEventMessage);
 
+	FTransform CalculateAgentSpawnTransform(const FAgentTransitionRequest& Request);
+
+	void CalculateParrySpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform);
+
+	FTransform GetInitialSpawnTransform() const;
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<TSubclassOf<APlayerCharacter>> SquadPreset;
@@ -207,6 +251,8 @@ public:
 	FOnTriggerChainAttack OnTriggerChainAttack;
 
 	FOnFinishChainAttack OnFinishChainAttack;
+
+	FOnActiveAgentChanged OnActiveAgentChanged;
 private:
 	UPROPERTY()
 	TArray<APlayerCharacter*> Squad;
@@ -216,9 +262,13 @@ private:
 
 	int32 ActiveAgentIndex{INDEX_NONE};
 
-	FDelegateHandle Handle;
+	FDelegateHandle ChainAttackHandle;
 
-	bool bChainAttackWindowActive{false};
+	FDelegateHandle PerfectAssistActiveHandle;
+
+	FDelegateHandle PerfectAssistCloseHandle;
 
 	FChainAttackWindowStatus ChainAttackStatus;
+
+	FPerfectAssistWindowStatus PerfectAssistStatus;
 };

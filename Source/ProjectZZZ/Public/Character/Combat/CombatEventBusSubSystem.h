@@ -17,6 +17,18 @@ enum class ECombatEventHandleResult : uint8
 };
 
 USTRUCT(BlueprintType)
+struct FPerfectAssistStatePayload
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(EditDefaultsOnly)
+	bool bWindowOpen{false};
+
+	UPROPERTY(EditDefaultsOnly)
+	float ParryReferenceOffset{0.f};
+};
+
+USTRUCT(BlueprintType)
 struct FCombatEventMessage
 {
 	GENERATED_BODY()
@@ -83,9 +95,9 @@ public:
 	void BroadcastEvent(
 		const FGameplayTag& EventTag,
 		// ECombatEventScope  Character/Squad/Global
-		UObject* Source,
-		UObject* Target,
-		UObject* Instigator,
+		AActor* Source,
+		AActor* Target,
+		AActor* Instigator,
 		//const FGameplayTagContainer& ContextTags,
 		const PayloadType& Payload
 	)

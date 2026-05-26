@@ -15,14 +15,19 @@ class PROJECTZZZ_API UEnemyCombatComponent : public UCombatComponentBase
 public:
 	UEnemyCombatComponent();
 
-	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 protected:
 	virtual void BeginPlay() override;
 
 public:
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	UFUNCTION(BlueprintCallable)
+	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep) override;
 
+	float GetCurrentActionParryOffset() const;
+	
+	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& Result) override;
+	
 	virtual void ProcessHitFeedback(const FAttackResult& Result) override;
 
 	virtual void InjectAndBindASC(UAgentAbilitySystemComponent* InASC) override;

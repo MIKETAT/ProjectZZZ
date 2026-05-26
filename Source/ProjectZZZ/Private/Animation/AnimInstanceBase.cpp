@@ -7,18 +7,11 @@
 #include "Character/CharacterBase.h"
 #include "Kismet/KismetMathLibrary.h"
 
-// Get Locomotion Animation Asset
-#define DEFINE_LOCOMOTION_ANIM_GETTER(FuncName, Field) \
-const UAnimSequenceBase* UAnimInstanceBase::FuncName() const \
-{ \
-	const UCharacterAnimationPreset_Locomotion* Preset = GetLocomotionAnimPreset(); \
-	return Preset ? Preset->Field : nullptr; \
-}
+
 
 void UAnimInstanceBase::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
-
 	Character = Cast<ACharacterBase>(GetOwningActor());
 }
 
@@ -31,58 +24,32 @@ void UAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)
 	}
 	
 	RefreshLocomotionAnimationStateOnGameThread(DeltaSeconds);
-	bHasMovementInput = Character->bHasMovementInput;
 }
 
 void UAnimInstanceBase::NativeBeginPlay()
 {
 	Super::NativeBeginPlay();
-
-	ensure(IsValidLowLevel());
-}
-
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Idle, LocomotionAnim_Idle)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Idle_AFK, LocomotionAnim_Idle_AFK)
-/*DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Walk, LocomotionAnim_Walk)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Walk_Start, LocomotionAnim_Walk_Start)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Walk_End, LocomotionAnim_Walk_End)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Walk_Start_End, LocomotionAnim_Walk_Start_End)*/
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Run, LocomotionAnim_Run)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Run_Start, LocomotionAnim_Run_Start)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Run_End, LocomotionAnim_Run_End)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Run_Start_End, LocomotionAnim_Run_Start_End)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Sprint, LocomotionAnim_Sprint)
-DEFINE_LOCOMOTION_ANIM_GETTER(GetLocomotionAnim_Turn_Back, LocomotionAnim_Turn_Back)
-
-bool UAnimInstanceBase::ShouldDistanceMatchToStop() const
-{
-	const bool HasVelocity{LocomotionAnimState.LocalVelocity2D.Size() > 0.f};
-	const bool HasAcceleration{LocomotionAnimState.LocalAcceleration2D.Size() > 0.f};
-	return HasVelocity && !HasAcceleration;
-}
-#undef DEFINE_LOCOMOTION_ANIM_GETTER
-
-const UCharacterAnimationPreset_Locomotion* UAnimInstanceBase::GetLocomotionAnimPreset() const
-{
-	return AnimPreset_Locomotion.Get();
 }
 
 void UAnimInstanceBase::RefreshLocomotionAnimationStateOnGameThread(const float DeltaSeconds)
 {
 	check(IsInGameThread());
 
-	const auto& LocomotionState{Character->GetLocomotionState()};
+	const auto& CharLocoState{Character->GetLocomotionState()};
 
-	LocomotionAnimState.DisplacementSinceLastUpdate = (Character->GetActorLocation() - LocomotionAnimState.WorldLocation).Size2D();
-	LocomotionAnimState.DisplacementSpeed = UKismetMathLibrary::SafeDivide(LocomotionAnimState.DisplacementSinceLastUpdate, DeltaSeconds);
+	LocomotionAnimState.DisplacementSinceLastUpdate = CharLocoState.DisplacementSinceLastUpdate;
+	LocomotionAnimState.DisplacementSpeed = CharLocoState.DisplacementSpeed;
+	LocomotionAnimState.bIsMoving = CharLocoState.bIsMoving;
 	
-	LocomotionAnimState.WorldLocation = LocomotionState.WorldLocation;
-	LocomotionAnimState.WorldRotation = LocomotionState.WorldRotation;
-	LocomotionAnimState.WorldVelocity = LocomotionState.WorldVelocity;
-	LocomotionAnimState.WorldVelocity2D = LocomotionState.WorldVelocity2D;
-	LocomotionAnimState.LocalVelocity2D = LocomotionState.LocalVelocity2D;
-	LocomotionAnimState.WorldAcceleration2D = LocomotionState.WorldAcceleration2D;
-	LocomotionAnimState.LocalAcceleration2D = LocomotionState.LocalAcceleration2D;
-	
-	bPivotActive = FVector::DotProduct(LocomotionAnimState.LocalVelocity2D, LocomotionAnimState.LocalAcceleration2D) < 0.f;
+	LocomotionAnimState.WorldLocation = CharLocoState.WorldLocation;
+	LocomotionAnimState.WorldRotation = CharLocoState.WorldRotation;
+	LocomotionAnimState.WorldVelocity = CharLocoState.WorldVelocity;
+	LocomotionAnimState.WorldVelocity2D = CharLocoState.WorldVelocity2D;
+	LocomotionAnimState.LocalVelocity2D = CharLocoState.LocalVelocity2D;
+	LocomotionAnimState.WorldAcceleration2D = CharLocoState.WorldAcceleration2D;
+	LocomotionAnimState.LocalAcceleration2D = CharLocoState.LocalAcceleration2D;
+	LocomotionAnimState.Speed2D = CharLocoState.Speed2D;
+	LocomotionAnimState.Acceleration2D = CharLocoState.Acceleration2D;
+	// todo: Pivot
+	//bPivotActive = FVector::DotProduct(LocomotionAnimState.LocalVelocity2D, LocomotionAnimState.LocalAcceleration2D) < 0.f;
 }

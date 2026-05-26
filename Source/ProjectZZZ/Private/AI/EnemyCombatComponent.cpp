@@ -1,9 +1,11 @@
 ﻿#include "AI/EnemyCombatComponent.h"
-
 #include "AbilitySystem/AgentAbilitySystemComponent.h"
 #include "AbilitySystem/EnemyAttributeSet.h"
+#include "Animation/Component/CombatAnimSchedulerComponent.h"
+#include "Character/CharacterBase.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
+#include "Character/Component/HitStopComponent.h"
 #include "Utility/ZZZGameplayTag.h"
 
 UEnemyCombatComponent::UEnemyCombatComponent()
@@ -11,26 +13,79 @@ UEnemyCombatComponent::UEnemyCombatComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 }
 
-void UEnemyCombatComponent::HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult)
+void UEnemyCombatComponent::HandleIncomingDamage(const FAttackContext& Context, FAttackResult& Result)
 {
-	Super::HandleIncomingDamage(Context, OutResult);
+	UAbilitySystemComponent* SourceASC{Context.InstigatorASC.Get()};
+	UAbilitySystemComponent* TargetASC{GetAbilitySystemComponent()};
+	
+	if (!IsValid(SourceASC) || !IsValid(TargetASC) || !Context.IsContextValid() || !IsValid(CombatAnimSchedulerComponent))
+	{
+		return;
+	}
+	
+	// Apply Damage
+	Result.ResultType = EAttackResultType::Hit;
+	ApplyImpactEffectOnTarget(SourceASC, TargetASC, Context);
+	UE_LOG(LogTemp, Error, TEXT("Attack Detection: Enemy got Hit"));
 
+	// Daze
 	bool bIsDazeValueFull{IsDazeValueFull()};
-
 	// todo: already in stun state
-
 	if (bIsDazeValueFull && Context.PayloadConfig.bIsHeavyAttack/* && Not Stun Yet*/)
 	{
 		// Trigger Chain Attack
 		if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
 		{
 			FTestDeathPayload Payload;
-			EventBus->BroadcastEvent(Combat::Event::ChainAttack, nullptr, nullptr, nullptr, Payload);
+			EventBus->BroadcastEvent(Combat::Event::ChainAttack, Context.Instigator, Context.Target, Context.Instigator, Payload);
 		}
-		
 		// Cancel Current Action/Play Stun Montage/Add Stun Tag
 	}
+}
+
+int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep)
+{
+	if (!IsValid(ActionStep) || !IsValid(CombatAnimSchedulerComponent))
+	{
+		return INDEX_NONE;
+	}
+
+	if (IsDazeValueFull())
+	{
+		return INDEX_NONE;
+	}
+
+	if (IsAnyActionActive())
+	{
+		CombatAnimSchedulerComponent->CancelAnimRequest(CurrentExecutionState.MontageInstanceId);
+	}
 	
+	FCombatAnimExecutionRequest Request;
+	Request.Montage = ActionStep->Montage;
+	Request.Priority = ActionStep->Priority;
+
+	int32 InstanceID = CombatAnimSchedulerComponent->ExecuteAnimRequest(Request);
+	if (InstanceID != INDEX_NONE)
+	{
+		CurrentExecutionState.Reset();
+		CurrentExecutionState.CurrentStep = ActionStep;
+		CurrentExecutionState.MontageInstanceId = InstanceID;
+		CurrentExecutionState.bHasSuccessfullyStarted = true;
+	}
+	
+	return InstanceID;
+}
+
+float UEnemyCombatComponent::GetCurrentActionParryOffset() const
+{
+	float ParryOffset{0.f};
+
+	if (IsValid(CurrentExecutionState.CurrentStep) && CurrentExecutionState.CurrentStep->ParriedActionConfig.bIsParriedAction)
+	{
+		ParryOffset = CurrentExecutionState.CurrentStep->ParriedActionConfig.ParryOffset;
+	}
+
+	return ParryOffset;
 }
 
 void UEnemyCombatComponent::BeginPlay()
@@ -47,8 +102,30 @@ void UEnemyCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 
 void UEnemyCombatComponent::ProcessHitFeedback(const FAttackResult& Result)
 {
-	Super::ProcessHitFeedback(Result);
-	
+	switch (Result.ResultType)
+	{
+		case EAttackResultType::Invalid:
+			break;
+		case EAttackResultType::Hit:
+			break;
+		case EAttackResultType::Killed:
+			break;
+		case EAttackResultType::Dodged:
+			// Agent Dodge this attack
+			break;
+		case EAttackResultType::Parried:
+			// Hit Fly?
+			// HitStop
+			{
+				checkf(Character, TEXT("Enemy Character Invalid"));
+				if (UHitStopComponent* HitStopComponent = Character->GetHitStopComponent())
+				{
+					UE_LOG(LogTemp, Log, TEXT("Enemy Attack was Parried. Apply HitStop on Enemy"));
+					HitStopComponent->ApplyHitStop(Result.HitStopDuration, Result.HitStopTimeScale);
+				}
+			}
+			break;
+	}
 }
 
 void UEnemyCombatComponent::InjectAndBindASC(UAgentAbilitySystemComponent* InASC)

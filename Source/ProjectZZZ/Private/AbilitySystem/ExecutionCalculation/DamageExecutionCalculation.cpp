@@ -44,7 +44,7 @@ void UDamageExecutionCalculation::Execute_Implementation(const FGameplayEffectCu
 	float DazeMultiplier{Spec.GetSetByCallerMagnitude(Combat::Data::DazeMultiplier, false, 1.f)};
 	
 	float Damage = Attack * DamageMultiplier;
-	if (TargetTags && TargetTags->HasTagExact(Combat::Status::Daze))
+	if (TargetTags && TargetTags->HasTagExact(Combat::Status::Enemy::Daze))
 	{
 		Damage *= StunDMGMultiplier;
 	}

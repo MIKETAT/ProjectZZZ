@@ -36,7 +36,7 @@ APlayerCharacter::APlayerCharacter()
 void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 	// Test
 	if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>()) {
 		FCombatEventDelegate Callback;
@@ -52,6 +52,21 @@ void APlayerCharacter::Tick(float DeltaTime)
 	ProcessMovementInput(DeltaTime);
 	ProcessLookInput(DeltaTime);
 	ProcessCombatActionInput(DeltaTime);
+
+	// debug
+	if (bIsActive)
+	{
+		UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	
+		FGameplayTagContainer OwnedTags;
+		ASC->GetOwnedGameplayTags(OwnedTags);
+	
+		GEngine->AddOnScreenDebugMessage(
+			111,
+			-1.f,
+			FColor::Green,
+			FString::Printf(TEXT("Active Agent %s has Tags: %s"), *GetName(), *OwnedTags.ToString()));
+	}
 }
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

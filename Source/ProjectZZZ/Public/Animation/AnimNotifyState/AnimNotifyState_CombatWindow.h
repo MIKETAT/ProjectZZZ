@@ -5,13 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
-#include "UAnimNotifyState_CombatWindow.generated.h"
+#include "AnimNotifyState_CombatWindow.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class PROJECTZZZ_API UUAnimNotifyState_CombatWindow : public UAnimNotifyState
+class PROJECTZZZ_API UAnimNotifyState_CombatWindow : public UAnimNotifyState
 {
 	GENERATED_BODY()
 

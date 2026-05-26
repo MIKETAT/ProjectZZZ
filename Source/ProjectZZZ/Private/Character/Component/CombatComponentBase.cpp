@@ -1,13 +1,12 @@
 ﻿#include "Character/Component/CombatComponentBase.h"
-
 #include "KismetTraceUtils.h"
 #include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "AbilitySystem/EnemyAttributeSet.h"
 #include "Animation/AnimInstanceBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/CharacterBase.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Player/PlayerCharacter.h"
-#include "Utility/KismetCustomTraceUtils.h"
 #include "Utility/ZZZGameplayTag.h"
 
 UCombatComponentBase::UCombatComponentBase()
@@ -19,7 +18,6 @@ UCombatComponentBase::UCombatComponentBase()
 void UCombatComponentBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
 	CachePointers();
 }
 
@@ -28,6 +26,7 @@ void UCombatComponentBase::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	
 	RefreshAttackDetection(DeltaTime);
+	DebugPrintCurrentActionState();
 }
 
 void UCombatComponentBase::ProcessHitEvent(ACharacterBase* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config)
@@ -35,90 +34,51 @@ void UCombatComponentBase::ProcessHitEvent(ACharacterBase* Victim, const FHitRes
 	if (!IsValid(Victim) || !IsValid(Character))
 	{
 		return;
-		
 	}
 	
 	FAttackContext AttackContext;
 	AttackContext.Instigator = Character;
+	AttackContext.Target = Victim;
 	AttackContext.HitResult = HitResult;
 	AttackContext.PayloadConfig = Config;
-	AttackContext.SourceASC = AbilitySystemComponent;
+	AttackContext.InstigatorASC = AbilitySystemComponent;
 	
-	//Victim
 	if (UCombatComponentBase* CombatComponent = Victim->GetCombatComp())
 	{
 		FAttackResult Result;
+		Result.HitFeedbackEffectOnSelf = Config.HitFeedbackEffectOnSelf;
 		CombatComponent->HandleIncomingDamage(AttackContext, Result);
+		ProcessHitFeedback(Result);
 	}
 }
 
-void UCombatComponentBase::HandleIncomingDamage(const FAttackContext& Context, FAttackResult& OutResult)
+void UCombatComponentBase::EnableAttackDetection(const FGameplayTag& Tag, UAttackDetectionConfig* DetectionConfig)
 {
-	// Valid Check
-	if (!Context.IsContextValid())
+	if (!IsValid(CurrentExecutionState.CurrentStep))
 	{
 		return;
 	}
 
-	UAbilitySystemComponent* SourceASC{Context.SourceASC.Get()};
-	UAbilitySystemComponent* TargetASC{Character->GetAbilitySystemComponent()};
-
-	if (!IsValid(SourceASC) || !IsValid(TargetASC))
+	if (Tag != CurrentExecutionState.CurrentStep->ActionTag)
 	{
-		// Feedback? Invalid
 		return;
 	}
 
-	// Todo: Dodge/Parry 等检查放在一个函数中？
-	
-	// Dodge Check
-	if (AbilitySystemComponent->HasMatchingGameplayTag(Combat::Gait::Dodge))
-	{
-		// Dodged. Triggered XXX
-		//Context.bWasEvaded = true;
-		return;
-	}
-	// Parry Check
-	
-	// Apply Damage
-	FGameplayEffectContextHandle ContextHandle{SourceASC->MakeEffectContext()};
-	ContextHandle.AddSourceObject(GetOwner());
-
-	if (Context.HitResult.bBlockingHit)
-	{
-		ContextHandle.AddHitResult(Context.HitResult);
-	}
-
-	FGameplayEffectSpecHandle SpecHandle{SourceASC->MakeOutgoingSpec(DamageEffectClass, 1, ContextHandle)};
-	if (!SpecHandle.IsValid())
-	{
-		// Feedback Invalid
-		return;
-	}
-
-	FGameplayEffectSpec* Spec{SpecHandle.Data.Get()};
-	
-	Spec->SetSetByCallerMagnitude(Combat::Data::DamageMultiplier, Context.PayloadConfig.DamageMultiplier);
-	Spec->SetSetByCallerMagnitude(Combat::Data::DazeMultiplier, Context.PayloadConfig.DazeMultiplier);
-
-	TargetASC->ApplyGameplayEffectSpecToSelf(*Spec);
-}
-
-void UCombatComponentBase::EnableAttackDetection(const FHitShapeConfig& ShapeConfig)
-{
-	AttackDetectionConfig.bEnableAttackDetection = true;
-	AttackDetectionConfig.ShapeConfig = ShapeConfig;
-	AttackDetectionConfig.AttackingAction = CurrentExecutionState.CurrentStep;
-	AttackDetectionConfig.WeaponSweepState.Reset();
-	AttackDetectionConfig.HitActors.Empty();
+	DetectionStatus.bEnableAttackDetection = true;
+	DetectionStatus.DetectionConfig = DetectionConfig;
+	DetectionStatus.AttackingAction = CurrentExecutionState.CurrentStep;
+	DetectionStatus.HitActors.Empty();
+	DetectionStatus.bIsFirstFrame = true;
 }
 
 void UCombatComponentBase::DisableAttackDetection()
 {
-	AttackDetectionConfig.bEnableAttackDetection = false;
-	AttackDetectionConfig.AttackingAction = nullptr;
-	AttackDetectionConfig.WeaponSweepState.Reset();
-	AttackDetectionConfig.HitActors.Empty();
+	DetectionStatus.bEnableAttackDetection = false;
+	DetectionStatus.HitActors.Empty();
+	DetectionStatus.AttackingAction = nullptr;
+	DetectionStatus.DetectionConfig = nullptr;
+	DetectionStatus.LastWeaponRootTransform = FTransform::Identity;
+	DetectionStatus.LastWeaponTipTransform = FTransform::Identity;
 }
 
 bool UCombatComponentBase::IsAnyActionActive() const
@@ -144,7 +104,7 @@ bool UCombatComponentBase::CanInterruptCurrentAction(const UCombatActionStep* St
 	return  Step->Priority > CurrentExecutionState.CurrentStep->Priority || CurrentExecutionState.bIsRecoveryWindowOpen;
 }
 
-FTransform UCombatComponentBase::CalculateShapeWorldTransform() const
+/*FTransform UCombatComponentBase::CalculateShapeWorldTransform() const
 {
 	FTransform BaseTransform{FTransform::Identity};
 	
@@ -162,116 +122,127 @@ FTransform UCombatComponentBase::CalculateShapeWorldTransform() const
 	}
 
 	return AttackDetectionConfig.ShapeConfig.RelativeTransform * BaseTransform;
-}
+}*/
 
 void UCombatComponentBase::RefreshAttackDetection(float DeltaTime)
 {
-	if (!AttackDetectionConfig.bEnableAttackDetection)
+	if (!DetectionStatus.bEnableAttackDetection || !IsValid(Mesh) || !IsValid(DetectionStatus.DetectionConfig))
 	{
 		return;
 	}
 	
-	if (!IsValid(Mesh))
+	FTransform LastWeaponRootTransform{DetectionStatus.LastWeaponRootTransform};
+	FTransform LastWeaponTipTransform{DetectionStatus.LastWeaponTipTransform};
+	
+	FTransform CurrentWeaponRootTransform{Mesh->GetSocketTransform(DetectionStatus.DetectionConfig->WeaponRootSocketName)};
+	FTransform CurrentWeaponTipTransform{Mesh->GetSocketTransform(DetectionStatus.DetectionConfig->WeaponTipSocketName)};
+
+	// Update Weapon Socket Transform.
+	DetectionStatus.LastWeaponRootTransform = CurrentWeaponRootTransform;
+	DetectionStatus.LastWeaponTipTransform = CurrentWeaponTipTransform;
+	
+	// Initialize Weapon Socket Transform In First Frame.
+	if (DetectionStatus.bIsFirstFrame)
 	{
+		DetectionStatus.bIsFirstFrame = false;
 		return;
 	}
 	
-	UWorld* World = Mesh->GetWorld();
-	if (!IsValid(World))
+	FTransform LastSubStepWeaponRootTransform{DetectionStatus.LastWeaponRootTransform};
+	FTransform LastSubStepWeaponTipTransform{DetectionStatus.LastWeaponTipTransform};
+
+	const int32 SubStepCount{DetectionStatus.DetectionConfig->SubStepCount};
+	// Sweep
+	for (int32 Step = 0; Step < SubStepCount; Step++)
 	{
-		return;
-	}
-	
-	RefreshWeaponSweepDirection(DeltaTime);
-	
-	FTransform CurrentTransform{CalculateShapeWorldTransform()};
-	FVector CurrentLocation{CurrentTransform.GetLocation()};
-	FQuat CurrentRotation{CurrentTransform.GetRotation()};
-	FVector SweepDirection = AttackDetectionConfig.WeaponSweepState.WeaponSweepDirection;
+		float Alpha = Step / static_cast<float>(SubStepCount);
+		FTransform CurrentSubStepWeaponRootTransform = UKismetMathLibrary::TLerp(LastWeaponRootTransform, CurrentWeaponRootTransform, Alpha);
+		FTransform CurrentSubStepWeaponTipTransform = UKismetMathLibrary::TLerp(LastWeaponTipTransform, CurrentWeaponTipTransform, Alpha);
+		
+		SubStepAttackDetection(LastSubStepWeaponRootTransform, LastSubStepWeaponTipTransform,
+			CurrentSubStepWeaponRootTransform, CurrentSubStepWeaponTipTransform);
 
-	FVector StartLocation{FVector::ZeroVector};
-	FVector EndLocation{FVector::ZeroVector};
-	FQuat ShapeRotation = CurrentRotation * AttackDetectionConfig.ShapeConfig.ShapeOrientation.Quaternion();
-
-	switch (AttackDetectionConfig.ShapeConfig.ShapeType)
-	{
-		case EHitShapeType::Box:
-			StartLocation = CurrentTransform.TransformPosition(AttackDetectionConfig.ShapeConfig.ShapeCenter);
-			EndLocation = StartLocation + SweepDirection * 2.f * FMath::Max(AttackDetectionConfig.ShapeConfig.BoxHalfExtents.X, AttackDetectionConfig.ShapeConfig.BoxHalfExtents.Y);
-			break;
-		case EHitShapeType::Sphere:
-			StartLocation = CurrentTransform.TransformPosition(AttackDetectionConfig.ShapeConfig.ShapeCenter);
-			EndLocation = StartLocation + SweepDirection * 2.f * AttackDetectionConfig.ShapeConfig.SphereRadius;
-			break;
-		case EHitShapeType::Capsule:
-			StartLocation = CurrentTransform.TransformPosition(AttackDetectionConfig.ShapeConfig.ShapeCenter);
-			EndLocation = StartLocation + SweepDirection * 2.f * AttackDetectionConfig.ShapeConfig.CapsuleRadius;
-			break;
-	}
-	
-	FCollisionQueryParams CollisionParams;
-	CollisionParams.AddIgnoredActor(Mesh->GetOwner());
-	CollisionParams.bTraceComplex = false;
-
-	FCollisionShape Shape = AttackDetectionConfig.ShapeConfig.GetCollisionShape();
-
-	TArray<FHitResult> Hits;
-	bool bHit = World->SweepMultiByChannel(
-		Hits,
-		StartLocation,
-		EndLocation,
-		ShapeRotation,
-		ECC_Pawn,
-		Shape,
-		CollisionParams);
-
-	// Draw Debug
-	bool bShowDebug = true;
-	FLinearColor HitColor = FLinearColor::Red;
-	FLinearColor TraceColor = FLinearColor::Green;
-	float DrawTime = 2.f;
-	
-	if (bShowDebug)
-	{
-		switch (AttackDetectionConfig.ShapeConfig.ShapeType)
-		{
-			case EHitShapeType::Sphere:
-				DrawDebugSphereTraceMulti(World, StartLocation, EndLocation, AttackDetectionConfig.ShapeConfig.SphereRadius, EDrawDebugTrace::ForDuration,
-					bHit, Hits, TraceColor, HitColor, DrawTime);
-				break;
-			case EHitShapeType::Capsule:
-				DrawDebugCapsuleTraceMulti_WithOrientation(World, StartLocation, EndLocation, ShapeRotation, AttackDetectionConfig.ShapeConfig.CapsuleRadius, AttackDetectionConfig.ShapeConfig.CapsuleHalfHeight,
-					EDrawDebugTrace::ForDuration, bHit, Hits, TraceColor, HitColor, DrawTime);
-				break;
-			case EHitShapeType::Box:
-				DrawDebugBoxTraceMulti(World, StartLocation, EndLocation, AttackDetectionConfig.ShapeConfig.BoxHalfExtents, ShapeRotation.Rotator(), EDrawDebugTrace::ForDuration,
-					bHit, Hits, TraceColor, HitColor, DrawTime);
-				break;
-		}
-	}
-
-	if (bHit)
-	{
-		 for (auto& Hit : Hits)
-		 {
-		 	AActor* HitActor = Hit.GetActor();
-		 	if (HitActor && !AttackDetectionConfig.HitActors.Contains(HitActor))
-		 	{
-		 		AttackDetectionConfig.HitActors.Add(HitActor);
-		 		UE_LOG(LogTemp, Error, TEXT("Hit Actor: %s"), *HitActor->GetName());
-
-				ACharacterBase* Victim{Cast<ACharacterBase>(HitActor)};
-		 		
-		 		if (IsValid(AttackDetectionConfig.AttackingAction))
-		 		{
-		 			ProcessHitEvent(Victim, Hit, AttackDetectionConfig.AttackingAction.Get()->HitPayloadConfig);
-		 		}
-		 	}
-		 }
+		LastSubStepWeaponRootTransform = CurrentSubStepWeaponRootTransform;
+		LastSubStepWeaponTipTransform = CurrentSubStepWeaponTipTransform;
 	}
 }
 
-void UCombatComponentBase::RefreshWeaponSweepDirection(float DeltaTime)
+void UCombatComponentBase::SubStepAttackDetection(	const FTransform& LastWeaponRootTransform, const FTransform& LastWeaponTipTransform,
+													const FTransform& CurrentWeaponRootTransform, const FTransform& CurrentWeaponTipTransform)
+{
+	const int32 SampleCount{DetectionStatus.DetectionConfig->SampleCount};
+	
+	FCollisionQueryParams CollisionParams;
+	CollisionParams.AddIgnoredActor(Character);
+	CollisionParams.bTraceComplex = false;
+	FCollisionShape Shape = DetectionStatus.DetectionConfig->SweepShapeConfig.GetCollisionShape();
+	
+	for (int32 i = 0; i < SampleCount; i++)
+	{
+		float Alpha = (SampleCount > 1) ? i / static_cast<float>(SampleCount - 1) : 0.f;
+
+		FVector LastSampleLocation{FMath::Lerp(LastWeaponRootTransform.GetLocation(), LastWeaponTipTransform.GetLocation(), Alpha)};
+		FVector CurrentSampleLocation{FMath::Lerp(CurrentWeaponRootTransform.GetLocation(), CurrentWeaponTipTransform.GetLocation(), Alpha)};
+
+		TArray<FHitResult> TempHits;
+		GetWorld()->SweepMultiByChannel(
+			TempHits,
+			LastSampleLocation,
+			CurrentSampleLocation,
+			FQuat::Identity,
+			DetectionStatus.DetectionConfig->Channel,
+			Shape,
+			CollisionParams);
+
+		if (DebugConfig.bDrawDebug)
+		{
+			bool bHit{false};
+			TArray<FHitResult> Hits;
+		
+			switch (DetectionStatus.DetectionConfig->SweepShapeConfig.ShapeType)
+			{
+				case ESweepShapeType::Sphere:
+					DrawDebugSphereTraceMulti(
+						GetWorld(),
+						LastSampleLocation,
+						CurrentSampleLocation,
+						DetectionStatus.DetectionConfig->SweepShapeConfig.SphereRadius,
+						EDrawDebugTrace::ForDuration,
+						bHit,
+						Hits,
+						DebugConfig.TraceColor,
+						DebugConfig.HitColor,
+						DebugConfig.DrawTime);
+				break;
+				case ESweepShapeType::Box:
+				case ESweepShapeType::Capsule:
+				default:
+				break;
+			}
+		}
+		
+		// Process Hit Result
+		for (auto& Hit : TempHits)
+		{
+			AActor* HitActor = Hit.GetActor();
+			if (HitActor && !DetectionStatus.HitActors.Contains(HitActor))
+			{
+				DetectionStatus.HitActors.Add(HitActor);
+				UE_LOG(LogTemp, Error, TEXT("Hit Actor: %s"), *HitActor->GetName());
+
+				ACharacterBase* Victim{Cast<ACharacterBase>(HitActor)};
+				 
+				if (IsValid(DetectionStatus.AttackingAction))
+				{
+					ProcessHitEvent(Victim, Hit, DetectionStatus.AttackingAction.Get()->HitPayloadConfig);
+				}
+			}
+		}
+	}
+	
+}
+
+/*void UCombatComponentBase::RefreshWeaponSweepDirection(float DeltaTime)
 {
 	FVector WeaponPos{AttackDetectionConfig.ShapeConfig.ShapeCenter};
 	const FTransform CurrentTransform{CalculateShapeWorldTransform()};
@@ -293,11 +264,67 @@ void UCombatComponentBase::RefreshWeaponSweepDirection(float DeltaTime)
 	FQuat CurrentWeaponDirectionQuat = FQuat::Slerp(LastWeaponDirectionQuat, TargetWeaponDirectionQuat, BlendAlpha);
 	AttackDetectionConfig.WeaponSweepState.WeaponSweepDirection = CurrentWeaponDirectionQuat.GetForwardVector();
 	AttackDetectionConfig.WeaponSweepState.LastFrameWeaponEndPosition = WeaponEndPose;
+}*/
+
+UAbilitySystemComponent* UCombatComponentBase::GetAbilitySystemComponent() const
+{
+	if (!IsValid(Character))
+	{
+		return nullptr;
+	}
+	return Character->GetAbilitySystemComponent();
+}
+
+void UCombatComponentBase::ApplyGameplayEffectOnTarget(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, const TSubclassOf<UGameplayEffect>& GE)
+{
+	if (!IsValid(SourceASC) || !IsValid(TargetASC) || !IsValid(GE))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Apply GameplayEffect Failed."));
+		return;
+	}
+
+	FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	ContextHandle.AddInstigator(Character, Character);
+	FGameplayEffectSpecHandle SpecHandle{SourceASC->MakeOutgoingSpec(GE, 1.f, ContextHandle)};
+	if (!SpecHandle.IsValid())
+	{
+		return;
+	}
+	TargetASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+}
+
+void UCombatComponentBase::ApplyImpactEffectOnTarget(UAbilitySystemComponent* SourceASC,
+UAbilitySystemComponent* TargetASC, const FAttackContext& Context)
+{
+	if (!IsValid(SourceASC) || !IsValid(TargetASC) || !Context.IsContextValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Apply Impact GameplayEffect Failed."));
+		return;
+	}
+
+	FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	ContextHandle.AddInstigator(Character, Character);
+	if (Context.HitResult.bBlockingHit)
+	{
+		ContextHandle.AddHitResult(Context.HitResult);	
+	}
+	
+	FGameplayEffectSpecHandle SpecHandle{SourceASC->MakeOutgoingSpec(Context.PayloadConfig.ImpactEffectOnTarget, 1.f, ContextHandle)};
+
+	if (!SpecHandle.IsValid())
+	{
+		return;
+	}
+
+	FGameplayEffectSpec* Spec{SpecHandle.Data.Get()};
+	Spec->SetSetByCallerMagnitude(Combat::Data::DamageMultiplier, Context.PayloadConfig.DamageMultiplier);
+	Spec->SetSetByCallerMagnitude(Combat::Data::DazeMultiplier, Context.PayloadConfig.DazeMultiplier);
+	TargetASC->ApplyGameplayEffectSpecToSelf(*Spec);
 }
 
 void UCombatComponentBase::CachePointers()
 {
-	Character = Cast<APlayerCharacter>(GetOwner());
+	Character = Cast<ACharacterBase>(GetOwner());
 	Mesh = Character ? Character->GetMesh() : nullptr;
 
 	if (Character && Mesh)
@@ -315,6 +342,7 @@ int32 UCombatComponentBase::ExecuteAction(const UCombatActionStep* Step)
 
 void UCombatComponentBase::HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason)
 {
+	UE_LOG(LogTemp, Error, TEXT("Action:  Action Anim Finished, Request ID = %d, Reason = %s"), RequestID, *UEnum::GetValueAsString(Reason));
 	if (RequestID != CurrentExecutionState.MontageInstanceId)
 	{
 		return;
@@ -322,16 +350,7 @@ void UCombatComponentBase::HandleAnimFinished(int32 RequestID, ECombatAnimReques
 
 	// todo: 先cast. 后续根据敌人是否拥有同样的逻辑(HandleAnimFinished是否是玩家独有的)修改
 	OnCombatActionFinished.Broadcast(Cast<APlayerCharacter>(Character));
-	
 	CurrentExecutionState.Reset();
-	
-	/*if (APlayerCharacter* Player = Cast<APlayerCharacter>(Character))
-	{
-		if (Player->GetAgentPresence() == EAgentPresenceState::Lingering)
-		{
-			Player->SwitchToOffField();
-		}
-	}*/
 }
 
 void UCombatComponentBase::InjectAndBindASC(UAgentAbilitySystemComponent* InASC)
@@ -363,4 +382,66 @@ void UCombatComponentBase::OnHealthChanged(const FOnAttributeChangeData& Data)
 void UCombatComponentBase::HandleDeath()
 {
 	Character->Die();
+}
+
+void UCombatComponentBase::DebugPrintCurrentActionState()
+{
+	if (CurrentExecutionState.CurrentStep)
+	{
+		
+		GEngine->AddOnScreenDebugMessage(
+			0,
+			0.f,
+			FColor::White,
+			FString::Printf(TEXT("Name = %s"), *CurrentExecutionState.CurrentStep->GetName())
+		);
+
+		GEngine->AddOnScreenDebugMessage(
+			1,
+			0.f,
+			FColor::Green,
+			FString::Printf(TEXT("bInputBufferWindowOpen = %s"),
+				CurrentExecutionState.bInputBufferWindowOpen ? TEXT("true") : TEXT("false"))
+		);
+
+		GEngine->AddOnScreenDebugMessage(
+			2,
+			0.f,
+			FColor::Green,
+			FString::Printf(TEXT("bProceedWindowOpen = %s"),
+				CurrentExecutionState.bProceedWindowOpen ? TEXT("true") : TEXT("false"))
+		);
+
+		GEngine->AddOnScreenDebugMessage(
+			3,
+			0.f,
+			FColor::Green,
+			FString::Printf(TEXT("bIsRecoveryWindowOpen = %s"),
+				CurrentExecutionState.bIsRecoveryWindowOpen ? TEXT("true") : TEXT("false"))
+		);
+
+		GEngine->AddOnScreenDebugMessage(
+			4,
+			0.f,
+			FColor::Green,
+			FString::Printf(TEXT("bParryWindowOpen = %s"),
+				CurrentExecutionState.bParryWindowOpen ? TEXT("true") : TEXT("false"))
+		);
+
+		GEngine->AddOnScreenDebugMessage(
+			5,
+			0.f,
+			FColor::Green,
+			FString::Printf(TEXT("bHasConfirmedNextAction = %s"),
+				CurrentExecutionState.bHasConfirmedNextAction ? TEXT("true") : TEXT("false"))
+		);
+
+		GEngine->AddOnScreenDebugMessage(
+			6,
+			0.f,
+			FColor::Green,
+			FString::Printf(TEXT("bHasSuccessfullyStarted = %s"),
+				CurrentExecutionState.bHasSuccessfullyStarted ? TEXT("true") : TEXT("false"))
+		);
+	}
 }

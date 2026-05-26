@@ -137,6 +137,7 @@ __pycache__/
 !Content/
 
 Content/Asset/**
+Content/__ExternalActors__/*
 
 # 项目文件
 !*.uproject

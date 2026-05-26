@@ -3,10 +3,15 @@
 #include "Character/Component/CharacterCombatComponent.h"
 
 #include "GameplayEffect.h"
+#include "MotionWarpingComponent.h"
 #include "AbilitySystem/AgentAttributeSet.h"
+#include "AI/EnemyCharacterBase.h"
 #include "Animation/AnimInstanceBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/CharacterBase.h"
+#include "Character/Component/HitStopComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Player/PlayerCharacter.h"
 #include "Utility/ZZZGameplayTag.h"
 
@@ -22,9 +27,9 @@ void UCharacterCombatComponent::BeginPlay()
 
 	// Bind Delegate
 	
-	if (IsValid(AnimInstance))
+	if (IsValid(GetAgentAnimInstance()))
 	{
-		AnimInstance->OnCombatWindowChanged.AddDynamic(this, &ThisClass::HandleCombatWindowChange);
+		GetAgentAnimInstance()->OnCombatWindowChanged.AddDynamic(this, &ThisClass::HandleCombatWindowChange);
 	}
 
 	if (IsValid(CombatAnimSchedulerComponent))
@@ -81,19 +86,11 @@ void UCharacterCombatComponent::ProcessBufferedInput(const float DeltaTime)
 
 	if (CurrentExecutionState.bProceedWindowOpen && CurrentExecutionState.bHasConfirmedNextAction)
 	{
-		int32 InstanceID = ExecuteAction(PendingIntent.ActionStep);
-
-		if (InstanceID != INDEX_NONE)
+		if (ExecuteAction(PendingIntent.ActionStep) != INDEX_NONE)
 		{
-			// Execute successfully. Apply Cost. Reset Status.
-			PayActionCost(PendingIntent.ActionStep);
-			CurrentExecutionState.Reset();
-			CurrentExecutionState.CurrentStep = PendingIntent.ActionStep;
-			CurrentExecutionState.MontageInstanceId = InstanceID;
-			CurrentExecutionState.bHasSuccessfullyStarted = true;
-			
+			// Cost and CurrentExecutionState already handled in ExecuteAction
 			PendingIntent.Reset();
-		}
+		} 
 	}
 }
 
@@ -213,14 +210,121 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 	{
 		// Execute successfully. Apply Cost. Reset Status.
 		PayActionCost(ActionStep);
+
+		TryApplyMotionWarpingIfNeeded(ActionStep);
+			
 		CurrentExecutionState.Reset();
 		CurrentExecutionState.CurrentStep = ActionStep;
 		CurrentExecutionState.MontageInstanceId = InstanceID;
 		CurrentExecutionState.bHasSuccessfullyStarted = true;
-			
-		PendingIntent.Reset();
 	}
 	return InstanceID;
+}
+
+void UCharacterCombatComponent::TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep)
+{
+	// Motion Warping
+	if (!IsValid(ActionStep) || !ActionStep->WarpConfig.bEnableMotionWarp)
+	{
+		return;
+	}
+
+	APlayerCharacter* Agent = Cast<APlayerCharacter>(Character);
+	Agent->GetMotionWarpingComponent()->RemoveAllWarpTargets();
+	
+	AEnemyCharacterBase* Enemy{FindClosestEnemy(ActionStep->WarpConfig.MotionWarpingEffectiveDistance)};
+	if (!Enemy)
+	{
+		return;
+	}
+	
+	FTransform WarpTransform{CalculateWarpTargetLocation(ActionStep, Enemy)};
+	Character->SetActorRotation(WarpTransform.Rotator(), ETeleportType::TeleportPhysics);
+	
+	Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocationAndRotation(
+		ActionStep->WarpConfig.WarpTargetName,
+		WarpTransform.GetLocation(),
+		WarpTransform.GetRotation().Rotator());
+}
+
+AEnemyCharacterBase* UCharacterCombatComponent::FindClosestEnemy(const float MaxDistance)
+{
+	AEnemyCharacterBase* Enemy{nullptr};
+	if (!IsValid(Character))
+	{
+		return Enemy;
+	}
+
+	FVector AgentLocation{Character->GetActorLocation()};
+
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_Pawn));
+
+	TArray<AActor*> IgnoreActors;
+	TArray<AActor*> OutActors;
+	IgnoreActors.Add(Character);
+
+	UKismetSystemLibrary::SphereOverlapActors(
+		GetWorld(),
+		AgentLocation,
+		MaxDistance,
+		ObjectTypes,
+		AEnemyCharacterBase::StaticClass(),
+		IgnoreActors,
+		OutActors);
+
+	if (OutActors.IsEmpty())
+	{
+		return Enemy;
+	}
+
+	AActor* Candidate{nullptr};
+	float MaxDistanceSquared{MAX_FLT};
+	for (AActor* Actor : OutActors)
+	{
+		double DistanceSquared{(Actor->GetActorLocation() - AgentLocation).SizeSquared2D()};
+		if (DistanceSquared < MaxDistanceSquared)
+		{
+			MaxDistanceSquared = DistanceSquared;
+			Candidate = Actor;
+		}
+	}
+	Enemy = Cast<AEnemyCharacterBase>(Candidate);
+	return Enemy;
+}
+
+FTransform UCharacterCombatComponent::CalculateWarpTargetLocation(const UCombatActionStep* ActionStep, AEnemyCharacterBase* Enemy)
+{
+	FTransform TargetTransform{FTransform::Identity};
+	if (!IsValid(ActionStep) || !IsValid(Enemy) || !IsValid(Character) || !ActionStep->WarpConfig.bEnableMotionWarp)
+	{
+		return TargetTransform;
+	}
+	float AgentRadius{0.f};
+	float EnemyRadius{0.f};
+	if (UCapsuleComponent* EnemyCapsule = Enemy->GetCapsuleComponent())
+	{
+		EnemyRadius = EnemyCapsule->GetScaledCapsuleRadius();	
+	}
+
+	if (UCapsuleComponent* AgentCapsule = Character->GetCapsuleComponent())
+	{
+		AgentRadius = AgentCapsule->GetScaledCapsuleRadius();
+	}
+
+	FVector EnemyLocation{Enemy->GetActorLocation()};
+	FVector DirToEnemy{EnemyLocation - Character->GetActorLocation()};
+	DirToEnemy.Z = 0.f;
+	DirToEnemy.Normalize();
+
+	FVector Location = EnemyLocation - DirToEnemy * (EnemyRadius + AgentRadius + ActionStep->WarpConfig.StandOffDistance);
+
+	DrawDebugPoint(GetWorld(), Location, 10.f, FColor::Red, false, 10.f);
+	
+	FRotator Rotator{DirToEnemy.Rotation()};
+	TargetTransform.SetLocation(Location);
+	TargetTransform.SetRotation(Rotator.Quaternion());
+	return TargetTransform;
 }
 
 void UCharacterCombatComponent::RefreshInputActionBitmask(const float DeltaTime)
@@ -311,7 +415,8 @@ bool UCharacterCombatComponent::CanAffordActionCost(const UCombatActionStep* Ste
 
 bool UCharacterCombatComponent::CanExecuteSwitchAction(const UCombatActionStep* Step) const
 {
-	return Character && Character->GetAgentPresence() == EAgentPresenceState::OffField;
+	APlayerCharacter* Agent{Cast<APlayerCharacter>(Character)};
+	return Agent && Agent->GetAgentPresence() == EAgentPresenceState::OffField;
 }
 
 void UCharacterCombatComponent::PayActionCost(const UCombatActionStep* Step)
@@ -326,8 +431,90 @@ void UCharacterCombatComponent::PayActionCost(const UCombatActionStep* Step)
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
 }
 
+UCombatActionStep* UCharacterCombatComponent::GetSpecialAction(const FGameplayTag& Tag) const
+{
+	if (Tag == Combat::SpecialAction::ChainAttack)
+	{
+		return ChainAttackAction;
+	}
+	if (Tag == Combat::SpecialAction::QuickAssist)
+	{
+		return QuickAssistAction;
+	}
+	if (Tag == Combat::SpecialAction::DefensiveAssist)
+	{
+		return DefensiveAssistAction;
+	}
+	return nullptr;
+}
+
+void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Context, FAttackResult& Result)
+{
+	UAbilitySystemComponent* SourceASC{Context.InstigatorASC.Get()};
+	UAbilitySystemComponent* TargetASC{GetAbilitySystemComponent()};
+	
+	if (!IsValid(SourceASC) || !IsValid(TargetASC) || !Context.IsContextValid()
+		|| !IsValid(CombatAnimSchedulerComponent) || !IsValid(AbilitySystemComponent))
+	{
+		return;
+	}
+	
+	UE_LOG(LogTemp, Error, TEXT("Attack Detection: Agent gonna got Hit. Now check Dodge and Parry"));
+	
+	// Dodge Check
+	if (AbilitySystemComponent->HasMatchingGameplayTag(Combat::Status::Agent::Dodge))
+	{
+		Result.ResultType = EAttackResultType::Dodged;
+		return;
+	}
+
+	// Parry Check
+	if (CurrentExecutionState.CurrentStep && CurrentExecutionState.CurrentStep->AssistConfig.bIsAssistAction
+		&& AbilitySystemComponent->HasMatchingGameplayTag(Combat::Status::Agent::Parry))
+	{
+		// Jump to Section
+		Result.ResultType = EAttackResultType::Parried;
+		
+		// Apply GE On Enemy
+		const FAssistActionConfig& ParryConfig{CurrentExecutionState.CurrentStep->AssistConfig};
+		ApplyGameplayEffectOnTarget(AbilitySystemComponent, Context.InstigatorASC.Get(), ParryConfig.ParryEffectOnEnemy);
+
+		// Apply HitStop
+		Character->GetHitStopComponent()->ApplyHitStop(ParryConfig.HitStopDuration, ParryConfig.HitStopTimeScale);
+		
+		// HitStop on Enemy
+		Result.HitStopDuration = ParryConfig.HitStopDuration;
+		Result.HitStopTimeScale = ParryConfig.HitStopTimeScale;
+		
+		CombatAnimSchedulerComponent->RequestMontageJumpToSection(CurrentExecutionState.MontageInstanceId, ParryConfig.SuccessSectionName);
+		return;
+	}
+
+	// Apply Damage
+	Result.ResultType = EAttackResultType::Hit;
+	ApplyImpactEffectOnTarget(SourceASC, TargetASC, Context);
+}
+
 void UCharacterCombatComponent::ProcessHitFeedback(const FAttackResult& Result)
 {
+	switch (Result.ResultType)
+	{
+		case EAttackResultType::Invalid:
+			break;
+		case EAttackResultType::Hit:
+			if (IsValid(Result.HitFeedbackEffectOnSelf)){
+				ApplyGameplayEffectOnTarget(AbilitySystemComponent, AbilitySystemComponent, Result.HitFeedbackEffectOnSelf);
+				break;
+			}
+		case EAttackResultType::Parried:
+			// Not Possible for Agent
+			break;
+		case EAttackResultType::Dodged:
+			// Not Possible for Agent
+			break;
+		case EAttackResultType::Killed:
+			break;
+	}
 }
 
 void UCharacterCombatComponent::InjectAndBindASC(UAgentAbilitySystemComponent* InASC)

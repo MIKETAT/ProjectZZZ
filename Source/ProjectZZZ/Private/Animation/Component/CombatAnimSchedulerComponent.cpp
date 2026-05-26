@@ -93,6 +93,8 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 		AnimInstance->Montage_PlayWithBlendSettings(AddedRequest.Montage, BlendInSetting, AddedRequest.PlayRate);
 		
 		BindMontageNativeDelegates(AddedRequest.Montage, AddedRequest.RequestID);
+
+		UE_LOG(LogTemp, Error, TEXT("Action: Execute Anim Request, Request ID = %d, Montage Name = %s"), AddedRequest.RequestID, *AddedRequest.Montage->GetName())
 		
 		return AddedRequest.RequestID;
 	}
@@ -115,7 +117,29 @@ void UCombatAnimSchedulerComponent::CancelAnimRequest(const int32 RequestID)
 		BlendSettings.BlendMode = Request->Montage->BlendModeIn;
 		BlendSettings.BlendProfile = Request->Montage->BlendProfileIn;
 		AnimInstance->Montage_StopWithBlendSettings(BlendSettings, Request->Montage);
+		FinishRequest(RequestID, ERequestFinishReason_Cancelled);
 	}
+}
+
+bool UCombatAnimSchedulerComponent::RequestMontageJumpToSection(const int32 RequestID, const FName& SectionName)
+{
+	if (!IsValid(AnimInstance))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Attack Detection: Montage Jump to Section Failed. Invalid AnimInstance"));
+		return false;
+	}
+
+	if (const FCombatAnimExecutionRequest* Request = ProceedingRequests.Find(RequestID))
+	{
+		if (!IsRequestMontageBlendingOut(Request) && Request->Montage)
+		{
+			AnimInstance->Montage_JumpToSection(SectionName, Request->Montage);
+			
+			UE_LOG(LogTemp, Error, TEXT("Attack Detection: Montage Jump to Section Succeed"));
+			return true;
+		}
+	}
+	return false;
 }
 
 bool UCombatAnimSchedulerComponent::IsRequestMontageBlendingOut(const FCombatAnimExecutionRequest* Request) const
