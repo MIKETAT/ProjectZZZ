@@ -1,5 +1,4 @@
 ﻿#include "UI/QTEWidget/QTEWidget.h"
-
 #include "Character/Component/SquadManagerComponent.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"

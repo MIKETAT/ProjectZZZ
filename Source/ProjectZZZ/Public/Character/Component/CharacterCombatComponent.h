@@ -98,15 +98,11 @@ private:
 
 	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep) override;
 
-	void TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep);
+	void TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep, const AEnemyCharacterBase* Enemy);
 
 	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance); 
-	
-	FTransform CalculateWarpTargetLocation(const UCombatActionStep* ActionStep, AEnemyCharacterBase* Enemy);
 
 	void PayActionCost(const UCombatActionStep* Step);
-	
-public:
 	
 private:
 	float GlobalBufferLifespan{0.3f}; 

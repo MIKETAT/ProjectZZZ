@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "InputMappingContext.h"
@@ -24,12 +22,11 @@ enum class EInputAction : uint8
 	EInputActionFlag_SwitchCharacter_Previous	= 6		UMETA(DisplayName = "SwitchCharacter_Previous"),
 	EInputActionFlag_SwitchCharacter_Next		= 7		UMETA(DisplayName = "SwitchCharacter_Next"),
 	EInputActionFlag_Chain_Attack_Left			= 8		UMETA(DisplayName = "Chain_Attack_Left"),
-	EInputActionFlag_Chain_Attack_Right			= 9	UMETA(DisplayName = "Chain_Attack_Right"),
+	EInputActionFlag_Chain_Attack_Right			= 9		UMETA(DisplayName = "Chain_Attack_Right"),
 	EInputActionFlag_Chain_Attack_Cancel		= 10	UMETA(DisplayName = "Chain_Attack_Cancel"),
 
 	// todo: UI Input
-	EInputAction_Max								UMETA(Hidden)
-
+	EInputAction_Max									UMETA(Hidden)
 };
 
 static_assert(static_cast<uint8>(EInputAction::EInputAction_Max) <= 32, "Bitset Exceeded");

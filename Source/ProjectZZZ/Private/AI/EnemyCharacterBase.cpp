@@ -1,8 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
-#include "AI/EnemyCharacterBase.h"
-
+﻿#include "AI/EnemyCharacterBase.h"
 #include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "AbilitySystem/EnemyAttributeSet.h"
 #include "AI/EnemyCombatComponent.h"
@@ -62,8 +58,7 @@ void AEnemyCharacterBase::Die()
 {
 	if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("【怪物 %s】：啊！我死了！我正在向全宇宙广播我的死讯！"), *GetName());
-		FTestDeathPayload Payload;
+		FCharacterDeathPayload Payload;
 		EventBus->BroadcastEvent(Combat::Event::Death, this, this, this, Payload);
 	}
 }

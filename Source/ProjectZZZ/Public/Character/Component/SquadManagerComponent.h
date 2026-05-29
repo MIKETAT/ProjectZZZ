@@ -1,12 +1,9 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "Player/PlayerCharacter.h"
 #include "SquadManagerComponent.generated.h"
-
 
 class AEnemyCharacterBase;
 class UCombatComponentBase;
@@ -22,6 +19,8 @@ class UImage;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTriggerChainAttack, UTexture2D*, UTexture2D*);
 DECLARE_MULTICAST_DELEGATE(FOnFinishChainAttack);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssist, UTexture2D*)
+DECLARE_MULTICAST_DELEGATE(FOnFinishQuickAssist);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveAgentChanged, APlayerCharacter*, APlayerCharacter*)
 
 USTRUCT(BlueprintType)
@@ -51,7 +50,6 @@ struct FPerfectAssistWindowStatus
 {
 	GENERATED_BODY()
 	
-public:
 	void ResetPerfectAssistWindow();
 	
 	UPROPERTY()
@@ -62,6 +60,25 @@ public:
 
 	UPROPERTY()
 	float ParryReferenceOffset{0.f};
+};
+
+USTRUCT()
+struct FQuickAssistWindowStatus
+{
+	GENERATED_BODY()
+	
+	void ResetQuickAssistWindow();
+	
+	bool bQuickAssistWindowOpen{false};
+	
+	UPROPERTY()
+	TObjectPtr<AEnemyCharacterBase> TargetEnemy{nullptr};
+	
+	UPROPERTY()
+	float QuickAssistRemainingTime{2.f};
+
+	UPROPERTY()
+	float QuickAssistCountDownDuration{2.f};
 };
 
 UENUM(BlueprintType)
@@ -79,7 +96,6 @@ enum class EAgentSwitchInMode : uint8
 	InitialIdle,
 	InheritLocomotion,
 	EnterWithSwitchInAnim,
-	//ExecuteSpecialAction,
 	ExecuteDefensiveAssist,
 	ExecuteChainAttack,
 	ExecuteQuickAssist,
@@ -91,8 +107,10 @@ enum class EAgentSpawnPolicy : uint8
 	InitialSpawn,
 	AgentRelativeLeft,
 	AgentRelativeRight,
+	ChainAttackLeft,
+	ChainAttackRight,
 	ParryAssistFacingTarget,
-	// Chain Attack/ Parry Assist/ Quick Assist
+	QuickAssistFacingTarget
 };
 
 USTRUCT(BlueprintType)
@@ -181,8 +199,6 @@ private:
 
 	FAgentTransitionSnapshot GetInitialSnapshot();
 
-	//FTransform CalculateSwitchInTransform(const EAgentSpawnPolicy Policy, APlayerCharacter* OldAgent) const;
-
 	void HandleAgentSwitchIn(APlayerCharacter* NewAgent, const FAgentTransitionRequest& Request, const FAgentTransitionSnapshot& Snapshot);
 
 	void HandleAgentSwitchOut(APlayerCharacter* OldAgent, const FAgentTransitionRequest& Request, const FAgentTransitionSnapshot& Snapshot);
@@ -199,7 +215,8 @@ private:
 
 	void AgentDefensiveAssist(const int32 TargetIndex, bool bIsPrevious);
 
-	void ExecuteDefensiveAssist(APlayerCharacter* NewAgent, const FAgentTransitionRequest& Request);
+	void AgentQuickAssist(const int32 TargetIndex);
+	
 private:
 	// Squad 
 	void InitializeAgentSquad();
@@ -207,8 +224,6 @@ private:
 	void BindAgentLingeringDelegate(APlayerCharacter* Agent);
 
 	void UnBindAgentLingeringDelegate(APlayerCharacter* Agent);
-
-	//void AgentSwapImplementation(const int32 AgentIndex = 0);
 
 	APlayerCharacter* GetPreviousAgent() const;
 
@@ -226,6 +241,8 @@ private:
 	void ConsumeChainAttackInput(FCharacterFrameDataBus& DataBus);
 
 	bool ConsumePerfectAssistInput(FCharacterFrameDataBus& DataBus);
+
+	bool ConsumeQuickAssistInput(FCharacterFrameDataBus& DataBus);
 	
 	void AgentConsumeInput(FCharacterFrameDataBus& DataBus);
 
@@ -239,9 +256,20 @@ private:
 	// Perfect Assist
 	ECombatEventHandleResult TriggerPerfectAssistWindow(const FCombatEventMessage& CombatEventMessage);
 
+	// Quick Assist
+	ECombatEventHandleResult TriggerQuickAssistWindow(const FCombatEventMessage& CombatEventMessage);
+
+	void CloseQuickAssistWindow();
+	
+	void QuickAssistAdvanceCountDown(float DeltaTime);
+
 	FTransform CalculateAgentSpawnTransform(const FAgentTransitionRequest& Request);
 
+	void CalculateChainAttackSpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform);
+	
 	void CalculateParrySpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform);
+
+	void CalculateQuickAssistSpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform);
 
 	FTransform GetInitialSpawnTransform() const;
 public:
@@ -251,6 +279,10 @@ public:
 	FOnTriggerChainAttack OnTriggerChainAttack;
 
 	FOnFinishChainAttack OnFinishChainAttack;
+
+	FOnTriggerQuickAssist OnTriggerQuickAssist;
+
+	FOnFinishQuickAssist OnFinishQuickAssist;
 
 	FOnActiveAgentChanged OnActiveAgentChanged;
 private:
@@ -268,7 +300,11 @@ private:
 
 	FDelegateHandle PerfectAssistCloseHandle;
 
+	FDelegateHandle QuickAssistHandle;
+
 	FChainAttackWindowStatus ChainAttackStatus;
 
 	FPerfectAssistWindowStatus PerfectAssistStatus;
+	
+	FQuickAssistWindowStatus QuickAssistStatus;
 };

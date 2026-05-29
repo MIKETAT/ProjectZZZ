@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "CombatStep.h"
-#include "UCombatDodgeAction.generated.h"
+#include "CombatDodgeAction.generated.h"
 
 /**
  * 
@@ -26,7 +26,7 @@ struct FDodgeDirectionEntry
 };
 
 UCLASS()
-class PROJECTZZZ_API UUCombatDodgeAction : public UCombatActionStep
+class PROJECTZZZ_API UCombatDodgeAction : public UCombatActionStep
 {
 	GENERATED_BODY()
 

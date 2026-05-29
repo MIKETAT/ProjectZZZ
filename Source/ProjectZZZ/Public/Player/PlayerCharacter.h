@@ -11,7 +11,7 @@
 class UImage;
 class AZZZPlayerController;
 struct FCombatEventMessage;
-enum class ECombatEventHandleResult : uint8;	//?
+enum class ECombatEventHandleResult : uint8;
 
 UENUM(BlueprintType)
 enum class EAgentPresenceState : uint8

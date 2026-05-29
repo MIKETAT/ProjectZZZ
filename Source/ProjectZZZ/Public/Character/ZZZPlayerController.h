@@ -7,6 +7,7 @@
 #include "Input/PlayerInputHandlerComponent.h"
 #include "ZZZPlayerController.generated.h"
 
+class UQuickAssistWindow;
 class UQTEWidget;
 class USquadManagerComponent;
 class UPlayerInputHandlerComponent;
@@ -35,13 +36,16 @@ public:
 	
 private:
 	void CreateQTEWidget();
+	
+	void BindUIDelegate();
 
-	void BindQTEDelegate();
-
+	void CreateQuickAssistWidget();
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UQTEWidget> QTEWidgetClass;
-	
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<UQuickAssistWindow> QuickAssistWidgetClass;
 protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPlayerInputHandlerComponent> PlayerInputHandlerComponent{nullptr};
@@ -51,6 +55,9 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UQTEWidget> QTEWidget{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<UQuickAssistWindow> QuickAssistWidget{nullptr};
 	
 // Default	
 	/** Input Mapping Contexts */

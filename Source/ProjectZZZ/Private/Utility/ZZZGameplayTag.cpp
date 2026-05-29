@@ -52,15 +52,6 @@ namespace Combat::Status::Enemy
 	UE_DEFINE_GAMEPLAY_TAG(Daze, FName(TEXTVIEW("Combat.Status.Enemy.Daze")))
 }
 
-/*namespace Combat::StatusTags
-{
-	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_01, FName(TEXTVIEW("Combat.StatusTags.Basic_Attack_01")))
-	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_02, FName(TEXTVIEW("Combat.StatusTags.Basic_Attack_02")))
-	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_03, FName(TEXTVIEW("Combat.StatusTags.Basic_Attack_03")))
-	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_04, FName(TEXTVIEW("Combat.StatusTags.Basic_Attack_04")))
-	UE_DEFINE_GAMEPLAY_TAG(Basic_Attack_05, FName(TEXTVIEW("Combat.StatusTags.Basic_Attack_05")))
-}*/
-
 namespace Combat::CombatWindows
 {
 	UE_DEFINE_GAMEPLAY_TAG(InputBufferWindow, FName(TEXTVIEW("Combat.Window.InputBuffer")))
@@ -82,6 +73,7 @@ namespace Combat::Event
 	UE_DEFINE_GAMEPLAY_TAG(Death, FName(TEXTVIEW("Combat.Event.Death")));
 	UE_DEFINE_GAMEPLAY_TAG(ChainAttack, FName(TEXTVIEW("Combat.Event.ChainAttack")));
 	UE_DEFINE_GAMEPLAY_TAG(PerfectAssist, FName(TEXTVIEW("Combat.Event.PerfectAssist")));
+	UE_DEFINE_GAMEPLAY_TAG(QuickAssist, FName(TEXTVIEW("Combat.Event.QuickAssist")));
 }
 
 namespace Combat::SpecialAction

@@ -16,17 +16,6 @@ enum class ECombatEventHandleResult : uint8
 	Consumed						UMETA(DisplayName = "Consumed"),
 };
 
-USTRUCT(BlueprintType)
-struct FPerfectAssistStatePayload
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(EditDefaultsOnly)
-	bool bWindowOpen{false};
-
-	UPROPERTY(EditDefaultsOnly)
-	float ParryReferenceOffset{0.f};
-};
 
 USTRUCT(BlueprintType)
 struct FCombatEventMessage

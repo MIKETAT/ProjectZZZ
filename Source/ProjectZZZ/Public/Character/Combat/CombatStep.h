@@ -1,12 +1,11 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "CombatStep.generated.h"
 
+enum class EAttackStrength : uint8;
 class UGameplayEffect;
 enum class EInputAction : uint8;
 
@@ -24,7 +23,21 @@ enum class ECombatActionPriority : uint8
 	Ultimate = 80				UMETA(DisplayName = "Ultimate"),	
 	
 	HitReaction = 100			UMETA(DisplayName = "HitReaction"),
+
+	Knockback = 150				UMETA(DisplayName = "Knockback"),
+
+	HitFly = 200				UMETA(DisplayName = "HitFly"),
+	
 	Dead = 255					UMETA(DisplayName = "Dead"),
+};
+
+UENUM(BlueprintType)
+enum class EAttackStrength : uint8
+{
+	None,
+	Light_Knockback,
+	Significant_Knockback,
+	Launch
 };
 
 USTRUCT(BlueprintType)
@@ -43,12 +56,23 @@ struct FHitPayloadConfig
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bEnableHitPayload"))
 	bool bIsHeavyAttack{false};		// 重击效果
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bEnableHitPayload"))
+	EAttackStrength AttackStrength{EAttackStrength::None};
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bEnableHitPayload"))
 	TSubclassOf<UGameplayEffect> ImpactEffectOnTarget;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "bEnableHitPayload"))
 	TSubclassOf<UGameplayEffect> HitFeedbackEffectOnSelf;
+};
+
+UENUM(BlueprintType)
+enum class EMotionWarpTrackingMode : uint8
+{
+	None,
+	StaticWorldPoint,
+	DynamicComponent
 };
 
 USTRUCT(BlueprintType)
@@ -60,48 +84,37 @@ struct FMotionWarpConfig
 	bool bEnableMotionWarp{false};
 
 	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableMotionWarp"))
-	float MotionWarpingEffectiveDistance{100.f};
+	float MotionWarpingEffectiveDistance{800.f};		// Todo: 
 
 	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableMotionWarp"))
 	FName WarpTargetName{FName("Default")};
 
 	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableMotionWarp"))
-	float StandOffDistance{0.f};
+	EMotionWarpTrackingMode TrackingMode{EMotionWarpTrackingMode::None};
 };
 
 USTRUCT(BlueprintType)
-struct FAssistActionConfig
+struct FParryActionConfig
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bIsAssistAction{false};
+	bool bIsParryAction{false};
 
-	/*
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsAssistAction"))
-	float ParryEnterDistance{0.f};*/
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsAssistAction"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
 	float ParrySocketOffset{0.f};		// parry socket to root relative offset along forward direction
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsAssistAction"))
-	FName WarpTargetName{FName("ParryTarget")};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsAssistAction"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
 	FName SuccessSectionName{FName("Follow")};
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsAssistAction"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
 	float HitStopDuration{0.05f};
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsAssistAction"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
 	float HitStopTimeScale{0.1f};
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsAssistAction"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
 	TSubclassOf<UGameplayEffect> ParryEffectOnEnemy{nullptr};
-	
-	// todo: 要不要这个参数 
-	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsAssistAction", ClampMin = "0.0", ClampMax = "1.0"))
-	float SpawnBlendAlpha{0.6f};*/
 };
 
 USTRUCT(BlueprintType)
@@ -126,15 +139,18 @@ public:
 
 public:
 	UPROPERTY(EditDefaultsOnly)
-	TObjectPtr<UAnimMontage> Montage{nullptr};		// AnimSequence?
+	TObjectPtr<UAnimMontage> Montage{nullptr};
 	
 	UPROPERTY(EditDefaultsOnly)
 	EInputAction TriggerInput{EInputAction::EInputAction_Max};
 
 	UPROPERTY(EditDefaultsOnly)
 	ECombatActionPriority Priority{ECombatActionPriority::None};
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bIsAttackAction{false};		// Basic Attack / Special Attack / Ultimate / Chain Attack / Quick Assist / Dodge Attack / Rush Attack
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	uint8 bIsBasicAttack : 1 {false};
 	
 	UPROPERTY(EditDefaultsOnly)
@@ -155,12 +171,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | HitPayload")
 	FHitPayloadConfig HitPayloadConfig;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | AssistConfig")
-	FAssistActionConfig AssistConfig;
-
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | ParryConfig")
+	FParryActionConfig ParryConfig;
+	
 	// for enemy
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | ParriedActionConfig")
 	FParriedActionConfig ParriedActionConfig;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | QuickAssist")
+	bool bIsQuickAssist{false};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | ChainAttack")
+	bool bIsChainAttack{false};
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties, EditCondition = "bIsQuickAssist || bIsChainAttack"), Category = "Features")
+	float AttackEntryDistance{0.f};
 };
 
 UCLASS(BlueprintType)
@@ -176,14 +201,7 @@ USTRUCT()
 struct FBufferedIntent
 {
 	GENERATED_BODY()
-	
-	UPROPERTY()
-	const UCombatActionStep* ActionStep{nullptr};
 
-	float ExpirationTime{0.0f};
-
-	ECombatActionPriority Priority{ECombatActionPriority::None};
-	
 public:
 	bool IsValid() const { return ActionStep != nullptr; }
 
@@ -200,6 +218,14 @@ public:
 		ExpirationTime = 0.0f;
 		Priority = ECombatActionPriority::None;
 	}
+
+public:
+	UPROPERTY()
+	const UCombatActionStep* ActionStep{nullptr};
+
+	float ExpirationTime{0.0f};
+
+	ECombatActionPriority Priority{ECombatActionPriority::None};
 };
 
 USTRUCT()

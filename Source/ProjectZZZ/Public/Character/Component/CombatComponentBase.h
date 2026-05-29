@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Character/Combat/AttackDetection.h"
+#include "Character/Combat/CombatHitReactionAction.h"
 #include "Character/Combat/CombatStep.h"
 #include "Components/ActorComponent.h"
 #include "CombatComponentBase.generated.h"
@@ -121,6 +122,9 @@ public:
 	void ApplyGameplayEffectOnTarget(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, const TSubclassOf<UGameplayEffect>& GE);
 
 	void ApplyImpactEffectOnTarget(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, const FAttackContext& Context);
+
+	EHitReactionDirection CalculateHitReactionDirection(const FVector& AttackerLocation) const;
+	
 protected:
 	void CachePointers();
 	
@@ -135,16 +139,17 @@ protected:
 
 private:
 	void DebugPrintCurrentActionState();
-public:
-	/*UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TSubclassOf<UGameplayEffect> DamageEffectClass;	// todo*/
 	
+public:
 	FOnCombatActionFinished OnCombatActionFinished;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "HitReaction")
+	TMap<EAttackStrength, FDirectionalHitReactionActions> HitReactionMap;
+	
 protected:
 	UPROPERTY()
 	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent{nullptr};
 	
-protected:
 	UPROPERTY()
 	TObjectPtr<ACharacterBase> Character{nullptr};
 
@@ -165,4 +170,5 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Debug", meta = (AllowPrivateAccess = "true"))
 	FDetectionDebugConfig DebugConfig;
+
 };

@@ -6,6 +6,7 @@
 #include "AI/EnemyCharacterBase.h"
 #include "AI/EnemyCombatComponent.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
+#include "Character/Combat/ZZZCombatEventTypes.h"
 #include "Utility/ZZZGameplayTag.h"
 
 void UAnimNotifyState_PerfectAssistWindow::NotifyBegin(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation,
@@ -36,9 +37,9 @@ void UAnimNotifyState_PerfectAssistWindow::NotifyTick(USkeletalMeshComponent* Me
 	FTransform SocketWorldTransform{MeshComp->GetSocketTransform(SocketName, RTS_World)};
 	FTransform RootWorldTransform{MeshComp->GetComponentTransform()};
 
-	//FTransform SocketRelative{SocketWorldTransform.GetRelativeTransform(RootWorldTransform)};
-	FVector WorldOffset{SocketWorldTransform.GetLocation() - RootWorldTransform.GetLocation()};
-
+//	FVector WorldOffset{SocketWorldTransform.GetLocation() - RootWorldTransform.GetLocation()};
+	FVector WorldOffset{SocketWorldTransform.GetLocation()};
+	
 	FVector Forward{RootWorldTransform.GetRotation().GetForwardVector()};
 	FVector Right{RootWorldTransform.GetRotation().GetRightVector()};
 	FVector Up{RootWorldTransform.GetRotation().GetUpVector()};
@@ -47,7 +48,7 @@ void UAnimNotifyState_PerfectAssistWindow::NotifyTick(USkeletalMeshComponent* Me
 	IdealParryOffset.Y = FVector::DotProduct(WorldOffset, Right);
 	IdealParryOffset.Z = FVector::DotProduct(WorldOffset, Up);
 	
-	float Length = 250.f;
+	float Length = 150.f;
 	
 	DrawDebugLine(
 		  MeshComp->GetWorld(),

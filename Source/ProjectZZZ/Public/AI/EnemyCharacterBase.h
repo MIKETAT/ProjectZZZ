@@ -1,10 +1,7 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Character/CharacterBase.h"
-#include "Character/Combat/CombatInterface.h"
 #include "EnemyCharacterBase.generated.h"
 
 class UWidgetComponent;
@@ -37,6 +34,7 @@ public:
 	UEnemyCombatComponent* GetEnemyCombatComponent() const { return EnemyCombatComponent; }
 
 	virtual void InitializeAttributes() override;
+	
 	// Test
 	virtual void Die() override;
 

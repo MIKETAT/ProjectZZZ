@@ -322,6 +322,31 @@ UAbilitySystemComponent* TargetASC, const FAttackContext& Context)
 	TargetASC->ApplyGameplayEffectSpecToSelf(*Spec);
 }
 
+EHitReactionDirection UCombatComponentBase::CalculateHitReactionDirection(const FVector& AttackerLocation) const
+{
+	if (!IsValid(Character))
+	{
+		return EHitReactionDirection::None;
+	}
+
+	FVector MyForward{Character->GetActorForwardVector()};
+	FVector MyRight{Character->GetActorRightVector()};
+	FVector MyLocation{Character->GetActorLocation()};
+
+	FVector DirToAttacker{(AttackerLocation - MyLocation).GetSafeNormal()};
+
+	double ForwardDot{FVector::DotProduct(MyForward, DirToAttacker)};
+	double RightDot{FVector::DotProduct(MyRight, DirToAttacker)};
+
+	if (ForwardDot > 0.f)
+	{
+		return EHitReactionDirection::Front;
+	} else
+	{
+		return EHitReactionDirection::Back;
+	}
+}
+
 void UCombatComponentBase::CachePointers()
 {
 	Character = Cast<ACharacterBase>(GetOwner());

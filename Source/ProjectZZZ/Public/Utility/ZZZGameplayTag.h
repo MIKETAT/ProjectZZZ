@@ -58,17 +58,6 @@ namespace Combat::Status::Enemy
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Daze)
 }
 
-/*namespace Combat::StatusTags
-{
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_01)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_02)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_03)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_04)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_05)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_01)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Basic_Attack_01)
-}*/
-
 namespace Combat::CombatWindows
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(InputBufferWindow)
@@ -90,6 +79,7 @@ namespace Combat::Event
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Death)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ChainAttack)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(PerfectAssist)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(QuickAssist)
 }
 
 namespace Combat::SpecialAction

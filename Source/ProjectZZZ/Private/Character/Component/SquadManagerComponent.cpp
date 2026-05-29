@@ -1,9 +1,9 @@
 ﻿#include "Character/Component/SquadManagerComponent.h"
 
-#include "MotionWarpingComponent.h"
 #include "AI/EnemyCharacterBase.h"
 #include "Character/ZZZPlayerController.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
+#include "Character/Combat/ZZZCombatEventTypes.h"
 #include "Character/Component/CharacterCombatComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameModeBase.h"
@@ -21,6 +21,15 @@ void FChainAttackWindowStatus::ResetChainAttackWindow()
 void FPerfectAssistWindowStatus::ResetPerfectAssistWindow()
 {
 	bPerfectAssistWindowOpen = false;
+	ParryReferenceOffset = 0.f;
+	TargetEnemy = nullptr;
+}
+
+void FQuickAssistWindowStatus::ResetQuickAssistWindow()
+{
+	bQuickAssistWindowOpen = false;
+	QuickAssistCountDownDuration = QuickAssistCountDownDuration > 0.f ? QuickAssistCountDownDuration : 2.f;
+	QuickAssistRemainingTime = QuickAssistCountDownDuration;
 	TargetEnemy = nullptr;
 }
 
@@ -44,6 +53,10 @@ void USquadManagerComponent::BeginPlay()
 		FCombatEventDelegate PerfectAssistCallback;
 		PerfectAssistCallback.BindUObject(this, &USquadManagerComponent::TriggerPerfectAssistWindow);
 		PerfectAssistActiveHandle = EventBus->Subscribe(Combat::Event::PerfectAssist, this, 1, PerfectAssistCallback);
+
+		FCombatEventDelegate QuickAssistCallback;
+		QuickAssistCallback.BindUObject(this, &USquadManagerComponent::TriggerQuickAssistWindow);
+		QuickAssistHandle = EventBus->Subscribe(Combat::Event::QuickAssist, this, 1, QuickAssistCallback);
 	}
 }
 
@@ -52,9 +65,9 @@ void USquadManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	RouteInput();
 	QTEAdvanceCountDown(DeltaTime);
-	
+	QuickAssistAdvanceCountDown(DeltaTime);
 	// debug
-#if WITH_EDITOR
+#if 0
 	if (APlayerCharacter* Agent = Cast<APlayerCharacter>(GetActiveAgent()))
 	{
 		if (UMotionWarpingComponent* WarpComp = Agent->GetMotionWarpingComponent())
@@ -167,9 +180,6 @@ void USquadManagerComponent::ExecuteAgentTransition(const FAgentTransitionReques
 	{
 		TargetAgent->SetAgentActive(true);
 	}
-	
-	// todo: Set Transform in HandleAgentSwitchIn?
-	//TargetAgent->SetActorTransform(Request.SpawnTransform, false, nullptr, ETeleportType::TeleportPhysics);
 }
 
 bool USquadManagerComponent::CanExecuteAgentTransition(const FAgentTransitionRequest& Request)
@@ -300,44 +310,6 @@ FAgentTransitionSnapshot USquadManagerComponent::GetInitialSnapshot()
 	return Snapshot;
 }
 
-/*FTransform USquadManagerComponent::CalculateSwitchInTransform(const EAgentSpawnPolicy Policy, APlayerCharacter* OldAgent) const
-{
-	ensureMsgf(OldAgent, TEXT("Invalid Agent. Can not calculate Switch In Transform"));
-	FTransform TargetTransform{OldAgent->GetActorTransform()};
-	switch (Policy)
-	{
-	case EAgentSpawnPolicy::AbsoluteTransform:
-		if (AActor* StartSpot = GetWorld()->GetAuthGameMode()->ChoosePlayerStart(OwnerController.Get()))
-		{
-			TargetTransform.SetLocation(StartSpot->GetActorLocation());
-		}
-		break;
-	case EAgentSpawnPolicy::RelativeLeft:
-		FVector SpawnLeftOffset = OldAgent ? OldAgent->GetActorRightVector() * 100.f : FVector::ZeroVector;
-		TargetTransform = OldAgent ? OldAgent->GetTransform() : FTransform::Identity;
-		TargetTransform.AddToTranslation(-SpawnLeftOffset);
-		TargetTransform.SetRotation(OldAgent->GetActorRotation().Quaternion());	
-		break;
-	case EAgentSpawnPolicy::RelativeRight:
-		FVector SpawnRightOffset = OldAgent ? OldAgent->GetActorRightVector() * 100.f : FVector::ZeroVector;
-		TargetTransform = OldAgent ? OldAgent->GetTransform() : FTransform::Identity;
-		TargetTransform.AddToTranslation(SpawnRightOffset);
-		TargetTransform.SetRotation(OldAgent->GetActorRotation().Quaternion());	
-		break;
-	case EAgentSpawnPolicy::FaceTarget:
-
-		break;
-	}
-
-	// Chain Attack
-
-	// Quick Assist
-
-	// Parry Assist
-	
-	return TargetTransform;
-}*/
-
 void USquadManagerComponent::HandleAgentSwitchIn(APlayerCharacter* NewAgent, const FAgentTransitionRequest& Request, const FAgentTransitionSnapshot& Snapshot)
 {
 	UCharacterCombatComponent* CombatComponent = NewAgent->GetAgentCombatComponent();
@@ -349,7 +321,7 @@ void USquadManagerComponent::HandleAgentSwitchIn(APlayerCharacter* NewAgent, con
 	
 	if (CombatComponent->IsAnyActionActive())
 	{
-		CombatComponent->CancelCurrentAction();	//	
+		CombatComponent->CancelCurrentAction();
 	}
 	
 	UCharacterMovementComponent* MovementComponent = NewAgent->GetCharacterMovement();
@@ -360,25 +332,22 @@ void USquadManagerComponent::HandleAgentSwitchIn(APlayerCharacter* NewAgent, con
 	
 	switch (Request.SwitchInMode)
 	{
-	case EAgentSwitchInMode::InitialIdle:			// todo: 这里要想一想怎么做
-	case EAgentSwitchInMode::InheritLocomotion:
-		if (MovementComponent)
-		{
-			MovementComponent->SetMovementMode(Snapshot.MovementMode);
-			MovementComponent->Velocity = Snapshot.Velocity;
-		}
-		break;
-	case EAgentSwitchInMode::EnterWithSwitchInAnim:
-		CombatComponent->ExecuteSwitchInAction();
-		break;
-	case EAgentSwitchInMode::ExecuteChainAttack:
-		CombatComponent->ExecuteSwitchAction(Request.SpecialActionToExecute);
-		break;
-	case EAgentSwitchInMode::ExecuteQuickAssist:
-		break;
-	case EAgentSwitchInMode::ExecuteDefensiveAssist:
-		ExecuteDefensiveAssist(NewAgent, Request);
-		break;
+		case EAgentSwitchInMode::InitialIdle:			// todo: 这里要想一想怎么做
+		case EAgentSwitchInMode::InheritLocomotion:
+			if (MovementComponent)
+			{
+				MovementComponent->SetMovementMode(Snapshot.MovementMode);
+				MovementComponent->Velocity = Snapshot.Velocity;
+			}
+			break;
+		case EAgentSwitchInMode::EnterWithSwitchInAnim:
+			CombatComponent->ExecuteSwitchInAction();
+			break;
+		case EAgentSwitchInMode::ExecuteChainAttack:
+		case EAgentSwitchInMode::ExecuteQuickAssist:
+		case EAgentSwitchInMode::ExecuteDefensiveAssist:
+			CombatComponent->ExecuteSwitchAction(Request.SpecialActionToExecute);
+			break;
 	}
 }
 
@@ -466,7 +435,7 @@ void USquadManagerComponent::AgentChainAttack(const int32 TargetIndex, bool bIsP
 		Request.TargetAgentIndex = TargetIndex;
 		Request.SwitchInMode = EAgentSwitchInMode::ExecuteChainAttack;
 		Request.SwitchOutMode = EAgentSwitchOutMode::ExitWithSwitchOutAnim;
-		Request.SpawnPolicy = bIsPrevious ? EAgentSpawnPolicy::AgentRelativeLeft : EAgentSpawnPolicy::AgentRelativeRight;
+		Request.SpawnPolicy = bIsPrevious ? EAgentSpawnPolicy::ChainAttackLeft : EAgentSpawnPolicy::ChainAttackRight;
 		Request.CurrentAgent = GetActiveAgent();
 		Request.Enemy = ChainAttackStatus.Enemy;
 		Request.SpecialActionToExecute = bIsPrevious ? GetPreviousAgent()->GetSpecialAction(Combat::SpecialAction::ChainAttack) : GetNextAgent()->GetSpecialAction(Combat::SpecialAction::ChainAttack);
@@ -492,38 +461,20 @@ void USquadManagerComponent::AgentDefensiveAssist(const int32 TargetIndex, bool 
 	}
 }
 
-void USquadManagerComponent::ExecuteDefensiveAssist(APlayerCharacter* NewAgent, const FAgentTransitionRequest& Request)
+void USquadManagerComponent::AgentQuickAssist(const int32 TargetIndex)
 {
-	if (!IsValid(NewAgent) || !IsValid(Request.SpecialActionToExecute))
+	if (Squad.IsValidIndex(TargetIndex) && ActiveAgentIndex != TargetIndex)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Execute Defensive Assist Failed. New Agent or Defensive Assist Action Invalid"));
-		return;
+		FAgentTransitionRequest Request;
+		Request.TargetAgentIndex = TargetIndex;
+		Request.SwitchInMode = EAgentSwitchInMode::ExecuteQuickAssist;
+		Request.SwitchOutMode = EAgentSwitchOutMode::ExitWithSwitchOutAnim;
+		Request.SpawnPolicy = EAgentSpawnPolicy::QuickAssistFacingTarget;
+		Request.CurrentAgent = GetActiveAgent();
+		Request.Enemy = QuickAssistStatus.TargetEnemy;
+		Request.SpecialActionToExecute = GetNextAgent()->GetSpecialAction(Combat::SpecialAction::QuickAssist);
+		ExecuteAgentTransition(Request);
 	}
-	
-	/*UMotionWarpingComponent* MotionWarping = NewAgent->GetMotionWarpingComponent();
-	if (!IsValid(MotionWarping))
-	{
-		return;
-	}
-	
-	MotionWarping->RemoveAllWarpTargets();
-	
-	FVector FinalOffset{FVector::ZeroVector};
-	FinalOffset.X = PerfectAssistStatus.ParryReferenceOffset + Request.SpecialActionToExecute->AssistConfig.ParrySocketOffset;
-	FRotator FaceEnemyRotation(0.f, 180.f, 0.f);
-	
-	MotionWarping->AddOrUpdateWarpTargetFromComponent(
-		Request.SpecialActionToExecute->AssistConfig.WarpTargetName,
-		Request.Enemy->GetRootComponent(),
-		NAME_None,
-		true,
-		EWarpTargetLocationOffsetDirection::TargetsForwardVector,
-		FinalOffset,
-		FaceEnemyRotation);*/
-	
-	
-	UCharacterCombatComponent* CombatComponent = NewAgent->GetAgentCombatComponent();
-	CombatComponent->ExecuteSwitchAction(Request.SpecialActionToExecute);
 }
 
 ECombatEventHandleResult USquadManagerComponent::TriggerChainAttackWindow(const FCombatEventMessage& CombatEventMessage)
@@ -604,71 +555,6 @@ void USquadManagerComponent::InitializeAgentSquad()
 	ExecuteAgentTransition(Request);
 }
 
-/*void USquadManagerComponent::AgentSwapImplementation(const int32 AgentIndex)
-{
-	if (!Squad.IsValidIndex(AgentIndex) || !OwnerController.IsValid())
-	{
-		return;
-	}
-
-	APlayerCharacter* CurrentAgent{GetActivePlayerCharacter()};
-	APlayerCharacter* TargetAgent{Squad[AgentIndex]};
-	FVector InheritedVelocity{FVector::ZeroVector};
-	FRotator InheritedRotation{FRotator::ZeroRotator};
-	bool bCurrentAgentMoving{false};
-	
-	// Switch out Current Agent
-	if (CurrentAgent)
-	{
-		OwnerController->UnPossess();
-		// AI Controller?
-		
-		CurrentAgent->SetAgentPresence(EAgentPresenceState::Lingering);
-
-		InheritedVelocity = CurrentAgent->GetCharacterMovement()->Velocity;
-		InheritedRotation = CurrentAgent->GetActorRotation();
-		bCurrentAgentMoving = !InheritedVelocity.IsNearlyZero();
-		
-		// If CurrentAgent has unfinished action. Continue until it's finished.
-		UCharacterCombatComponent* CurrentAgentCombatComp = CurrentAgent->GetAgentCombatComponent();
-		checkf(CurrentAgentCombatComp, TEXT("Switch Out Agent CombatComponent Invalid"));
-		if (!CurrentAgentCombatComp->IsAnyActionActive())
-		{
-			// If CurrentAgent is not play any animation/action. Play Switch Out Animation then go OffField.
-			CurrentAgentCombatComp->ExecuteSwitchOutAction();
-		}
-	}
-
-	// Switch In Target Agent
-	if (TargetAgent)
-	{
-		FVector SpawnOffset = CurrentAgent ? CurrentAgent->GetActorRightVector() * 100.f : FVector::ZeroVector;
-		FTransform SpawnTransform = CurrentAgent ? CurrentAgent->GetTransform() : FTransform::Identity;
-		SpawnTransform.AddToTranslation(SpawnOffset);
-
-		TargetAgent->SetActorTransform(SpawnTransform, false, nullptr, ETeleportType::TeleportPhysics);
-		
-		TargetAgent->SwitchToOnField();
-		
-		OwnerController->Possess(TargetAgent);
-
-		UCharacterCombatComponent* TargetCombatComp = TargetAgent->GetAgentCombatComponent();
-		checkf(TargetCombatComp, TEXT("Switch In Agent CombatComponent Invalid"));
-		
-		if (OwnerController->HasMovementInput() && bCurrentAgentMoving)
-		{
-			TargetAgent->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-			TargetAgent->GetCharacterMovement()->Velocity = InheritedVelocity;
-			TargetAgent->SetActorRotation(InheritedRotation);
-		} else
-		{
-			TargetCombatComp->ExecuteSwitchInAction();
-		}
-		
-		ActiveAgentIndex = AgentIndex;
-	}
-}*/
-
 APlayerCharacter* USquadManagerComponent::GetPreviousAgent() const
 {
 	int32 Index{GetPreviousAgentIndex()};
@@ -747,14 +633,19 @@ bool USquadManagerComponent::SquadConsumeInput(FCharacterFrameDataBus& DataBus)
 	{
 		if (ConsumePerfectAssistInput(DataBus))
 		{
-			PerfectAssistStatus.bPerfectAssistWindowOpen = false;
-			// todo: 极限支援的State如何重置
+			PerfectAssistStatus.ResetPerfectAssistWindow();
 		}
-		
 	}
-
 	
 	// Quick Assist
+	if (QuickAssistStatus.bQuickAssistWindowOpen)
+	{
+		if (ConsumeQuickAssistInput(DataBus))
+		{
+			CloseQuickAssistWindow();
+			return true;
+		}
+	}
 	
 //  Agent:
 	// Normal Switch
@@ -779,7 +670,6 @@ void USquadManagerComponent::ConsumeChainAttackInput(FCharacterFrameDataBus& Dat
 	{
 		AgentChainAttack(GetPreviousAgentIndex(), true);
 		DataBus.PlayerInputs.ConsumeInputAction(EInputAction::EInputActionFlag_Chain_Attack_Left);
-		// Consume
 	}
 	else if (GetNextAgent() && DataBus.PlayerInputs.InputActionBitmask.Test(EInputAction::EInputActionFlag_Chain_Attack_Right))
 	{
@@ -805,6 +695,19 @@ bool USquadManagerComponent::ConsumePerfectAssistInput(FCharacterFrameDataBus& D
 	if (DataBus.PlayerInputs.InputActionBitmask.Test(EInputAction::EInputActionFlag_SwitchCharacter_Next))
 	{
 		AgentDefensiveAssist(GetNextAgentIndex(), false);
+		DataBus.PlayerInputs.ConsumeInputAction(EInputAction::EInputActionFlag_SwitchCharacter_Next);
+		return true;
+	}
+	return false;
+}
+
+bool USquadManagerComponent::ConsumeQuickAssistInput(FCharacterFrameDataBus& DataBus)
+{
+	if (DataBus.PlayerInputs.InputActionBitmask.Test(EInputAction::EInputActionFlag_SwitchCharacter_Previous)
+		|| DataBus.PlayerInputs.InputActionBitmask.Test(EInputAction::EInputActionFlag_SwitchCharacter_Next))
+	{
+		AgentQuickAssist(GetNextAgentIndex());
+		DataBus.PlayerInputs.ConsumeInputAction(EInputAction::EInputActionFlag_SwitchCharacter_Previous);
 		DataBus.PlayerInputs.ConsumeInputAction(EInputAction::EInputActionFlag_SwitchCharacter_Next);
 		return true;
 	}
@@ -848,12 +751,67 @@ ECombatEventHandleResult USquadManagerComponent::TriggerPerfectAssistWindow(cons
 	{
 		const FPerfectAssistStatePayload& Payload = CombatEventMessage.Payload.Get<FPerfectAssistStatePayload>();
 		PerfectAssistStatus.bPerfectAssistWindowOpen = Payload.bWindowOpen;
-		PerfectAssistStatus.TargetEnemy = Enemy;
-		PerfectAssistStatus.ParryReferenceOffset = Payload.ParryReferenceOffset;
+		if (Payload.bWindowOpen)
+		{
+			PerfectAssistStatus.TargetEnemy = Enemy;
+			PerfectAssistStatus.ParryReferenceOffset = Payload.ParryReferenceOffset;
+		} else
+		{
+			PerfectAssistStatus.ResetPerfectAssistWindow();
+		}
+
 		return ECombatEventHandleResult::Handled;
 	}
 	
 	return ECombatEventHandleResult::UnHandled;
+}
+
+ECombatEventHandleResult USquadManagerComponent::TriggerQuickAssistWindow(const FCombatEventMessage& CombatEventMessage)
+{
+	if (!CombatEventMessage.Payload.IsValid() || CombatEventMessage.Payload.GetScriptStruct() != FQuickAssistPayload::StaticStruct())
+	{
+		return ECombatEventHandleResult::UnHandled;
+	}
+
+	if (AEnemyCharacterBase* Enemy = Cast<AEnemyCharacterBase>(CombatEventMessage.Source.Get()))
+	{
+		if (APlayerCharacter* Agent = GetNextAgent())
+		{
+			//const FQuickAssistPayload& Payload = CombatEventMessage.Payload.Get<FQuickAssistPayload>();
+			QuickAssistStatus.bQuickAssistWindowOpen = true;
+			QuickAssistStatus.TargetEnemy = Enemy;
+			QuickAssistStatus.QuickAssistRemainingTime = QuickAssistStatus.QuickAssistCountDownDuration;
+			OnTriggerQuickAssist.Broadcast(Agent->GetAgentHead());
+
+			return ECombatEventHandleResult::Handled;
+		}
+	}
+	
+	return ECombatEventHandleResult::UnHandled;
+}
+
+void USquadManagerComponent::CloseQuickAssistWindow()
+{
+	QuickAssistStatus.ResetQuickAssistWindow();
+	OnFinishQuickAssist.Broadcast();
+}
+
+void USquadManagerComponent::QuickAssistAdvanceCountDown(float DeltaTime)
+{
+	if (!QuickAssistStatus.bQuickAssistWindowOpen)
+	{
+		return;
+	}
+	
+	float TimeDilation{GetWorld()->GetWorldSettings()->GetEffectiveTimeDilation()};
+	float RealDeltaTime{TimeDilation > 0.001 ? (DeltaTime / TimeDilation) : DeltaTime};
+	QuickAssistStatus.QuickAssistRemainingTime -= RealDeltaTime;
+
+	if (QuickAssistStatus.QuickAssistRemainingTime <= 0.f)
+	{
+		QuickAssistStatus.QuickAssistRemainingTime = 0.f;
+		CloseQuickAssistWindow();
+	}
 }
 
 FTransform USquadManagerComponent::CalculateAgentSpawnTransform(const FAgentTransitionRequest& Request)
@@ -863,31 +821,75 @@ FTransform USquadManagerComponent::CalculateAgentSpawnTransform(const FAgentTran
 	switch (Request.SpawnPolicy)
 	{
 		case EAgentSpawnPolicy::InitialSpawn:
-			SpawnTransform = GetInitialSpawnTransform();
+			{
+				SpawnTransform = GetInitialSpawnTransform();	
+			}
 			break;
-		
 		case EAgentSpawnPolicy::AgentRelativeLeft:
-			FVector SpawnLeftOffset = Request.CurrentAgent->GetActorRightVector() * 100.f;		// todo: hard code here
-			SpawnTransform.AddToTranslation(-SpawnLeftOffset);
-			SpawnTransform.SetRotation(Request.CurrentAgent->GetActorRotation().Quaternion());	// todo: rotation?
+			{
+				FVector SpawnLeftOffset = Request.CurrentAgent->GetActorRightVector() * 100.f;		// todo: hard code here
+				SpawnTransform.AddToTranslation(-SpawnLeftOffset);
+				SpawnTransform.SetRotation(Request.CurrentAgent->GetActorRotation().Quaternion());	// todo: rotation?
+			}
 			break;
-		
 		case EAgentSpawnPolicy::AgentRelativeRight:
-			FVector SpawnRightOffset = Request.CurrentAgent->GetActorRightVector() * 100.f;		// todo: hard code here
-			SpawnTransform.AddToTranslation(SpawnRightOffset);
-			SpawnTransform.SetRotation(Request.CurrentAgent->GetActorRotation().Quaternion());	// todo: rotation?
+			{
+				FVector SpawnRightOffset = Request.CurrentAgent->GetActorRightVector() * 100.f;		// todo: hard code here
+				SpawnTransform.AddToTranslation(SpawnRightOffset);
+				SpawnTransform.SetRotation(Request.CurrentAgent->GetActorRotation().Quaternion());	// todo: rotation?	
+			}
+			break;
+		case EAgentSpawnPolicy::ChainAttackLeft:
+		case EAgentSpawnPolicy::ChainAttackRight:
+			CalculateChainAttackSpawnTransform(Request, SpawnTransform);
 			break;
 		case EAgentSpawnPolicy::ParryAssistFacingTarget:
-			CalculateParrySpawnTransform(Request, SpawnTransform);
+			{
+				CalculateParrySpawnTransform(Request, SpawnTransform);
+			}
+			break;
+		case EAgentSpawnPolicy::QuickAssistFacingTarget:
+			{
+				CalculateQuickAssistSpawnTransform(Request, SpawnTransform);
+			}
 			break;
 	}
+
+	FVector ArrowStart{SpawnTransform.GetLocation()};
+	FVector ArrowEnd{ArrowStart + SpawnTransform.GetRotation().Vector() * 300.f};
+	DrawDebugDirectionalArrow(GetWorld(), ArrowStart, ArrowEnd, 5.f, FColor::Magenta, false, 8.f);
+	
 	return SpawnTransform;
+}
+
+void USquadManagerComponent::CalculateChainAttackSpawnTransform(const FAgentTransitionRequest& Request,
+	FTransform& SpawnTransform)
+{
+	if (!IsValid(Request.Enemy) || !IsValid(Request.SpecialActionToExecute)
+	|| !IsValid(Request.CurrentAgent) || !Request.SpecialActionToExecute->bIsChainAttack)
+	{
+		return;
+	}
+
+	FVector EnemyLocation{Request.Enemy->GetActorLocation()};
+	FVector AgentLocation{Request.CurrentAgent->GetActorLocation()};
+	EnemyLocation.Z = 0.f;
+	AgentLocation.Z = 0.f;
+	FVector DirectionToAgent{(AgentLocation - EnemyLocation).GetSafeNormal()};
+	const float Angle = 30.f;
+	float AngleToRotate{Request.SpawnPolicy == EAgentSpawnPolicy::ChainAttackLeft ? -Angle : Angle};
+	FVector DirectionToNewAgent{DirectionToAgent.Rotation().Add(0.f, AngleToRotate, 0.f).Vector()};
+	FVector TargetSpawnLocation{EnemyLocation + DirectionToNewAgent * Request.SpecialActionToExecute->AttackEntryDistance};
+	TargetSpawnLocation.Z = Request.CurrentAgent->GetActorLocation().Z;
+	FVector TargetSpawnDirection{-DirectionToNewAgent};
+	SpawnTransform.SetLocation(TargetSpawnLocation);
+	SpawnTransform.SetRotation(TargetSpawnDirection.Rotation().Quaternion());
 }
 
 void USquadManagerComponent::CalculateParrySpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform)
 {
 	if (!IsValid(Request.Enemy) || !IsValid(Request.SpecialActionToExecute)
-		|| !IsValid(Request.CurrentAgent) || !Request.SpecialActionToExecute->AssistConfig.bIsAssistAction)
+		|| !IsValid(Request.CurrentAgent) || !Request.SpecialActionToExecute->ParryConfig.bIsParryAction)
 	{
 		return;
 	}
@@ -898,7 +900,7 @@ void USquadManagerComponent::CalculateParrySpawnTransform(const FAgentTransition
 	EnemyForwardDirection.Normalize();
 
 	float EnemyParryOffset{PerfectAssistStatus.ParryReferenceOffset};
-	float AgentParryOffset{Request.SpecialActionToExecute->AssistConfig.ParrySocketOffset};
+	float AgentParryOffset{Request.SpecialActionToExecute->ParryConfig.ParrySocketOffset};
 	float TotalParryOffset{EnemyParryOffset + AgentParryOffset};
 	FVector WorldParryOffset{EnemyForwardDirection * TotalParryOffset};
 	
@@ -907,6 +909,29 @@ void USquadManagerComponent::CalculateParrySpawnTransform(const FAgentTransition
 	
 	ClashLocation.Z = Request.CurrentAgent->GetActorLocation().Z;
 	SpawnTransform.SetLocation(ClashLocation);
+	SpawnTransform.SetRotation(DesiredFacingDirection.Rotation().Quaternion());
+}
+
+void USquadManagerComponent::CalculateQuickAssistSpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform)
+{
+	if (!IsValid(Request.Enemy) || !IsValid(Request.SpecialActionToExecute)
+	|| !IsValid(Request.CurrentAgent) || !Request.SpecialActionToExecute->bIsQuickAssist)
+	{
+		return;
+	}
+
+	FVector EnemyLocation{Request.Enemy->GetActorLocation()};
+	FVector EnemyForwardDirection{Request.Enemy->GetActorForwardVector()};
+	EnemyForwardDirection.Z = 0.f;
+	EnemyForwardDirection.Normalize();
+	
+	float QuickAssistOffset{Request.SpecialActionToExecute->AttackEntryDistance};
+	FVector WorldOffset{EnemyForwardDirection * QuickAssistOffset};
+	FVector TargetLocation{EnemyLocation + WorldOffset};
+	FVector DesiredFacingDirection{-EnemyForwardDirection};
+
+	TargetLocation.Z = Request.CurrentAgent->GetActorLocation().Z;
+	SpawnTransform.SetLocation(TargetLocation);
 	SpawnTransform.SetRotation(DesiredFacingDirection.Rotation().Quaternion());
 }
 

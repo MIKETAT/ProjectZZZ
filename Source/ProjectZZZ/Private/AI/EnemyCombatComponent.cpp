@@ -36,11 +36,36 @@ void UEnemyCombatComponent::HandleIncomingDamage(const FAttackContext& Context, 
 		// Trigger Chain Attack
 		if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
 		{
-			FTestDeathPayload Payload;
+			FCharacterDeathPayload Payload;
 			EventBus->BroadcastEvent(Combat::Event::ChainAttack, Context.Instigator, Context.Target, Context.Instigator, Payload);
 		}
 		// Cancel Current Action/Play Stun Montage/Add Stun Tag
+		return;
 	}
+
+	// Not Stun	
+	EHitReactionDirection Direction{EHitReactionDirection::Front};
+	if (Context.Instigator)
+	{
+		Direction = CalculateHitReactionDirection(Context.Instigator->GetActorLocation());	
+	}
+	
+	const UCombatActionStep* HitReactionAction{nullptr};
+	if (const FDirectionalHitReactionActions* Actions = HitReactionMap.Find(Context.PayloadConfig.AttackStrength))
+	{
+		switch (Direction)
+		{
+		case EHitReactionDirection::Front: HitReactionAction = Actions->FrontHit; break;
+		case EHitReactionDirection::Back: HitReactionAction = Actions->BackHit; break;
+		default: break;
+		}
+	}
+	
+	if (HitReactionAction)
+	{
+		ExecuteAction(HitReactionAction);
+	}
+	
 }
 
 int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep)
@@ -115,7 +140,6 @@ void UEnemyCombatComponent::ProcessHitFeedback(const FAttackResult& Result)
 			break;
 		case EAttackResultType::Parried:
 			// Hit Fly?
-			// HitStop
 			{
 				checkf(Character, TEXT("Enemy Character Invalid"));
 				if (UHitStopComponent* HitStopComponent = Character->GetHitStopComponent())

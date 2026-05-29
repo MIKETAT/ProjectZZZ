@@ -1,13 +1,9 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "Character/CharacterBase.h"
-
+﻿#include "Character/CharacterBase.h"
 #include "MotionWarpingComponent.h"
 #include "AbilitySystem/AgentAbilitySystemComponent.h"
 #include "AbilitySystem/AgentAttributeSet.h"
 #include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
-#include "Character/Component/CharacterCombatComponent.h"
 #include "Character/Component/HitStopComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -16,7 +12,6 @@
 
 ACharacterBase::ACharacterBase()
 {
-	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 80.0f);
@@ -39,7 +34,6 @@ ACharacterBase::ACharacterBase()
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 
-	//CombatComponent = CreateDefaultSubobject<UCharacterCombatComponent>(TEXT("CombatComponent"));
 	CombatAnimSchedulerComponent = CreateDefaultSubobject<UCombatAnimSchedulerComponent>(TEXT("CombatAnimSchedulerComponent"));
 
 	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
@@ -55,7 +49,6 @@ ACharacterBase::ACharacterBase()
 void ACharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 void ACharacterBase::Tick(float DeltaTime)

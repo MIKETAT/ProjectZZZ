@@ -1,7 +1,6 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Character/Component/CharacterCombatComponent.h"
-
 #include "GameplayEffect.h"
 #include "MotionWarpingComponent.h"
 #include "AbilitySystem/AgentAttributeSet.h"
@@ -9,11 +8,14 @@
 #include "Animation/AnimInstanceBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/CharacterBase.h"
+#include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/HitStopComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/PlayerCharacter.h"
 #include "Utility/ZZZGameplayTag.h"
+#include "Character/Combat/CombatHitReactionAction.h"
+#include "Character/Combat/ZZZCombatEventTypes.h"
 
 UCharacterCombatComponent::UCharacterCombatComponent()
 {
@@ -197,6 +199,12 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 		return INDEX_NONE;
 	}
 
+	AEnemyCharacterBase* Enemy{nullptr};
+ 	if (ActionStep->bIsAttackAction)
+	{
+		Enemy = FindClosestEnemy(ActionStep->WarpConfig.MotionWarpingEffectiveDistance);
+	}
+	
 	if (IsAnyActionActive())
 	{
 		CombatAnimSchedulerComponent->CancelAnimRequest(CurrentExecutionState.MontageInstanceId);
@@ -211,7 +219,7 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 		// Execute successfully. Apply Cost. Reset Status.
 		PayActionCost(ActionStep);
 
-		TryApplyMotionWarpingIfNeeded(ActionStep);
+		TryApplyMotionWarpingIfNeeded(ActionStep, Enemy);
 			
 		CurrentExecutionState.Reset();
 		CurrentExecutionState.CurrentStep = ActionStep;
@@ -221,30 +229,60 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 	return InstanceID;
 }
 
-void UCharacterCombatComponent::TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep)
+void UCharacterCombatComponent::TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep, const AEnemyCharacterBase* Enemy)
 {
 	// Motion Warping
-	if (!IsValid(ActionStep) || !ActionStep->WarpConfig.bEnableMotionWarp)
+	if (!IsValid(ActionStep) || !IsValid(Enemy) || !ActionStep->WarpConfig.bEnableMotionWarp)
 	{
 		return;
 	}
 
 	APlayerCharacter* Agent = Cast<APlayerCharacter>(Character);
-	Agent->GetMotionWarpingComponent()->RemoveAllWarpTargets();
-	
-	AEnemyCharacterBase* Enemy{FindClosestEnemy(ActionStep->WarpConfig.MotionWarpingEffectiveDistance)};
-	if (!Enemy)
+	float AgentRadius{0.f};
+	float EnemyRadius{0.f};
+	if (UCapsuleComponent* AgentCap = Agent->GetCapsuleComponent())
 	{
-		return;
+		AgentRadius = AgentCap->GetScaledCapsuleRadius();
 	}
+	if (UCapsuleComponent* EnemyCaps = Enemy->GetCapsuleComponent())
+	{
+		EnemyRadius = EnemyCaps->GetScaledCapsuleRadius();
+	}
+	float StandOffDistance{AgentRadius + EnemyRadius};
 	
-	FTransform WarpTransform{CalculateWarpTargetLocation(ActionStep, Enemy)};
-	Character->SetActorRotation(WarpTransform.Rotator(), ETeleportType::TeleportPhysics);
-	
-	Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocationAndRotation(
-		ActionStep->WarpConfig.WarpTargetName,
-		WarpTransform.GetLocation(),
-		WarpTransform.GetRotation().Rotator());
+	Agent->GetMotionWarpingComponent()->RemoveAllWarpTargets();
+
+	if (ActionStep->WarpConfig.TrackingMode == EMotionWarpTrackingMode::DynamicComponent)
+	{
+		FVector WarpOffset{FVector(StandOffDistance, 0.f, 0.f)};
+		FRotator FacingEnemyRotation{FRotator(0.f, 180.f, 0.f)};
+		Character->SetActorRotation(FacingEnemyRotation, ETeleportType::TeleportPhysics);
+		Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromComponent(
+			ActionStep->WarpConfig.WarpTargetName,
+			Enemy->GetRootComponent(),
+			NAME_None,
+			true,
+			EWarpTargetLocationOffsetDirection::TargetsForwardVector,
+			WarpOffset,
+			FacingEnemyRotation);
+	} else if (ActionStep->WarpConfig.TrackingMode == EMotionWarpTrackingMode::StaticWorldPoint)
+	{
+		FVector AgentLocation{Agent->GetActorLocation()};
+		FVector EnemyLocation{Enemy->GetActorLocation()};
+		AgentLocation.Z = 0.f;
+		EnemyLocation.Z = 0.f;
+		FVector DirectionToTarget{(EnemyLocation - AgentLocation).GetSafeNormal()};
+		FVector TargetLocation{EnemyLocation - (DirectionToTarget * StandOffDistance)};
+		TargetLocation.Z = Agent->GetActorLocation().Z;
+		FRotator TargetRotation{DirectionToTarget.Rotation()};
+
+		DrawDebugSphere(GetWorld(), TargetLocation, 15.f, 10, FColor::Yellow, false, 8.f);
+		Character->SetActorRotation(TargetRotation, ETeleportType::TeleportPhysics);
+		Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocationAndRotation(
+			ActionStep->WarpConfig.WarpTargetName,
+			TargetLocation,
+			TargetRotation);
+	}
 }
 
 AEnemyCharacterBase* UCharacterCombatComponent::FindClosestEnemy(const float MaxDistance)
@@ -291,40 +329,6 @@ AEnemyCharacterBase* UCharacterCombatComponent::FindClosestEnemy(const float Max
 	}
 	Enemy = Cast<AEnemyCharacterBase>(Candidate);
 	return Enemy;
-}
-
-FTransform UCharacterCombatComponent::CalculateWarpTargetLocation(const UCombatActionStep* ActionStep, AEnemyCharacterBase* Enemy)
-{
-	FTransform TargetTransform{FTransform::Identity};
-	if (!IsValid(ActionStep) || !IsValid(Enemy) || !IsValid(Character) || !ActionStep->WarpConfig.bEnableMotionWarp)
-	{
-		return TargetTransform;
-	}
-	float AgentRadius{0.f};
-	float EnemyRadius{0.f};
-	if (UCapsuleComponent* EnemyCapsule = Enemy->GetCapsuleComponent())
-	{
-		EnemyRadius = EnemyCapsule->GetScaledCapsuleRadius();	
-	}
-
-	if (UCapsuleComponent* AgentCapsule = Character->GetCapsuleComponent())
-	{
-		AgentRadius = AgentCapsule->GetScaledCapsuleRadius();
-	}
-
-	FVector EnemyLocation{Enemy->GetActorLocation()};
-	FVector DirToEnemy{EnemyLocation - Character->GetActorLocation()};
-	DirToEnemy.Z = 0.f;
-	DirToEnemy.Normalize();
-
-	FVector Location = EnemyLocation - DirToEnemy * (EnemyRadius + AgentRadius + ActionStep->WarpConfig.StandOffDistance);
-
-	DrawDebugPoint(GetWorld(), Location, 10.f, FColor::Red, false, 10.f);
-	
-	FRotator Rotator{DirToEnemy.Rotation()};
-	TargetTransform.SetLocation(Location);
-	TargetTransform.SetRotation(Rotator.Quaternion());
-	return TargetTransform;
 }
 
 void UCharacterCombatComponent::RefreshInputActionBitmask(const float DeltaTime)
@@ -469,14 +473,14 @@ void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Conte
 	}
 
 	// Parry Check
-	if (CurrentExecutionState.CurrentStep && CurrentExecutionState.CurrentStep->AssistConfig.bIsAssistAction
+	if (CurrentExecutionState.CurrentStep && CurrentExecutionState.CurrentStep->ParryConfig.bIsParryAction
 		&& AbilitySystemComponent->HasMatchingGameplayTag(Combat::Status::Agent::Parry))
 	{
 		// Jump to Section
 		Result.ResultType = EAttackResultType::Parried;
 		
 		// Apply GE On Enemy
-		const FAssistActionConfig& ParryConfig{CurrentExecutionState.CurrentStep->AssistConfig};
+		const FParryActionConfig& ParryConfig{CurrentExecutionState.CurrentStep->ParryConfig};
 		ApplyGameplayEffectOnTarget(AbilitySystemComponent, Context.InstigatorASC.Get(), ParryConfig.ParryEffectOnEnemy);
 
 		// Apply HitStop
@@ -491,8 +495,40 @@ void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Conte
 	}
 
 	// Apply Damage
-	Result.ResultType = EAttackResultType::Hit;
 	ApplyImpactEffectOnTarget(SourceASC, TargetASC, Context);
+
+	// HitReaction
+	EHitReactionDirection Direction{EHitReactionDirection::Front};
+	if (Context.Instigator)
+	{
+		Direction = CalculateHitReactionDirection(Context.Instigator->GetActorLocation());	
+	}
+	
+	const UCombatActionStep* HitReactionAction{nullptr};
+	if (const FDirectionalHitReactionActions* Actions = HitReactionMap.Find(Context.PayloadConfig.AttackStrength))
+	{
+		switch (Direction)
+		{
+			case EHitReactionDirection::Front: HitReactionAction = Actions->FrontHit; break;
+			case EHitReactionDirection::Back: HitReactionAction = Actions->BackHit; break;
+			default: break;
+		}
+	}
+	
+	if (HitReactionAction)
+	{
+		ExecuteAction(HitReactionAction);
+	}
+
+	// Quick Assist
+	if (Context.PayloadConfig.AttackStrength == EAttackStrength::Launch)
+	{
+		if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
+		{
+			FQuickAssistPayload Payload;
+			EventBus->BroadcastEvent(Combat::Event::QuickAssist, Context.Instigator, Character, Context.Instigator, Payload);
+		}
+	}
 }
 
 void UCharacterCombatComponent::ProcessHitFeedback(const FAttackResult& Result)
@@ -554,7 +590,6 @@ void UCharacterCombatComponent::ExecuteSwitchAction(UCombatActionStep* Action)
 		ExecuteAction(Action);
 	}
 }
-
 
 void UCharacterCombatComponent::OnEnergyChanged(const FOnAttributeChangeData& Data)
 {
