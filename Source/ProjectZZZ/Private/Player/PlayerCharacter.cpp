@@ -5,6 +5,7 @@
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/CharacterCombatComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameplayCameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "Utility/ZZZGameplayTag.h"
@@ -12,7 +13,8 @@
 APlayerCharacter::APlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	
+
+	/*
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -23,6 +25,10 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+	*/
+
+	GameplayCamera = CreateDefaultSubobject<UGameplayCameraComponent>(TEXT("GameplayCamera"));
+	GameplayCamera->SetupAttachment(RootComponent);
 	
 	AgentAttributeSet = CreateDefaultSubobject<UAgentAttributeSet>(TEXT("AgentAttributeSet"));
 	AgentCombatComponent = CreateDefaultSubobject<UCharacterCombatComponent>(TEXT("CombatComponent"));
@@ -50,7 +56,7 @@ void APlayerCharacter::Tick(float DeltaTime)
 	ProcessCombatActionInput(DeltaTime);
 
 	// debug
-	if (bIsActive)
+	if (bIsActive && bPrintDebugInfo)
 	{
 		UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
 	

@@ -34,6 +34,11 @@ void UAnimNotifyState_PerfectAssistWindow::NotifyTick(USkeletalMeshComponent* Me
 {
 	Super::NotifyTick(MeshComp, Animation, FrameDeltaTime, EventReference);
 
+	if (!bDrawDebug)
+	{
+		return;
+	}
+	
 	FTransform SocketWorldTransform{MeshComp->GetSocketTransform(SocketName, RTS_World)};
 	FTransform RootWorldTransform{MeshComp->GetComponentTransform()};
 

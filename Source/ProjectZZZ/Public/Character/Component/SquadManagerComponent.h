@@ -17,9 +17,18 @@ class AZZZPlayerController;
 class APlayerCharacter;
 class UImage;
 
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTriggerChainAttack, UTexture2D*, UTexture2D*);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTriggerChainAttackWindow, UTexture2D*, UTexture2D*);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssistWindow, UTexture2D*);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggerChainAttack, FTransform, CameraTransform);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggerParry, FTransform, CameraTransform);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssist, FTransform, CameraTransform);
+
+//DECLARE_MULTICAST_DELEGATE(FOnTriggerQuickAssist);
+
 DECLARE_MULTICAST_DELEGATE(FOnFinishChainAttack);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssist, UTexture2D*)
 DECLARE_MULTICAST_DELEGATE(FOnFinishQuickAssist);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveAgentChanged, APlayerCharacter*, APlayerCharacter*)
 
@@ -179,6 +188,10 @@ public:
 	bool IsActiveAgentExecutingAction() const { return GetActiveAgent() && GetActiveAgent()->IsAnyActionActive(); }
 	
 	FChainAttackWindowStatus GetChainAttackWindowStatus() const { return ChainAttackStatus; }
+
+	//void ResetTargetEnemy() { TargetEnemy = nullptr; }
+
+	//AEnemyCharacterBase* GetTargetEnemy() const { return TargetEnemy.Get(); }
 private:
 	// Switch Agent
 	// Todo: 切换到后台的代理人动作只执行到逻辑结算结束就退到后台，不播放收刀之类的后摇动画
@@ -186,8 +199,6 @@ private:
 	void ExecuteAgentTransition(const FAgentTransitionRequest& Request);
 
 	bool CanExecuteAgentTransition(const FAgentTransitionRequest& Request);
-
-	void ApplyAgentState(APlayerCharacter* Agent, EAgentPresenceState State);
 
 	void ApplyAgentActiveState(APlayerCharacter* Agent);
 
@@ -216,8 +227,7 @@ private:
 	void AgentDefensiveAssist(const int32 TargetIndex, bool bIsPrevious);
 
 	void AgentQuickAssist(const int32 TargetIndex);
-	
-private:
+
 	// Squad 
 	void InitializeAgentSquad();
 		
@@ -253,6 +263,10 @@ private:
 	
 	void QTEAdvanceCountDown(float DeltaTime);
 
+	void EnterChainAttackSlowMotion(UWorld* World);
+
+	void ExitChainAttackSlowMotion(UWorld* World);
+
 	// Perfect Assist
 	ECombatEventHandleResult TriggerPerfectAssistWindow(const FCombatEventMessage& CombatEventMessage);
 
@@ -272,15 +286,31 @@ private:
 	void CalculateQuickAssistSpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform);
 
 	FTransform GetInitialSpawnTransform() const;
+
+	/*FTransform CalculateParryCameraPosition(const FAgentTransitionRequest& Request);
+
+	FTransform CalculateChainAttackCameraPosition(const FAgentTransitionRequest& Request);*/
+
+	FTransform CalculateActionCameraPosition(const FAgentTransitionRequest& Request);
+	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<TSubclassOf<APlayerCharacter>> SquadPreset;
 
+	FOnTriggerChainAttackWindow OnTriggerChainAttackWindow;
+
+	UPROPERTY(BlueprintAssignable)
 	FOnTriggerChainAttack OnTriggerChainAttack;
 
+	UPROPERTY(BlueprintAssignable)
+	FOnTriggerParry OnTriggerParry;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnTriggerQuickAssist OnTriggerQuickAssist;
+	
 	FOnFinishChainAttack OnFinishChainAttack;
 
-	FOnTriggerQuickAssist OnTriggerQuickAssist;
+	FOnTriggerQuickAssistWindow OnTriggerQuickAssistWindow;
 
 	FOnFinishQuickAssist OnFinishQuickAssist;
 
@@ -302,9 +332,24 @@ private:
 
 	FDelegateHandle QuickAssistHandle;
 
+	UPROPERTY(EditDefaultsOnly, meta = (AllowPrivateAccess = "true"))
 	FChainAttackWindowStatus ChainAttackStatus;
 
 	FPerfectAssistWindowStatus PerfectAssistStatus;
 	
 	FQuickAssistWindowStatus QuickAssistStatus;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AEnemyCharacterBase> TargetEnemy{nullptr};
+
+	// test
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FVector ParryCameraOffset{-150.f, -80.f, -30.f};
+
+	// Y 只取正值, 方向通过SpawnPolicy确定
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	FVector ChainAttackCameraOffset{-150.f, 75.f, -15.f};
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	float ChainAttackSlowMotionScale{0.05f};
 };

@@ -4,6 +4,7 @@
 #include "InputMappingContext.h"
 #include "Blueprint/UserWidget.h"
 #include "Character/Component/SquadManagerComponent.h"
+#include "GameFramework/GameplayCameraComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "UI/QTEWidget/QTEWidget.h"
 #include "UI/QTEWidget/QuickAssistWindow.h"
@@ -14,6 +15,8 @@ AZZZPlayerController::AZZZPlayerController()
 	PlayerInputHandlerComponent = CreateDefaultSubobject<UPlayerInputHandlerComponent>(TEXT("InputHandlerComponent"));
 
 	SquadManager = CreateDefaultSubobject<USquadManagerComponent>(TEXT("SquadManager"));
+	
+	//GameplayCamera = CreateDefaultSubobject<UGameplayCameraComponent>(TEXT("GameplayCamera"));
 }
 
 void AZZZPlayerController::BeginPlay()
@@ -43,6 +46,15 @@ void AZZZPlayerController::SetupInputComponent()
 	}
 }
 
+APlayerCharacter* AZZZPlayerController::GetActiveAgent() const
+{
+	if (SquadManager)
+	{
+		return SquadManager->GetActiveAgent();
+	}
+	return nullptr;
+}
+
 void AZZZPlayerController::CreateQTEWidget()
 {
 	if (IsValid(QTEWidgetClass))
@@ -69,13 +81,13 @@ void AZZZPlayerController::BindUIDelegate()
 	// Chain Attack
 	if (QTEWidget)
 	{
-		SquadManager->OnTriggerChainAttack.AddUObject(QTEWidget, &UQTEWidget::StartQTEWindow);
+		SquadManager->OnTriggerChainAttackWindow.AddUObject(QTEWidget, &UQTEWidget::StartQTEWindow);
 		SquadManager->OnFinishChainAttack.AddUObject(QTEWidget, &UQTEWidget::ResetAndCloseQTEWindow);
 	}
-	// Quick Assit
+	// Quick Assist
 	if (QuickAssistWidget)
 	{
-		SquadManager->OnTriggerQuickAssist.AddUObject(QuickAssistWidget, &UQuickAssistWindow::StartQuickAssistWindow);
+		SquadManager->OnTriggerQuickAssistWindow.AddUObject(QuickAssistWidget, &UQuickAssistWindow::StartQuickAssistWindow);
 		SquadManager->OnFinishQuickAssist.AddUObject(QuickAssistWidget, &UQuickAssistWindow::ResetAndCloseQuickAssistWindow);
 	}
 }

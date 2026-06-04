@@ -7,6 +7,8 @@
 #include "Input/PlayerInputHandlerComponent.h"
 #include "ZZZPlayerController.generated.h"
 
+class APlayerCharacter;
+class UGameplayCameraComponent;
 class UQuickAssistWindow;
 class UQTEWidget;
 class USquadManagerComponent;
@@ -33,6 +35,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	USquadManagerComponent* GetSquadManagerComponent() const { return SquadManager; }
+
+	UFUNCTION(BlueprintCallable)
+	APlayerCharacter* GetActiveAgent() const;
 	
 private:
 	void CreateQTEWidget();
@@ -42,6 +47,9 @@ private:
 	void CreateQuickAssistWidget();
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FGameplayTagContainer CameraStatusTag;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UQTEWidget> QTEWidgetClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -50,8 +58,11 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPlayerInputHandlerComponent> PlayerInputHandlerComponent{nullptr};
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<USquadManagerComponent> SquadManager{nullptr};
+	
+	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UGameplayCameraComponent> GameplayCamera;*/
 
 	UPROPERTY()
 	TObjectPtr<UQTEWidget> QTEWidget{nullptr};

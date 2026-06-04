@@ -8,6 +8,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameModeBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Player/PlayerCharacter.h"
 #include "Utility/ZZZGameplayTag.h"
 
@@ -169,8 +170,8 @@ void USquadManagerComponent::ExecuteAgentTransition(const FAgentTransitionReques
 	checkf(TargetAgent, TEXT("Switch In Invalid Agent"));
 	HandleAgentSwitchIn(TargetAgent, Request, Snapshot);
 	ActiveAgentIndex = Request.TargetAgentIndex;
-
 	OnActiveAgentChanged.Broadcast(OldAgent, TargetAgent);
+	
 	if (OldAgent)
 	{
 		OldAgent->SetAgentActive(false);
@@ -208,30 +209,6 @@ bool USquadManagerComponent::CanExecuteAgentTransition(const FAgentTransitionReq
 	return true;
 }
 
-void USquadManagerComponent::ApplyAgentState(APlayerCharacter* Agent, EAgentPresenceState State)
-{
-	if (!IsValid(Agent))
-	{
-		return;
-	}
-
-	Agent->SetAgentPresence(State);
-	switch (State)
-	{
-	case EAgentPresenceState::Active:
-		ApplyAgentActiveState(Agent);
-		break;
-
-	case EAgentPresenceState::Lingering:
-		ApplyAgentLingeringState(Agent);
-		break;;
-
-	case EAgentPresenceState::OffField:
-		ApplyAgentOffFieldState(Agent);
-		break;
-	}
-}
-
 void USquadManagerComponent::ApplyAgentActiveState(APlayerCharacter* Agent)
 {
 	if (!IsValid(Agent))
@@ -252,6 +229,7 @@ void USquadManagerComponent::ApplyAgentLingeringState(APlayerCharacter* Agent)
 	}
 
 	Agent->SetAgentPresence(EAgentPresenceState::Lingering);
+	Agent->SetActorEnableCollision(false);
 }
 
 void USquadManagerComponent::ApplyAgentOffFieldState(APlayerCharacter* Agent)
@@ -346,7 +324,7 @@ void USquadManagerComponent::HandleAgentSwitchIn(APlayerCharacter* NewAgent, con
 		case EAgentSwitchInMode::ExecuteChainAttack:
 		case EAgentSwitchInMode::ExecuteQuickAssist:
 		case EAgentSwitchInMode::ExecuteDefensiveAssist:
-			CombatComponent->ExecuteSwitchAction(Request.SpecialActionToExecute);
+			CombatComponent->ExecuteSwitchAction(Request.SpecialActionToExecute, FCombatActionContext{Request.Enemy.Get()});
 			break;
 	}
 }
@@ -440,6 +418,10 @@ void USquadManagerComponent::AgentChainAttack(const int32 TargetIndex, bool bIsP
 		Request.Enemy = ChainAttackStatus.Enemy;
 		Request.SpecialActionToExecute = bIsPrevious ? GetPreviousAgent()->GetSpecialAction(Combat::SpecialAction::ChainAttack) : GetNextAgent()->GetSpecialAction(Combat::SpecialAction::ChainAttack);
 		ExecuteAgentTransition(Request);
+
+		//TargetEnemy = Request.Enemy;
+		//OnTriggerChainAttack.Broadcast(CalculateChainAttackCameraPosition(Request));
+		OnTriggerChainAttack.Broadcast(CalculateActionCameraPosition(Request));
 	}
 	CloseChainAttackWindow();
 }
@@ -458,6 +440,10 @@ void USquadManagerComponent::AgentDefensiveAssist(const int32 TargetIndex, bool 
 		Request.SpecialActionToExecute = bIsPrevious ?	GetPreviousAgent()->GetSpecialAction(Combat::SpecialAction::DefensiveAssist) :
 														GetNextAgent()->GetSpecialAction(Combat::SpecialAction::DefensiveAssist);
 		ExecuteAgentTransition(Request);
+		
+		//OnTriggerParry.Broadcast(CalculateParryCameraPosition(Request));
+		OnTriggerParry.Broadcast(CalculateActionCameraPosition(Request));
+		//TargetEnemy = Request.Enemy;
 	}
 }
 
@@ -474,6 +460,8 @@ void USquadManagerComponent::AgentQuickAssist(const int32 TargetIndex)
 		Request.Enemy = QuickAssistStatus.TargetEnemy;
 		Request.SpecialActionToExecute = GetNextAgent()->GetSpecialAction(Combat::SpecialAction::QuickAssist);
 		ExecuteAgentTransition(Request);
+
+		OnTriggerQuickAssist.Broadcast(CalculateActionCameraPosition(Request));
 	}
 }
 
@@ -496,7 +484,9 @@ ECombatEventHandleResult USquadManagerComponent::TriggerChainAttackWindow(const 
 	
 	ChainAttackStatus.bActive = true;
 	ChainAttackStatus.Enemy = Cast<AEnemyCharacterBase>(CombatEventMessage.Target);
-	OnTriggerChainAttack.Broadcast(PreviousAgentHead, NextAgentHead);
+	OnTriggerChainAttackWindow.Broadcast(PreviousAgentHead, NextAgentHead);
+	EnterChainAttackSlowMotion(GetWorld());
+	
 	return ECombatEventHandleResult::Handled;
 }
 
@@ -505,6 +495,7 @@ void USquadManagerComponent::CloseChainAttackWindow()
 	ChainAttackStatus.bActive = false;
 	OnFinishChainAttack.Broadcast();
 	ChainAttackStatus.ResetChainAttackWindow();
+	ExitChainAttackSlowMotion(GetWorld());
 }
 
 void USquadManagerComponent::InitializeAgentSquad()
@@ -740,6 +731,25 @@ void USquadManagerComponent::QTEAdvanceCountDown(float DeltaTime)
 	}
 }
 
+void USquadManagerComponent::EnterChainAttackSlowMotion(UWorld* World)
+{
+	if (!World)
+	{
+		return;
+	}
+	UGameplayStatics::SetGlobalTimeDilation(World, ChainAttackSlowMotionScale);
+}
+
+void USquadManagerComponent::ExitChainAttackSlowMotion(UWorld* World)
+{
+	if (!World)
+	{
+		return;
+	}
+
+	UGameplayStatics::SetGlobalTimeDilation(World, 1.f);
+}
+
 ECombatEventHandleResult USquadManagerComponent::TriggerPerfectAssistWindow(const FCombatEventMessage& CombatEventMessage)
 {
 	if (!CombatEventMessage.Payload.IsValid() || CombatEventMessage.Payload.GetScriptStruct() != FPerfectAssistStatePayload::StaticStruct())
@@ -781,7 +791,7 @@ ECombatEventHandleResult USquadManagerComponent::TriggerQuickAssistWindow(const 
 			QuickAssistStatus.bQuickAssistWindowOpen = true;
 			QuickAssistStatus.TargetEnemy = Enemy;
 			QuickAssistStatus.QuickAssistRemainingTime = QuickAssistStatus.QuickAssistCountDownDuration;
-			OnTriggerQuickAssist.Broadcast(Agent->GetAgentHead());
+			OnTriggerQuickAssistWindow.Broadcast(Agent->GetAgentHead());
 
 			return ECombatEventHandleResult::Handled;
 		}
@@ -862,8 +872,7 @@ FTransform USquadManagerComponent::CalculateAgentSpawnTransform(const FAgentTran
 	return SpawnTransform;
 }
 
-void USquadManagerComponent::CalculateChainAttackSpawnTransform(const FAgentTransitionRequest& Request,
-	FTransform& SpawnTransform)
+void USquadManagerComponent::CalculateChainAttackSpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform)
 {
 	if (!IsValid(Request.Enemy) || !IsValid(Request.SpecialActionToExecute)
 	|| !IsValid(Request.CurrentAgent) || !Request.SpecialActionToExecute->bIsChainAttack)
@@ -871,19 +880,35 @@ void USquadManagerComponent::CalculateChainAttackSpawnTransform(const FAgentTran
 		return;
 	}
 
-	FVector EnemyLocation{Request.Enemy->GetActorLocation()};
-	FVector AgentLocation{Request.CurrentAgent->GetActorLocation()};
-	EnemyLocation.Z = 0.f;
-	AgentLocation.Z = 0.f;
-	FVector DirectionToAgent{(AgentLocation - EnemyLocation).GetSafeNormal()};
-	const float Angle = 30.f;
-	float AngleToRotate{Request.SpawnPolicy == EAgentSpawnPolicy::ChainAttackLeft ? -Angle : Angle};
-	FVector DirectionToNewAgent{DirectionToAgent.Rotation().Add(0.f, AngleToRotate, 0.f).Vector()};
-	FVector TargetSpawnLocation{EnemyLocation + DirectionToNewAgent * Request.SpecialActionToExecute->AttackEntryDistance};
+	const FVector EnemyLocation{Request.Enemy->GetActorLocation()};
+
+	const FVector EnemyForward{FVector::VectorPlaneProject(Request.Enemy->GetActorForwardVector(), FVector::UpVector).GetSafeNormal2D()};
+	if (EnemyForward.IsNearlyZero())
+	{
+		return;
+	}
+
+	const FVector EnemyRight{FVector::CrossProduct(FVector::UpVector, EnemyForward).GetSafeNormal2D()};
+	if (EnemyRight.IsNearlyZero())
+	{
+		return;
+	}
+
+	const float SignSide{Request.SpawnPolicy == EAgentSpawnPolicy::ChainAttackLeft ? -1.f : 1.f};
+
+	const float ForwardOffset{Request.SpecialActionToExecute->AttackEntryForwardOffset};
+	const float RightOffset{Request.SpecialActionToExecute->AttackEntryLateralOffset};
+
+	FVector TargetSpawnLocation{EnemyLocation
+		+ ForwardOffset * EnemyForward
+		+ RightOffset * EnemyRight * SignSide
+	};
 	TargetSpawnLocation.Z = Request.CurrentAgent->GetActorLocation().Z;
-	FVector TargetSpawnDirection{-DirectionToNewAgent};
+	FRotator TargetSpawnRotation{(EnemyLocation - TargetSpawnLocation).Rotation()};
+	
 	SpawnTransform.SetLocation(TargetSpawnLocation);
-	SpawnTransform.SetRotation(TargetSpawnDirection.Rotation().Quaternion());
+	SpawnTransform.SetRotation(TargetSpawnRotation.Quaternion());
+	DrawDebugCapsule(GetWorld(), SpawnTransform.GetLocation(), 50.f, 30.f, FQuat::Identity, FColor::Green, false, 15.f);
 }
 
 void USquadManagerComponent::CalculateParrySpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform)
@@ -919,20 +944,33 @@ void USquadManagerComponent::CalculateQuickAssistSpawnTransform(const FAgentTran
 	{
 		return;
 	}
-
-	FVector EnemyLocation{Request.Enemy->GetActorLocation()};
-	FVector EnemyForwardDirection{Request.Enemy->GetActorForwardVector()};
-	EnemyForwardDirection.Z = 0.f;
-	EnemyForwardDirection.Normalize();
 	
-	float QuickAssistOffset{Request.SpecialActionToExecute->AttackEntryDistance};
-	FVector WorldOffset{EnemyForwardDirection * QuickAssistOffset};
-	FVector TargetLocation{EnemyLocation + WorldOffset};
-	FVector DesiredFacingDirection{-EnemyForwardDirection};
+	const FVector EnemyLocation{Request.Enemy->GetActorLocation()};
+	
+	const FVector EnemyForward{FVector::VectorPlaneProject(Request.Enemy->GetActorForwardVector(), FVector::UpVector).GetSafeNormal2D()};
+	if (EnemyForward.IsNearlyZero())
+	{
+		return;
+	}
 
-	TargetLocation.Z = Request.CurrentAgent->GetActorLocation().Z;
-	SpawnTransform.SetLocation(TargetLocation);
-	SpawnTransform.SetRotation(DesiredFacingDirection.Rotation().Quaternion());
+	const FVector EnemyRight{FVector::CrossProduct(FVector::UpVector, EnemyForward).GetSafeNormal2D()};
+	if (EnemyRight.IsNearlyZero())
+	{
+		return;
+	}
+	
+	const float ForwardOffset{Request.SpecialActionToExecute->AttackEntryForwardOffset};
+	const float RightOffset{Request.SpecialActionToExecute->AttackEntryLateralOffset};
+
+	FVector TargetSpawnLocation{EnemyLocation
+		+ ForwardOffset * EnemyForward
+		+ RightOffset * EnemyRight
+	};
+	FRotator TargetSpawnRotation{(EnemyLocation - TargetSpawnLocation).Rotation()};
+	
+	TargetSpawnLocation.Z = Request.CurrentAgent->GetActorLocation().Z;
+	SpawnTransform.SetLocation(TargetSpawnLocation);
+	SpawnTransform.SetRotation(TargetSpawnRotation.Quaternion());
 }
 
 FTransform USquadManagerComponent::GetInitialSpawnTransform() const
@@ -944,4 +982,120 @@ FTransform USquadManagerComponent::GetInitialSpawnTransform() const
 		SpawnTransform = PlayerStart->GetTransform();
 	}
 	return SpawnTransform;
+}
+
+/*FTransform USquadManagerComponent::CalculateParryCameraPosition(const FAgentTransitionRequest& Request)
+{
+	FTransform AgentSpawnTransform{CalculateAgentSpawnTransform(Request)};
+	
+	FTransform CameraPosition{FTransform::Identity};
+	
+	FVector AgentLocation{AgentSpawnTransform.GetLocation()};
+	FVector Forward{AgentSpawnTransform.GetRotation().GetForwardVector()};
+	FVector Right{Request.SpawnPolicy == EAgentSpawnPolicy::ChainAttackLeft ?
+										-AgentSpawnTransform.GetRotation().GetRightVector() : AgentSpawnTransform.GetRotation().GetRightVector()};
+	FVector Up{AgentSpawnTransform.GetRotation().GetUpVector()};
+	
+	FVector CameraLocation{
+		AgentLocation
+			+ Forward * ParryCameraOffset.X
+			+ Right * ParryCameraOffset.Y
+			+ Up * ParryCameraOffset.Z
+	};
+	
+	FRotator CameraRotation{UKismetMathLibrary::FindLookAtRotation(CameraLocation, AgentLocation)};
+
+	CameraPosition.SetLocation(CameraLocation);
+	CameraPosition.SetRotation(CameraRotation.Quaternion());
+	
+	DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Green, false, 10.f);
+	DrawDebugDirectionalArrow(GetWorld(), CameraLocation, CameraLocation + 200.f * CameraRotation.Quaternion().GetForwardVector(),
+		10.f, FColor::Green, false, 10.f);
+	
+	return CameraPosition;
+}
+
+FTransform USquadManagerComponent::CalculateChainAttackCameraPosition(const FAgentTransitionRequest& Request)
+{
+	FTransform AgentSpawnTransform{CalculateAgentSpawnTransform(Request)};
+
+	DrawDebugSphere(GetWorld(), AgentSpawnTransform.GetLocation(), 10.f, 16, FColor::Yellow, false, 10.f);
+	DrawDebugDirectionalArrow(GetWorld(), AgentSpawnTransform.GetLocation(),
+		AgentSpawnTransform.GetLocation() + 200.f * AgentSpawnTransform.GetRotation().GetForwardVector(),
+		10.f, FColor::Yellow, false, 10.f);
+
+	FTransform CameraPosition{FTransform::Identity};
+	
+	FVector AgentLocation{AgentSpawnTransform.GetLocation()};
+	FVector Forward{AgentSpawnTransform.GetRotation().GetForwardVector()};
+	FVector Right{Request.SpawnPolicy == EAgentSpawnPolicy::ChainAttackLeft ?
+										-AgentSpawnTransform.GetRotation().GetRightVector() : AgentSpawnTransform.GetRotation().GetRightVector()};
+	FVector Up{AgentSpawnTransform.GetRotation().GetUpVector()};
+	
+	FVector CameraLocation{
+		AgentLocation
+			+ Forward * ChainAttackCameraOffset.X
+			+ Right * ChainAttackCameraOffset.Y
+			+ Up * ChainAttackCameraOffset.Z
+	};
+	
+	FRotator CameraRotation{UKismetMathLibrary::FindLookAtRotation(CameraLocation, AgentSpawnTransform.GetLocation())};
+
+	CameraPosition.SetLocation(CameraLocation);
+	CameraPosition.SetRotation(CameraRotation.Quaternion());
+	
+	DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
+	DrawDebugDirectionalArrow(GetWorld(), CameraLocation, CameraLocation + 200.f * CameraRotation.Quaternion().GetForwardVector(),
+		10.f, FColor::Purple, false, 10.f);
+	return CameraPosition;
+}*/
+
+FTransform USquadManagerComponent::CalculateActionCameraPosition(const FAgentTransitionRequest& Request)
+{
+	FTransform TargetCameraTransform{FTransform::Identity};
+	if (!Request.SpecialActionToExecute)
+	{
+		return TargetCameraTransform;
+	}
+	
+	const FCinematicCameraConfig& CameraConfig{Request.SpecialActionToExecute->CameraConfig};
+	
+	if (!CameraConfig.bEnableCinematicCamera)
+	{
+		return TargetCameraTransform;
+	}
+
+	FTransform AgentSpawnTransform{CalculateAgentSpawnTransform(Request)};
+	FVector AgentLocation{AgentSpawnTransform.GetLocation()};
+	
+	FVector Forward{AgentSpawnTransform.GetRotation().GetForwardVector()};
+	FVector Right{Request.SpawnPolicy == EAgentSpawnPolicy::ChainAttackLeft ?
+										-AgentSpawnTransform.GetRotation().GetRightVector() : AgentSpawnTransform.GetRotation().GetRightVector()};
+	FVector Up{AgentSpawnTransform.GetRotation().GetUpVector()};
+	
+	FVector CameraLocation{
+		AgentLocation
+			+ Forward * CameraConfig.LocalOffset.X
+			+ Right * CameraConfig.LocalOffset.Y
+			+ Up * CameraConfig.LocalOffset.Z
+	};
+
+	FVector LookAtTarget{AgentLocation};
+	if (CameraConfig.Mode == ECameraLookAtMode::LookAtEnemy && Request.Enemy)
+	{
+		LookAtTarget = Request.Enemy->GetActorLocation();
+	} else if (CameraConfig.Mode == ECameraLookAtMode::LookAtMiddle && Request.Enemy)
+	{
+		LookAtTarget = (Request.Enemy->GetActorLocation() + AgentLocation) / 2;
+	}
+
+	FRotator CameraRotation{UKismetMathLibrary::FindLookAtRotation(CameraLocation, LookAtTarget)};
+	TargetCameraTransform.SetLocation(CameraLocation);
+	TargetCameraTransform.SetRotation(CameraRotation.Quaternion());
+
+	DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
+	DrawDebugDirectionalArrow(GetWorld(), CameraLocation, CameraLocation + 200.f * CameraRotation.Quaternion().GetForwardVector(),
+		10.f, FColor::Purple, false, 10.f);
+	
+	return TargetCameraTransform;
 }

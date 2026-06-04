@@ -77,7 +77,7 @@ public:
 
 	void CancelAnimRequest(const int32 RequestID);
 
-	bool RequestMontageJumpToSection(const int32 RequestID, const FName& SectionName);
+	bool RequestMontageSetNextSection(const int32 RequestID, const FName& LoopSectionName, const FName& NextSectionName);
 
 	//bool CanInterruptCurrentAction() const;
 private:

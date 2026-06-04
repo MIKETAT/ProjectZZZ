@@ -49,7 +49,7 @@ namespace Combat::Status::Agent
 
 namespace Combat::Status::Enemy
 {
-	UE_DEFINE_GAMEPLAY_TAG(Daze, FName(TEXTVIEW("Combat.Status.Enemy.Daze")))
+	UE_DEFINE_GAMEPLAY_TAG(Stunned, FName(TEXTVIEW("Combat.Status.Enemy.Stunned")))
 }
 
 namespace Combat::CombatWindows
@@ -81,4 +81,20 @@ namespace Combat::SpecialAction
 	UE_DEFINE_GAMEPLAY_TAG(ChainAttack, FName(TEXTVIEW("Combat.SpecialAction.ChainAttack")))
 	UE_DEFINE_GAMEPLAY_TAG(QuickAssist, FName(TEXTVIEW("Combat.SpecialAction.QuickAssist")))
 	UE_DEFINE_GAMEPLAY_TAG(DefensiveAssist, FName(TEXTVIEW("Combat.SpecialAction.DefensiveAssist")))
+}
+
+namespace Combat::Camera::Status
+{
+	UE_DEFINE_GAMEPLAY_TAG(CombatFollowCamera, FName(TEXTVIEW("Combat.Camera.CombatFollowCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(HighSpeedMovementCamera, FName(TEXTVIEW("Combat.Camera.HighSpeedMovementCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(ChainAttackCamera, FName(TEXTVIEW("Combat.Camera.ChainAttackCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(QuickAssistCamera, FName(TEXTVIEW("Combat.Camera.QuickAssistCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(UltimateCamera, FName(TEXTVIEW("Combat.Camera.UltimateCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(ParryCamera, FName(TEXTVIEW("Combat.Camera.ParryCamera")))
+}
+
+
+namespace AI::BlackBoard
+{
+	UE_DEFINE_GAMEPLAY_TAG(IsStunned, FName(TEXTVIEW("AI.BlackBoard.IsStunned")))
 }

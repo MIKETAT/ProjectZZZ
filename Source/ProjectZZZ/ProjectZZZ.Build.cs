@@ -23,10 +23,11 @@ public class ProjectZZZ : ModuleRules
 			"GameplayAbilities",
 			"GameplayTasks",
 			"MotionWarping",
-			
 			"AnimationBlueprintLibrary",
 			"AnimationModifiers",
 			"AnimationDataController",
+			"GameplayCameras",
+			"StructUtils"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });

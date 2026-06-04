@@ -6,6 +6,7 @@
 #include "AIController.h"
 #include "EnemyAIController.generated.h"
 
+struct FGameplayTag;
 class APlayerCharacter;
 
 UCLASS()
@@ -27,6 +28,8 @@ public:
 
 	virtual void OnPossess(APawn* InPawn) override;
 
+	void SetBBBool(const FGameplayTag& Key, const bool Value);
+	
 private:
 	void HandlePlayerAgentChanged(APlayerCharacter* OldAgent, APlayerCharacter* NewAgent);
 

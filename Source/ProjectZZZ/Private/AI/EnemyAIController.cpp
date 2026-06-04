@@ -47,6 +47,18 @@ void AEnemyAIController::OnPossess(APawn* InPawn)
 	}
 }
 
+void AEnemyAIController::SetBBBool(const FGameplayTag& Key, const bool Value)
+{
+	if (UBlackboardComponent* BB = GetBlackboardComponent())
+	{
+		BB->SetValueAsBool(Key.GetTagName(), Value);
+	} else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed To Setting BlackBoard Value"));
+	}
+	
+}
+
 void AEnemyAIController::HandlePlayerAgentChanged(APlayerCharacter* OldAgent, APlayerCharacter* NewAgent)
 {
 	if (NewAgent && GetBlackboardComponent())

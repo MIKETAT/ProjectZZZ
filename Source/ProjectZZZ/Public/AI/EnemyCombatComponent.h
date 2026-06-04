@@ -20,7 +20,7 @@ protected:
 
 public:
 	UFUNCTION(BlueprintCallable)
-	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep) override;
+	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context) override;
 
 	float GetCurrentActionParryOffset() const;
 	
@@ -33,6 +33,23 @@ public:
 	bool IsDazeValueFull() const;
 	
 	void OnDazeChanged(const FOnAttributeChangeData& Data);
+
+	bool IsStunned() const { return bIsStunned; };
 	
-	void HandleStun();
+	void EnterStunState();
+
+	void ExitStunState();
+
+	void UpdateBlackBoardStunState();
+
+private:
+	bool bIsStunned{false};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	float StunDuration{3.f};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UGameplayEffect> ResetDazeGE;
+	
+	FTimerHandle StunRecoveryTimerHandle;
 };

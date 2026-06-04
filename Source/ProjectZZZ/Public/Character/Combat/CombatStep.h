@@ -2,9 +2,13 @@
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "MotionWarpCalcMethod.h"
 #include "Input/PlayerInputHandlerComponent.h"
+#include "StructUtils/InstancedStruct.h"
 #include "CombatStep.generated.h"
 
+class AEnemyCharacterBase;
+enum class EMotionWarpCalculationRules : uint8;
 enum class EAttackStrength : uint8;
 class UGameplayEffect;
 enum class EInputAction : uint8;
@@ -38,6 +42,39 @@ enum class EAttackStrength : uint8
 	Light_Knockback,
 	Significant_Knockback,
 	Launch
+};
+
+UENUM(BlueprintType)
+enum class ECameraLookAtMode : uint8
+{
+	LookAtAgent,
+	LookAtEnemy,
+	LookAtMiddle
+};
+
+/*UENUM(BlueprintType)
+enum class ERelativeTarget : uint8
+{
+	Agent,
+	Enemy
+};*/
+
+USTRUCT(BlueprintType)
+struct FCinematicCameraConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bEnableCinematicCamera{false};
+
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableCinematicCamera"))
+	FVector LocalOffset{FVector::ZeroVector};
+
+	/*UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableCinematicCamera"))
+	ERelativeTarget RelativeTarget{ERelativeTarget::Agent};*/
+	
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableCinematicCamera"))
+	ECameraLookAtMode Mode{ECameraLookAtMode::LookAtAgent};
 };
 
 USTRUCT(BlueprintType)
@@ -79,18 +116,19 @@ USTRUCT(BlueprintType)
 struct FMotionWarpConfig
 {
 	GENERATED_BODY()
+	
+	UPROPERTY(EditDefaultsOnly)
+	FName WarpTargetName{FName("WarpTarget")};
 
 	UPROPERTY(EditDefaultsOnly)
-	bool bEnableMotionWarp{false};
+	EMotionWarpCalculationRules Rules{EMotionWarpCalculationRules::None};
+	
+	UPROPERTY(EditDefaultsOnly, meta = (BaseStruct = "/Script/ProjectZZZ.MotionWarpCalcMethod", ExcludeBaseStruct))
+	FInstancedStruct CalculationMethod;
 
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableMotionWarp"))
-	float MotionWarpingEffectiveDistance{800.f};		// Todo: 
-
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableMotionWarp"))
-	FName WarpTargetName{FName("Default")};
-
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableMotionWarp"))
+	UPROPERTY(EditDefaultsOnly)
 	EMotionWarpTrackingMode TrackingMode{EMotionWarpTrackingMode::None};
+
 };
 
 USTRUCT(BlueprintType)
@@ -105,7 +143,10 @@ struct FParryActionConfig
 	float ParrySocketOffset{0.f};		// parry socket to root relative offset along forward direction
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
-	FName SuccessSectionName{FName("Follow")};
+	FName LoopSectionName{FName("WaitLoop")};
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
+	FName FollowSectionName{FName("Follow")};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
 	float HitStopDuration{0.05f};
@@ -127,6 +168,15 @@ struct FParriedActionConfig
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParriedAction"))
 	float ParryOffset{0.f};
+};
+
+USTRUCT(BlueprintType)
+struct FCombatActionContext
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TWeakObjectPtr<ACharacterBase> Enemy{nullptr};
 };
 
 UCLASS(BlueprintType)
@@ -153,20 +203,29 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	uint8 bIsBasicAttack : 1 {false};
 	
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "Features | Tag")
 	FGameplayTag ActionTag{FGameplayTag::EmptyTag};
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, Category = "Features | Tag")
 	FGameplayTagContainer RequiredTags{FGameplayTag::EmptyTag};
 
 	UPROPERTY(EditDefaultsOnly)
 	TMap<EInputAction, TObjectPtr<UCombatActionStep>> ComboLinks;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cost")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Features | Cost")
 	TSubclassOf<UGameplayEffect> CostGameplayEffect;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Features | Camera")
+	FCinematicCameraConfig CameraConfig;
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | MotionWarp")
-	FMotionWarpConfig WarpConfig;
+	UPROPERTY(EditDefaultsOnly, Category = "Features | MotionWarp")
+	bool bEnableMotionWarp{false};
+	
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "bEnableMotionWarp"), Category = "Features | MotionWarp")
+	float MotionWarpingEffectiveDistance{500.f};
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bEnableMotionWarp", ShowOnlyInnerProperties), Category = "Features | MotionWarp")
+	TArray<FMotionWarpConfig> WarpConfigs;
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | HitPayload")
 	FHitPayloadConfig HitPayloadConfig;
@@ -184,8 +243,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | ChainAttack")
 	bool bIsChainAttack{false};
 	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties, EditCondition = "bIsQuickAssist || bIsChainAttack"), Category = "Features")
-	float AttackEntryDistance{0.f};
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties, EditCondition = "bIsQuickAssist || bIsChainAttack"), Category = "Features | SpecialAction")
+	float AttackEntryForwardOffset{0.f};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties, EditCondition = "bIsQuickAssist || bIsChainAttack"), Category = "Features | SpecialAction")
+	float AttackEntryLateralOffset{0.f};
 };
 
 UCLASS(BlueprintType)

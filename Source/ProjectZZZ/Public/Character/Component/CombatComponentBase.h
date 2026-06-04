@@ -8,6 +8,8 @@
 #include "CombatComponentBase.generated.h"
 
 
+class USquadManagerComponent;
+class APlayerCharacter;
 class UCharacterCombatComponent;
 class UCombatAnimSchedulerComponent;
 enum ECombatAnimRequestFinishReason : uint8;
@@ -71,6 +73,9 @@ struct FAttackResult
 	TSubclassOf<UGameplayEffect> HitFeedbackEffectOnSelf{nullptr};
 
 	UPROPERTY()
+	TWeakObjectPtr<ACharacterBase> ParryInstigator{nullptr};
+	
+	UPROPERTY()
 	float HitStopDuration{0.f};
 
 	UPROPERTY()
@@ -90,6 +95,8 @@ public:
 	virtual void BeginPlay() override;
 
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	USquadManagerComponent* GetSquadManagerComponent() const;
 	
 public:
 	virtual void ProcessHitFeedback(const FAttackResult& Result) PURE_VIRTUAL(UCombatComponentBase::ProcessHitFeedback,);
@@ -121,14 +128,17 @@ public:
 
 	void ApplyGameplayEffectOnTarget(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, const TSubclassOf<UGameplayEffect>& GE);
 
+	void ApplyGameplayEffectOnSelf(UAbilitySystemComponent* ASC, const TSubclassOf<UGameplayEffect>& GE);
+
 	void ApplyImpactEffectOnTarget(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, const FAttackContext& Context);
 
 	EHitReactionDirection CalculateHitReactionDirection(const FVector& AttackerLocation) const;
-	
+
+	void ExecuteHitReaction(const AActor* Instigator, const EAttackStrength Strength);
 protected:
 	void CachePointers();
 	
-	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep);
+	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context);
 	
 	UFUNCTION()
 	void HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason);
@@ -171,4 +181,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Debug", meta = (AllowPrivateAccess = "true"))
 	FDetectionDebugConfig DebugConfig;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Debug", meta = (AllowPrivateAccess = "true"))
+	bool bShowActionDebugInfo{false};
 };

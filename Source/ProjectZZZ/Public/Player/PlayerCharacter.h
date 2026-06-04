@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Character/CharacterBase.h"
@@ -8,6 +6,7 @@
 #include "Input/PlayerInputHandlerComponent.h"
 #include "PlayerCharacter.generated.h"
 
+class UGameplayCameraComponent;
 class UImage;
 class AZZZPlayerController;
 struct FCombatEventMessage;
@@ -90,14 +89,20 @@ public:
 // Components
 	// 暂时使用默认的相机
 	/** Camera boom positioning the camera behind the character */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FollowCamera;
+	UCameraComponent* FollowCamera;*/
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UGameplayCameraComponent> GameplayCamera;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
 	TSubclassOf<UGameplayEffect> AgentExclusiveInitGE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
+	bool bPrintDebugInfo{false};
 
 private:
 	UPROPERTY()

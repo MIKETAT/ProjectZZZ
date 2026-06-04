@@ -55,6 +55,7 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 	MontageID = CheckIfRequestMontageAlreadyPlaying(Request);
 	if (MontageID != INDEX_NONE)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Request Montage Already Playing"));
 		return MontageID;
 	}
 
@@ -74,6 +75,7 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 				continue;
 			}
 			AnimInstance->Montage_StopWithBlendSettings(BlendSettings, StopRequest->Montage);
+			UE_LOG(LogTemp, Warning, TEXT("Stop Montage: %s"), *StopRequest->Montage->GetName());
 		}
 		
 		// Finish All PendingStopRequest
@@ -94,7 +96,7 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 		
 		BindMontageNativeDelegates(AddedRequest.Montage, AddedRequest.RequestID);
 
-		UE_LOG(LogTemp, Error, TEXT("Action: Execute Anim Request, Request ID = %d, Montage Name = %s"), AddedRequest.RequestID, *AddedRequest.Montage->GetName())
+		//UE_LOG(LogTemp, Error, TEXT("Action: Execute Anim Request, Request ID = %d, Montage Name = %s"), AddedRequest.RequestID, *AddedRequest.Montage->GetName())
 		
 		return AddedRequest.RequestID;
 	}
@@ -121,7 +123,7 @@ void UCombatAnimSchedulerComponent::CancelAnimRequest(const int32 RequestID)
 	}
 }
 
-bool UCombatAnimSchedulerComponent::RequestMontageJumpToSection(const int32 RequestID, const FName& SectionName)
+bool UCombatAnimSchedulerComponent::RequestMontageSetNextSection(const int32 RequestID, const FName& LoopSectionName, const FName& NextSectionName)
 {
 	if (!IsValid(AnimInstance))
 	{
@@ -133,8 +135,9 @@ bool UCombatAnimSchedulerComponent::RequestMontageJumpToSection(const int32 Requ
 	{
 		if (!IsRequestMontageBlendingOut(Request) && Request->Montage)
 		{
-			AnimInstance->Montage_JumpToSection(SectionName, Request->Montage);
-			
+			AnimInstance->Montage_JumpToSection(LoopSectionName, Request->Montage);
+			AnimInstance->Montage_SetNextSection(LoopSectionName, NextSectionName, Request->Montage);
+			//AnimInstance->Montage_JumpToSection(SectionName, Request->Montage);
 			UE_LOG(LogTemp, Error, TEXT("Attack Detection: Montage Jump to Section Succeed"));
 			return true;
 		}
@@ -178,6 +181,7 @@ bool UCombatAnimSchedulerComponent::CanExecuteCombatAnimRequest(const FCombatAni
 		// Not Blending Out. New Request has lower priority
 		if (!IsRequestMontageBlendingOut(&ProceedingRequest) && ProceedingRequest.Priority > Request.Priority)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("Current Montage Not Blending Out. New Request has lower priority"));
 			return false;	
 		}
 		

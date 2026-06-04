@@ -50,8 +50,6 @@ public:
 	
 	virtual void ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config) override;
 	
-	
-	
 	virtual void EnableAttackDetection(UCombatActionStep* ActionStep, const FHitShapeConfig& ShapeConfig) override;
 	
 	virtual void DisableAttackDetection() override;*/
@@ -65,7 +63,7 @@ public:
 	
 	void ExecuteSwitchOutAction();
 
-	void ExecuteSwitchAction(UCombatActionStep* Action);
+	void ExecuteSwitchAction(UCombatActionStep* Action, const FCombatActionContext& Context);
 	
 	void OnEnergyChanged(const FOnAttributeChangeData& Data);
 
@@ -96,9 +94,11 @@ private:
 	
 	void BufferInputIntent(const UCombatActionStep* ActionToBuffer);
 
-	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep) override;
+	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context) override;
 
 	void TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep, const AEnemyCharacterBase* Enemy);
+
+	void ApplyStaticPointMotionWarping(const FMotionWarpConfig& Config, const APlayerCharacter* Agent, const AEnemyCharacterBase* Enemy);
 
 	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance); 
 

@@ -55,7 +55,7 @@ namespace Combat::Status::Agent
 
 namespace Combat::Status::Enemy
 {
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Daze)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Stunned)
 }
 
 namespace Combat::CombatWindows
@@ -87,4 +87,21 @@ namespace Combat::SpecialAction
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ChainAttack)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(QuickAssist)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(DefensiveAssist)
+}
+
+namespace Combat::Camera::Status
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(CombatFollowCamera)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(HighSpeedMovementCamera)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ChainAttackCamera)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(QuickAssistCamera)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(UltimateCamera)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ParryCamera)
+}
+
+
+// BlackBoard
+namespace AI::BlackBoard
+{
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(IsStunned)
 }

@@ -27,6 +27,14 @@ class UCameraComponent;
 class USpringArmComponent;
 class UInputAction;
 
+UENUM(BlueprintType)
+enum class ECharacterPresentationState : uint8
+{
+	ActiveVisible,
+	ActiveInvisible,
+	InactiveHidden
+};
+
 UCLASS()
 class PROJECTZZZ_API ACharacterBase : public ACharacter, public ICombatInterface, public IAbilitySystemInterface
 {
@@ -59,16 +67,21 @@ public:
 	virtual UCombatComponentBase* GetCombatComp() const override { return CombatBase.Get(); }
 	// ~ICombatInterface
 
-	virtual UHitStopComponent* GetHitStopComponent() const { return HitStopComponent.Get(); }
 public:
 	const FLocomotionState& GetLocomotionState() const { return LocomotionState; }
 	
 	UBaseCombatAttributeSet* GetBaseCombatAttribute() const { return BaseCombatAttribute; }
 	
 	UCombatAnimSchedulerComponent* GetCombatAnimSchedulerComponent() const { return CombatAnimSchedulerComponent; }
-
+	
+	virtual UHitStopComponent* GetHitStopComponent() const { return HitStopComponent.Get(); }
+	
 public:
 	virtual void Die() {};
+
+	void SetCharacterState(const ECharacterPresentationState State);
+
+	ECharacterPresentationState GetCharacterState() const { return CharacterState; }
 	
 protected:
 	void RefreshInput(const float DeltaTime);
@@ -110,4 +123,8 @@ protected:
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", meta = (AllowPrivateAccess = "true"))
 	FLocomotionState LocomotionState;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State", meta = (AllowPrivateAccess = "true"))
+	ECharacterPresentationState CharacterState{ECharacterPresentationState::ActiveVisible};
+	
 };

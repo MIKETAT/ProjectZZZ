@@ -16,6 +16,7 @@
 #include "Utility/ZZZGameplayTag.h"
 #include "Character/Combat/CombatHitReactionAction.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
+#include "Character/Component/SquadManagerComponent.h"
 
 UCharacterCombatComponent::UCharacterCombatComponent()
 {
@@ -70,7 +71,7 @@ void UCharacterCombatComponent::ProcessInputAction(const float DeltaTime)
 	if (!IsAnyActionActive() || CanInterruptCurrentAction(TargetAction))
 	{
 		// Execute Target Action immediately
-		ExecuteAction(TargetAction);
+		ExecuteAction(TargetAction, FCombatActionContext());
 	} else if (CurrentExecutionState.bInputBufferWindowOpen)
 	{
 		// Todo: check buffer window and other window
@@ -88,7 +89,7 @@ void UCharacterCombatComponent::ProcessBufferedInput(const float DeltaTime)
 
 	if (CurrentExecutionState.bProceedWindowOpen && CurrentExecutionState.bHasConfirmedNextAction)
 	{
-		if (ExecuteAction(PendingIntent.ActionStep) != INDEX_NONE)
+		if (ExecuteAction(PendingIntent.ActionStep, FCombatActionContext()) != INDEX_NONE)
 		{
 			// Cost and CurrentExecutionState already handled in ExecuteAction
 			PendingIntent.Reset();
@@ -192,17 +193,23 @@ void UCharacterCombatComponent::BufferInputIntent(const UCombatActionStep* Actio
 	}
 }
 
-int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep)
+int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context)
 {
 	if (!IsValid(ActionStep) || !IsValid(CombatAnimSchedulerComponent))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Execute Action Failed. Invalid Action or Invalid CombatAnimSchedulerComponent"));
 		return INDEX_NONE;
 	}
 
 	AEnemyCharacterBase* Enemy{nullptr};
  	if (ActionStep->bIsAttackAction)
 	{
-		Enemy = FindClosestEnemy(ActionStep->WarpConfig.MotionWarpingEffectiveDistance);
+		Enemy = FindClosestEnemy(ActionStep->MotionWarpingEffectiveDistance);
+	}
+
+	if (Context.Enemy.IsValid())
+	{
+		Enemy = Cast<AEnemyCharacterBase>(Context.Enemy.Get());
 	}
 	
 	if (IsAnyActionActive())
@@ -225,63 +232,117 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 		CurrentExecutionState.CurrentStep = ActionStep;
 		CurrentExecutionState.MontageInstanceId = InstanceID;
 		CurrentExecutionState.bHasSuccessfullyStarted = true;
+	} else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Execute Action Failed. Instance ID == INDEX_NONE"));
 	}
 	return InstanceID;
 }
 
+// QTE Bug
+
 void UCharacterCombatComponent::TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep, const AEnemyCharacterBase* Enemy)
 {
-	// Motion Warping
-	if (!IsValid(ActionStep) || !IsValid(Enemy) || !ActionStep->WarpConfig.bEnableMotionWarp)
+	if (!IsValid(ActionStep) || !IsValid(Enemy) || !ActionStep->bEnableMotionWarp)
 	{
 		return;
 	}
-
-	APlayerCharacter* Agent = Cast<APlayerCharacter>(Character);
-	float AgentRadius{0.f};
-	float EnemyRadius{0.f};
-	if (UCapsuleComponent* AgentCap = Agent->GetCapsuleComponent())
-	{
-		AgentRadius = AgentCap->GetScaledCapsuleRadius();
-	}
-	if (UCapsuleComponent* EnemyCaps = Enemy->GetCapsuleComponent())
-	{
-		EnemyRadius = EnemyCaps->GetScaledCapsuleRadius();
-	}
-	float StandOffDistance{AgentRadius + EnemyRadius};
 	
-	Agent->GetMotionWarpingComponent()->RemoveAllWarpTargets();
-
-	if (ActionStep->WarpConfig.TrackingMode == EMotionWarpTrackingMode::DynamicComponent)
+	for (const FMotionWarpConfig& Config : ActionStep->WarpConfigs)
 	{
-		FVector WarpOffset{FVector(StandOffDistance, 0.f, 0.f)};
-		FRotator FacingEnemyRotation{FRotator(0.f, 180.f, 0.f)};
-		Character->SetActorRotation(FacingEnemyRotation, ETeleportType::TeleportPhysics);
-		Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromComponent(
-			ActionStep->WarpConfig.WarpTargetName,
-			Enemy->GetRootComponent(),
-			NAME_None,
-			true,
-			EWarpTargetLocationOffsetDirection::TargetsForwardVector,
-			WarpOffset,
-			FacingEnemyRotation);
-	} else if (ActionStep->WarpConfig.TrackingMode == EMotionWarpTrackingMode::StaticWorldPoint)
-	{
-		FVector AgentLocation{Agent->GetActorLocation()};
-		FVector EnemyLocation{Enemy->GetActorLocation()};
-		AgentLocation.Z = 0.f;
-		EnemyLocation.Z = 0.f;
-		FVector DirectionToTarget{(EnemyLocation - AgentLocation).GetSafeNormal()};
-		FVector TargetLocation{EnemyLocation - (DirectionToTarget * StandOffDistance)};
-		TargetLocation.Z = Agent->GetActorLocation().Z;
-		FRotator TargetRotation{DirectionToTarget.Rotation()};
+		APlayerCharacter* Agent = Cast<APlayerCharacter>(Character);
+		float AgentRadius{0.f};
+		float EnemyRadius{0.f};
+		if (UCapsuleComponent* AgentCap = Agent->GetCapsuleComponent())
+		{
+			AgentRadius = AgentCap->GetScaledCapsuleRadius();
+		}
+		if (UCapsuleComponent* EnemyCaps = Enemy->GetCapsuleComponent())
+		{
+			EnemyRadius = EnemyCaps->GetScaledCapsuleRadius();
+		}
+		float StandOffDistance{AgentRadius + EnemyRadius};
+	
+		Agent->GetMotionWarpingComponent()->RemoveAllWarpTargets();
 
-		DrawDebugSphere(GetWorld(), TargetLocation, 15.f, 10, FColor::Yellow, false, 8.f);
-		Character->SetActorRotation(TargetRotation, ETeleportType::TeleportPhysics);
-		Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocationAndRotation(
-			ActionStep->WarpConfig.WarpTargetName,
-			TargetLocation,
-			TargetRotation);
+		if (Config.TrackingMode == EMotionWarpTrackingMode::DynamicComponent)
+		{
+			FVector WarpOffset{FVector(StandOffDistance, 0.f, 0.f)};
+			FRotator FacingEnemyRotation{FRotator(0.f, 180.f, 0.f)};
+			Character->SetActorRotation(FacingEnemyRotation, ETeleportType::TeleportPhysics);
+			Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromComponent(
+				Config.WarpTargetName,
+				Enemy->GetRootComponent(),
+				NAME_None,
+				true,
+				EWarpTargetLocationOffsetDirection::TargetsForwardVector,
+				WarpOffset,
+				FacingEnemyRotation);
+		} else if (Config.TrackingMode == EMotionWarpTrackingMode::StaticWorldPoint)
+		{
+			ApplyStaticPointMotionWarping(Config, Agent, Enemy);
+		}
+	}
+}
+
+void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpConfig& Config, const APlayerCharacter* Agent, const AEnemyCharacterBase* Enemy)
+{
+	if (!Agent || !Enemy)
+	{
+		return;
+	}
+	
+	FVector AgentLocation{Agent->GetActorLocation()};
+	FVector EnemyLocation{Enemy->GetActorLocation()};
+	FRotator FacingEnemyRotation{(EnemyLocation - AgentLocation).GetSafeNormal2D().Rotation()};
+	
+	switch (Config.Rules)
+	{
+		case EMotionWarpCalculationRules::EnemyRelativeFacing:
+			{
+				if (const FWarpCalcMethod_EnemyRelative* Method = Config.CalculationMethod.GetPtr<FWarpCalcMethod_EnemyRelative>())
+				{
+					FVector Offset{Method->OffsetFromEnemy};
+					FVector TargetLocation{Enemy->GetActorLocation() + Enemy->GetActorRotation().RotateVector(Offset)};
+					TargetLocation.Z = Agent->GetActorLocation().Z;
+					FRotator TargetRotation{FacingEnemyRotation};	// facing
+
+					Character->SetActorRotation(TargetRotation, ETeleportType::TeleportPhysics);
+					Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocationAndRotation(
+						Config.WarpTargetName,
+						TargetLocation,
+						TargetRotation);
+				}
+			}
+			break;
+		case EMotionWarpCalculationRules::PiercingLine:
+			{
+				if (const FWarpCalc_PiercingLine* Method = Config.CalculationMethod.GetPtr<FWarpCalc_PiercingLine>())
+				{
+					float PiercingLength{Method->PiercingLength};
+					FVector TargetLocation{EnemyLocation + FacingEnemyRotation.Quaternion().GetForwardVector() * PiercingLength};
+					FRotator TargetRotation{FacingEnemyRotation.GetInverse()};//
+					Character->SetActorRotation(FacingEnemyRotation, ETeleportType::TeleportPhysics);
+					Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocationAndRotation(
+						Config.WarpTargetName,
+						TargetLocation,
+						TargetRotation);
+				}
+			}
+			break;
+		case EMotionWarpCalculationRules::BackToOrigin:
+			{
+				Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromLocationAndRotation(
+						Config.WarpTargetName,
+						AgentLocation,
+						Agent->GetActorRotation());
+				DrawDebugCapsule(GetWorld(), AgentLocation, 80.f, 40.f, FQuat::Identity, FColor::Magenta, false, 15.f);
+			}
+			break;
+		default:
+			{
+				
+			}	
 	}
 }
 
@@ -478,6 +539,7 @@ void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Conte
 	{
 		// Jump to Section
 		Result.ResultType = EAttackResultType::Parried;
+		Result.ParryInstigator = Character;
 		
 		// Apply GE On Enemy
 		const FParryActionConfig& ParryConfig{CurrentExecutionState.CurrentStep->ParryConfig};
@@ -490,35 +552,16 @@ void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Conte
 		Result.HitStopDuration = ParryConfig.HitStopDuration;
 		Result.HitStopTimeScale = ParryConfig.HitStopTimeScale;
 		
-		CombatAnimSchedulerComponent->RequestMontageJumpToSection(CurrentExecutionState.MontageInstanceId, ParryConfig.SuccessSectionName);
+		CombatAnimSchedulerComponent->RequestMontageSetNextSection(CurrentExecutionState.MontageInstanceId, ParryConfig.LoopSectionName, ParryConfig.FollowSectionName);
+
 		return;
 	}
 
 	// Apply Damage
 	ApplyImpactEffectOnTarget(SourceASC, TargetASC, Context);
-
+	
 	// HitReaction
-	EHitReactionDirection Direction{EHitReactionDirection::Front};
-	if (Context.Instigator)
-	{
-		Direction = CalculateHitReactionDirection(Context.Instigator->GetActorLocation());	
-	}
-	
-	const UCombatActionStep* HitReactionAction{nullptr};
-	if (const FDirectionalHitReactionActions* Actions = HitReactionMap.Find(Context.PayloadConfig.AttackStrength))
-	{
-		switch (Direction)
-		{
-			case EHitReactionDirection::Front: HitReactionAction = Actions->FrontHit; break;
-			case EHitReactionDirection::Back: HitReactionAction = Actions->BackHit; break;
-			default: break;
-		}
-	}
-	
-	if (HitReactionAction)
-	{
-		ExecuteAction(HitReactionAction);
-	}
+	ExecuteHitReaction(Context.Instigator, Context.PayloadConfig.AttackStrength);
 
 	// Quick Assist
 	if (Context.PayloadConfig.AttackStrength == EAttackStrength::Launch)
@@ -574,20 +617,23 @@ void UCharacterCombatComponent::InjectAndBindASC(UAgentAbilitySystemComponent* I
 
 void UCharacterCombatComponent::ExecuteSwitchInAction()
 {
-	ExecuteSwitchAction(SwitchInAction);
+	ExecuteSwitchAction(SwitchInAction, FCombatActionContext());
 }
 
 void UCharacterCombatComponent::ExecuteSwitchOutAction()
 {
-	ExecuteSwitchAction(SwitchOutAction);
+	ExecuteSwitchAction(SwitchOutAction, FCombatActionContext());
 }
 
-void UCharacterCombatComponent::ExecuteSwitchAction(UCombatActionStep* Action)
+void UCharacterCombatComponent::ExecuteSwitchAction(UCombatActionStep* Action, const FCombatActionContext& Context)
 {
-	if (!IsAnyActionActive() || CanInterruptCurrentAction(Action))
+	if (!Action || !IsAnyActionActive() || CanInterruptCurrentAction(Action))
 	{
-		UE_LOG(LogTemp, Error, TEXT("ExecuteSwitchAction"));
-		ExecuteAction(Action);
+		UE_LOG(LogTemp, Error, TEXT("Execute Switch Action. Action Name: %s"), *Action->GetName());
+		ExecuteAction(Action, Context);
+	} else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Execute Switch Action Failed. Action Name: %s"), *Action->GetName());
 	}
 }
 

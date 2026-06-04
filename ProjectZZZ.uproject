@@ -60,6 +60,10 @@
 		{
 			"Name": "TargetingSystem",
 			"Enabled": true
+		},
+		{
+			"Name": "Chooser",
+			"Enabled": true
 		}
 	]
 }

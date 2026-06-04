@@ -5,6 +5,8 @@
 #include "Animation/AnimInstanceBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/CharacterBase.h"
+#include "Character/ZZZPlayerController.h"
+#include "Character/Component/SquadManagerComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Player/PlayerCharacter.h"
 #include "Utility/ZZZGameplayTag.h"
@@ -27,6 +29,20 @@ void UCombatComponentBase::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	
 	RefreshAttackDetection(DeltaTime);
 	DebugPrintCurrentActionState();
+}
+
+USquadManagerComponent* UCombatComponentBase::GetSquadManagerComponent() const
+{
+	if (!Character)
+	{
+		return nullptr;
+	}
+
+	if (AZZZPlayerController* PC = Cast<AZZZPlayerController>(Character->GetController()))
+	{
+		return PC->GetSquadManagerComponent();
+	}
+	return nullptr;
 }
 
 void UCombatComponentBase::ProcessHitEvent(ACharacterBase* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config)
@@ -293,8 +309,12 @@ void UCombatComponentBase::ApplyGameplayEffectOnTarget(UAbilitySystemComponent* 
 	TargetASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
 }
 
-void UCombatComponentBase::ApplyImpactEffectOnTarget(UAbilitySystemComponent* SourceASC,
-UAbilitySystemComponent* TargetASC, const FAttackContext& Context)
+void UCombatComponentBase::ApplyGameplayEffectOnSelf(UAbilitySystemComponent* ASC, const TSubclassOf<UGameplayEffect>& GE)
+{
+	ApplyGameplayEffectOnTarget(ASC, ASC, GE);
+}
+
+void UCombatComponentBase::ApplyImpactEffectOnTarget(UAbilitySystemComponent* SourceASC, UAbilitySystemComponent* TargetASC, const FAttackContext& Context)
 {
 	if (!IsValid(SourceASC) || !IsValid(TargetASC) || !Context.IsContextValid())
 	{
@@ -347,6 +367,31 @@ EHitReactionDirection UCombatComponentBase::CalculateHitReactionDirection(const 
 	}
 }
 
+void UCombatComponentBase::ExecuteHitReaction(const AActor* Instigator, const EAttackStrength Strength)
+{
+	EHitReactionDirection Direction{EHitReactionDirection::Front};
+	if (Instigator)
+	{
+		Direction = CalculateHitReactionDirection(Instigator->GetActorLocation());	
+	}
+	
+	const UCombatActionStep* HitReactionAction{nullptr};
+	if (const FDirectionalHitReactionActions* Actions = HitReactionMap.Find(Strength))
+	{
+		switch (Direction)
+		{
+		case EHitReactionDirection::Front: HitReactionAction = Actions->FrontHit; break;
+		case EHitReactionDirection::Back: HitReactionAction = Actions->BackHit; break;
+		default: break;
+		}
+	}
+	
+	if (HitReactionAction)
+	{
+		ExecuteAction(HitReactionAction, FCombatActionContext());
+	}
+}
+
 void UCombatComponentBase::CachePointers()
 {
 	Character = Cast<ACharacterBase>(GetOwner());
@@ -360,14 +405,13 @@ void UCombatComponentBase::CachePointers()
 	}
 }
 
-int32 UCombatComponentBase::ExecuteAction(const UCombatActionStep* Step)
+int32 UCombatComponentBase::ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context)
 {
 	return INDEX_NONE;
 }
 
 void UCombatComponentBase::HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason)
 {
-	UE_LOG(LogTemp, Error, TEXT("Action:  Action Anim Finished, Request ID = %d, Reason = %s"), RequestID, *UEnum::GetValueAsString(Reason));
 	if (RequestID != CurrentExecutionState.MontageInstanceId)
 	{
 		return;
@@ -375,7 +419,16 @@ void UCombatComponentBase::HandleAnimFinished(int32 RequestID, ECombatAnimReques
 
 	// todo: 先cast. 后续根据敌人是否拥有同样的逻辑(HandleAnimFinished是否是玩家独有的)修改
 	OnCombatActionFinished.Broadcast(Cast<APlayerCharacter>(Character));
+	
+	UE_LOG(LogTemp, Error, TEXT("Action Anim Finished, Montage = %s, Request ID = %d, Reason = %s"),
+	*CurrentExecutionState.CurrentStep->Montage->GetName(),
+	RequestID, *UEnum::GetValueAsString(Reason));
+
 	CurrentExecutionState.Reset();
+	/*if (GetSquadManagerComponent())
+	{
+		GetSquadManagerComponent()->ResetTargetEnemy();
+	}*/
 }
 
 void UCombatComponentBase::InjectAndBindASC(UAgentAbilitySystemComponent* InASC)
@@ -411,6 +464,11 @@ void UCombatComponentBase::HandleDeath()
 
 void UCombatComponentBase::DebugPrintCurrentActionState()
 {
+	if (!bShowActionDebugInfo)
+	{
+		return;
+	}
+	
 	if (CurrentExecutionState.CurrentStep)
 	{
 		

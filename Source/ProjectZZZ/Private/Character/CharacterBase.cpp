@@ -76,6 +76,33 @@ void ACharacterBase::PostInitializeComponents()
 	Super::PostInitializeComponents();
 }
 
+void ACharacterBase::SetCharacterState(const ECharacterPresentationState State)
+{
+	CharacterState = State;
+	switch (State)
+	{
+		case ECharacterPresentationState::ActiveVisible:
+			{
+				GetMesh()->SetVisibility(true);
+				SetActorHiddenInGame(false);
+				SetActorEnableCollision(true);
+			}
+			break;
+		case ECharacterPresentationState::ActiveInvisible:
+			{
+				GetMesh()->SetVisibility(false);
+			}
+			break;
+		case ECharacterPresentationState::InactiveHidden:
+			{
+				GetMesh()->SetVisibility(false);
+				SetActorHiddenInGame(true);
+				SetActorEnableCollision(false);
+			}
+			break;
+		}
+}
+
 void ACharacterBase::RefreshInput(const float DeltaTime)
 {
 	auto InputDirection{GetCharacterMovement()->GetCurrentAcceleration() / GetCharacterMovement()->GetMaxAcceleration()};

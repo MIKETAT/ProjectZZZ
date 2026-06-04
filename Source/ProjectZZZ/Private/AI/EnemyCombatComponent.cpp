@@ -1,7 +1,9 @@
 ﻿#include "AI/EnemyCombatComponent.h"
 #include "AbilitySystem/AgentAbilitySystemComponent.h"
 #include "AbilitySystem/EnemyAttributeSet.h"
+#include "AI/EnemyAIController.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "Character/CharacterBase.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
@@ -26,56 +28,32 @@ void UEnemyCombatComponent::HandleIncomingDamage(const FAttackContext& Context, 
 	// Apply Damage
 	Result.ResultType = EAttackResultType::Hit;
 	ApplyImpactEffectOnTarget(SourceASC, TargetASC, Context);
-	UE_LOG(LogTemp, Error, TEXT("Attack Detection: Enemy got Hit"));
 
 	// Daze
 	bool bIsDazeValueFull{IsDazeValueFull()};
-	// todo: already in stun state
-	if (bIsDazeValueFull && Context.PayloadConfig.bIsHeavyAttack/* && Not Stun Yet*/)
+	bool bIsHeavyAttack{Context.PayloadConfig.bIsHeavyAttack};
+	if (bIsDazeValueFull && bIsHeavyAttack && !bIsStunned)
 	{
+		// Cancel Current Action/Play Stun Montage/Add Stun Tag
+		EnterStunState();
+
 		// Trigger Chain Attack
 		if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
 		{
 			FCharacterDeathPayload Payload;
 			EventBus->BroadcastEvent(Combat::Event::ChainAttack, Context.Instigator, Context.Target, Context.Instigator, Payload);
-		}
-		// Cancel Current Action/Play Stun Montage/Add Stun Tag
+		}	
+
 		return;
 	}
 
-	// Not Stun	
-	EHitReactionDirection Direction{EHitReactionDirection::Front};
-	if (Context.Instigator)
-	{
-		Direction = CalculateHitReactionDirection(Context.Instigator->GetActorLocation());	
-	}
-	
-	const UCombatActionStep* HitReactionAction{nullptr};
-	if (const FDirectionalHitReactionActions* Actions = HitReactionMap.Find(Context.PayloadConfig.AttackStrength))
-	{
-		switch (Direction)
-		{
-		case EHitReactionDirection::Front: HitReactionAction = Actions->FrontHit; break;
-		case EHitReactionDirection::Back: HitReactionAction = Actions->BackHit; break;
-		default: break;
-		}
-	}
-	
-	if (HitReactionAction)
-	{
-		ExecuteAction(HitReactionAction);
-	}
-	
+	// Not Stun
+	ExecuteHitReaction(Context.Instigator, Context.PayloadConfig.AttackStrength);
 }
 
-int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep)
+int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context)
 {
-	if (!IsValid(ActionStep) || !IsValid(CombatAnimSchedulerComponent))
-	{
-		return INDEX_NONE;
-	}
-
-	if (IsDazeValueFull())
+	if (!IsValid(ActionStep) || !IsValid(CombatAnimSchedulerComponent) || IsStunned())
 	{
 		return INDEX_NONE;
 	}
@@ -118,11 +96,9 @@ void UEnemyCombatComponent::BeginPlay()
 	Super::BeginPlay();
 }
 
-
 void UEnemyCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
 }
 
 void UEnemyCombatComponent::ProcessHitFeedback(const FAttackResult& Result)
@@ -139,7 +115,6 @@ void UEnemyCombatComponent::ProcessHitFeedback(const FAttackResult& Result)
 			// Agent Dodge this attack
 			break;
 		case EAttackResultType::Parried:
-			// Hit Fly?
 			{
 				checkf(Character, TEXT("Enemy Character Invalid"));
 				if (UHitStopComponent* HitStopComponent = Character->GetHitStopComponent())
@@ -147,6 +122,7 @@ void UEnemyCombatComponent::ProcessHitFeedback(const FAttackResult& Result)
 					UE_LOG(LogTemp, Log, TEXT("Enemy Attack was Parried. Apply HitStop on Enemy"));
 					HitStopComponent->ApplyHitStop(Result.HitStopDuration, Result.HitStopTimeScale);
 				}
+				ExecuteHitReaction(Result.ParryInstigator.Get(), EAttackStrength::Light_Knockback);
 			}
 			break;
 	}
@@ -189,18 +165,57 @@ void UEnemyCombatComponent::OnDazeChanged(const FOnAttributeChangeData& Data)
 	float MaxDaze = AbilitySystemComponent->GetNumericAttribute(UEnemyAttributeSet::GetMaxDazeAttribute());
 	if (Data.OldValue < MaxDaze && Data.NewValue >= MaxDaze)
 	{
-		// stun
-		CancelCurrentAction();
 
-		HandleStun();
 	}
 }
 
-void UEnemyCombatComponent::HandleStun()
+void UEnemyCombatComponent::EnterStunState()
 {
-	if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
+	if (bIsStunned || !IsValid(AbilitySystemComponent))
 	{
-		// 
+		return;
 	}
+
+	bIsStunned = true;
+	AbilitySystemComponent->AddLooseGameplayTag(Combat::Status::Enemy::Stunned);
+	UpdateBlackBoardStunState();
+	
+	CancelCurrentAction();
+
+	GetWorld()->GetTimerManager().SetTimer(
+		StunRecoveryTimerHandle,
+		this,
+		&UEnemyCombatComponent::ExitStunState,
+		StunDuration,
+		false);
+
+	// Event Bus ?
 }
 
+void UEnemyCombatComponent::ExitStunState()
+{
+	if (!bIsStunned || !IsValid(AbilitySystemComponent))
+	{
+		return;
+	}
+
+	bIsStunned = false;
+	AbilitySystemComponent->RemoveLooseGameplayTag(Combat::Status::Enemy::Stunned);
+	UpdateBlackBoardStunState();
+	
+	// Reset Daze
+	ApplyGameplayEffectOnSelf(AbilitySystemComponent, ResetDazeGE);
+}
+
+void UEnemyCombatComponent::UpdateBlackBoardStunState()
+{
+	if (!IsValid(Character))
+	{
+		return;
+	}
+
+	if (AEnemyAIController* AIController = Cast<AEnemyAIController>(Character->GetController()))
+	{
+		AIController->SetBBBool(AI::BlackBoard::IsStunned, bIsStunned);
+	}
+}

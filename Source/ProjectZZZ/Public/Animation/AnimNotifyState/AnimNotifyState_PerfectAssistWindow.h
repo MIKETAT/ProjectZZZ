@@ -28,4 +28,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FName SocketName{FName("WeaponReference")};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bDrawDebug{false};
 };
