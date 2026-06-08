@@ -73,8 +73,13 @@ public:
 	void HandleCombatWindowChange(const FGameplayTag Tag, bool bIsOpen, UAnimMontage* SourceMontage);
 	
 	bool CanExecuteSwitchAction(const UCombatActionStep* Step) const;
+
+	// Meets cost and required tags
+	bool MeetsActionRequirements(const UCombatActionStep* Step) const;
+
+	int32 ExecuteUltimateAction(const FCombatActionContext& Context);
 	
-	bool CanAffordActionCost(const UCombatActionStep* Step) const;
+	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance); 
 private:
 	// Input
 	void RefreshInputActionBitmask(const float DeltaTime);
@@ -100,7 +105,6 @@ private:
 
 	void ApplyStaticPointMotionWarping(const FMotionWarpConfig& Config, const APlayerCharacter* Agent, const AEnemyCharacterBase* Enemy);
 
-	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance); 
 
 	void PayActionCost(const UCombatActionStep* Step);
 	
@@ -121,6 +125,9 @@ private:
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Combat | Special Action")
 	TObjectPtr<UCombatActionStep> QuickAssistAction{nullptr};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Combat | Special Action")
+	TObjectPtr<UCombatActionStep> UltimateAction{nullptr};
 	
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UAnimMontage> SwitchInMontage;

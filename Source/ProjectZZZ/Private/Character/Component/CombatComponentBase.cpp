@@ -120,26 +120,6 @@ bool UCombatComponentBase::CanInterruptCurrentAction(const UCombatActionStep* St
 	return  Step->Priority > CurrentExecutionState.CurrentStep->Priority || CurrentExecutionState.bIsRecoveryWindowOpen;
 }
 
-/*FTransform UCombatComponentBase::CalculateShapeWorldTransform() const
-{
-	FTransform BaseTransform{FTransform::Identity};
-	
-	if (!IsValid(Mesh) || !AttackDetectionConfig.ShapeConfig.IsValid())
-	{
-		return BaseTransform;
-	}
-	
-	if (AttackDetectionConfig.ShapeConfig.AttackBoneName != NAME_None)
-	{
-		BaseTransform = Mesh->GetSocketTransform(AttackDetectionConfig.ShapeConfig.AttackBoneName, RTS_World);
-	} else
-	{
-		BaseTransform = Mesh->GetComponentTransform();
-	}
-
-	return AttackDetectionConfig.ShapeConfig.RelativeTransform * BaseTransform;
-}*/
-
 void UCombatComponentBase::RefreshAttackDetection(float DeltaTime)
 {
 	if (!DetectionStatus.bEnableAttackDetection || !IsValid(Mesh) || !IsValid(DetectionStatus.DetectionConfig))
@@ -257,30 +237,6 @@ void UCombatComponentBase::SubStepAttackDetection(	const FTransform& LastWeaponR
 	}
 	
 }
-
-/*void UCombatComponentBase::RefreshWeaponSweepDirection(float DeltaTime)
-{
-	FVector WeaponPos{AttackDetectionConfig.ShapeConfig.ShapeCenter};
-	const FTransform CurrentTransform{CalculateShapeWorldTransform()};
-
-	FVector WeaponEndPose{CurrentTransform.TransformPosition(WeaponPos)};
-	FVector LastWeaponEndPose{AttackDetectionConfig.WeaponSweepState.LastFrameWeaponEndPosition};
-
-	FVector WeaponSweepDirection{WeaponEndPose - LastWeaponEndPose};
-	if (!WeaponSweepDirection.Normalize())
-	{
-		return;
-	}
-
-	float BlendAlpha = DeltaTime / AttackDetectionConfig.WeaponSweepState.DirectionBlendTime;
-	BlendAlpha = FMath::Clamp(BlendAlpha, 0.2f, 1);
-
-	FQuat LastWeaponDirectionQuat{AttackDetectionConfig.WeaponSweepState.WeaponSweepDirection.ToOrientationQuat()};
-	FQuat TargetWeaponDirectionQuat{WeaponSweepDirection.ToOrientationQuat()};
-	FQuat CurrentWeaponDirectionQuat = FQuat::Slerp(LastWeaponDirectionQuat, TargetWeaponDirectionQuat, BlendAlpha);
-	AttackDetectionConfig.WeaponSweepState.WeaponSweepDirection = CurrentWeaponDirectionQuat.GetForwardVector();
-	AttackDetectionConfig.WeaponSweepState.LastFrameWeaponEndPosition = WeaponEndPose;
-}*/
 
 UAbilitySystemComponent* UCombatComponentBase::GetAbilitySystemComponent() const
 {
@@ -416,9 +372,9 @@ void UCombatComponentBase::HandleAnimFinished(int32 RequestID, ECombatAnimReques
 	{
 		return;
 	}
-
+	
 	// todo: 先cast. 后续根据敌人是否拥有同样的逻辑(HandleAnimFinished是否是玩家独有的)修改
-	OnCombatActionFinished.Broadcast(Cast<APlayerCharacter>(Character));
+	OnCombatActionFinished.Broadcast(Cast<APlayerCharacter>(Character), Reason);
 	
 	UE_LOG(LogTemp, Error, TEXT("Action Anim Finished, Montage = %s, Request ID = %d, Reason = %s"),
 	*CurrentExecutionState.CurrentStep->Montage->GetName(),
@@ -468,6 +424,7 @@ void UCombatComponentBase::DebugPrintCurrentActionState()
 	{
 		return;
 	}
+
 	
 	if (CurrentExecutionState.CurrentStep)
 	{
@@ -479,52 +436,63 @@ void UCombatComponentBase::DebugPrintCurrentActionState()
 			FString::Printf(TEXT("Name = %s"), *CurrentExecutionState.CurrentStep->GetName())
 		);
 
-		GEngine->AddOnScreenDebugMessage(
-			1,
-			0.f,
-			FColor::Green,
-			FString::Printf(TEXT("bInputBufferWindowOpen = %s"),
-				CurrentExecutionState.bInputBufferWindowOpen ? TEXT("true") : TEXT("false"))
-		);
-
-		GEngine->AddOnScreenDebugMessage(
-			2,
-			0.f,
-			FColor::Green,
-			FString::Printf(TEXT("bProceedWindowOpen = %s"),
-				CurrentExecutionState.bProceedWindowOpen ? TEXT("true") : TEXT("false"))
-		);
-
-		GEngine->AddOnScreenDebugMessage(
-			3,
-			0.f,
-			FColor::Green,
-			FString::Printf(TEXT("bIsRecoveryWindowOpen = %s"),
-				CurrentExecutionState.bIsRecoveryWindowOpen ? TEXT("true") : TEXT("false"))
-		);
-
-		GEngine->AddOnScreenDebugMessage(
-			4,
-			0.f,
-			FColor::Green,
-			FString::Printf(TEXT("bParryWindowOpen = %s"),
-				CurrentExecutionState.bParryWindowOpen ? TEXT("true") : TEXT("false"))
-		);
-
-		GEngine->AddOnScreenDebugMessage(
-			5,
-			0.f,
-			FColor::Green,
-			FString::Printf(TEXT("bHasConfirmedNextAction = %s"),
-				CurrentExecutionState.bHasConfirmedNextAction ? TEXT("true") : TEXT("false"))
-		);
-
-		GEngine->AddOnScreenDebugMessage(
-			6,
-			0.f,
-			FColor::Green,
-			FString::Printf(TEXT("bHasSuccessfullyStarted = %s"),
-				CurrentExecutionState.bHasSuccessfullyStarted ? TEXT("true") : TEXT("false"))
-		);
 	}
+
+
+	GEngine->AddOnScreenDebugMessage(
+		1,
+		0.f,
+		FColor::Green,
+		FString::Printf(TEXT("bInputBufferWindowOpen = %s"),
+			CurrentExecutionState.bInputBufferWindowOpen ? TEXT("true") : TEXT("false"))
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		2,
+		0.f,
+		FColor::Green,
+		FString::Printf(TEXT("bProceedWindowOpen = %s"),
+			CurrentExecutionState.bProceedWindowOpen ? TEXT("true") : TEXT("false"))
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		3,
+		0.f,
+		FColor::Green,
+		FString::Printf(TEXT("bIsRecoveryWindowOpen = %s"),
+			CurrentExecutionState.bIsRecoveryWindowOpen ? TEXT("true") : TEXT("false"))
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		4,
+		0.f,
+		FColor::Green,
+		FString::Printf(TEXT("bParryWindowOpen = %s"),
+			CurrentExecutionState.bParryWindowOpen ? TEXT("true") : TEXT("false"))
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		5,
+		0.f,
+		FColor::Green,
+		FString::Printf(TEXT("bHasConfirmedNextAction = %s"),
+			CurrentExecutionState.bHasConfirmedNextAction ? TEXT("true") : TEXT("false"))
+	);
+
+	GEngine->AddOnScreenDebugMessage(
+		6,
+		0.f,
+		FColor::Green,
+		FString::Printf(TEXT("bHasSuccessfullyStarted = %s"),
+			CurrentExecutionState.bHasSuccessfullyStarted ? TEXT("true") : TEXT("false"))
+	);
+	
+	GEngine->AddOnScreenDebugMessage(
+				7,
+				0.f,
+				FColor::Green,
+				FString::Printf(TEXT("bMovementInterruptWindowOpen = %s"),
+					CurrentExecutionState.bMovementInterruptWindowOpen ? TEXT("true") : TEXT("false"))
+			);
+
 }

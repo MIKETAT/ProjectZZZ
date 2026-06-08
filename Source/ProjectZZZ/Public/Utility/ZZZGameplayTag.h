@@ -30,6 +30,9 @@ namespace Combat::ActionTag
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Quick_Assist)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Defensive_Assist)
+
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(HitReaction_Front)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(HitReaction_Back)
 }
 
 namespace Team
@@ -87,6 +90,7 @@ namespace Combat::SpecialAction
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ChainAttack)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(QuickAssist)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(DefensiveAssist)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ultimate)
 }
 
 namespace Combat::Camera::Status

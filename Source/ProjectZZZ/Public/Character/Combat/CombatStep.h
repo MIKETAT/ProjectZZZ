@@ -7,6 +7,7 @@
 #include "StructUtils/InstancedStruct.h"
 #include "CombatStep.generated.h"
 
+class ULevelSequence;
 class AEnemyCharacterBase;
 enum class EMotionWarpCalculationRules : uint8;
 enum class EAttackStrength : uint8;
@@ -51,13 +52,6 @@ enum class ECameraLookAtMode : uint8
 	LookAtEnemy,
 	LookAtMiddle
 };
-
-/*UENUM(BlueprintType)
-enum class ERelativeTarget : uint8
-{
-	Agent,
-	Enemy
-};*/
 
 USTRUCT(BlueprintType)
 struct FCinematicCameraConfig
@@ -171,6 +165,30 @@ struct FParriedActionConfig
 };
 
 USTRUCT(BlueprintType)
+struct FUltimateActionConfig
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	bool bIsUltimateAction{false};
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsUltimateAction"))
+	TObjectPtr<ULevelSequence> CutInSequence{nullptr};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsUltimateAction"))
+	FName SequenceBindingTag{FName("RuntimeAgent")};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsUltimateAction"))
+	FGameplayTag CameraRequestTag{FGameplayTag::EmptyTag};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsUltimateAction"))
+	FLinearColor BackgroundColor{FLinearColor::Green};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsUltimateAction", ClampMin = "1", ClampMax = "255"))
+	int32 AgentStencilValue{42};
+};
+
+USTRUCT(BlueprintType)
 struct FCombatActionContext
 {
 	GENERATED_BODY()
@@ -232,6 +250,9 @@ public:
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | ParryConfig")
 	FParryActionConfig ParryConfig;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | Ultimate")
+	FUltimateActionConfig UltimateConfig;
 	
 	// for enemy
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | ParriedActionConfig")
@@ -303,6 +324,7 @@ public:
 
 		bInputBufferWindowOpen = false;
 		bProceedWindowOpen = false;
+		bMovementInterruptWindowOpen = false;
 		bIsRecoveryWindowOpen = false;
 		bParryWindowOpen = false;
 		bHasConfirmedNextAction = false;

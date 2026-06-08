@@ -7,7 +7,6 @@
 #include "Components/ActorComponent.h"
 #include "CombatComponentBase.generated.h"
 
-
 class USquadManagerComponent;
 class APlayerCharacter;
 class UCharacterCombatComponent;
@@ -82,7 +81,7 @@ struct FAttackResult
 	float HitStopTimeScale{1.f};
 };
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatActionFinished, class APlayerCharacter*);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnCombatActionFinished, APlayerCharacter*, ECombatAnimRequestFinishReason)
 
 UCLASS(Abstract)
 class PROJECTZZZ_API UCombatComponentBase : public UActorComponent

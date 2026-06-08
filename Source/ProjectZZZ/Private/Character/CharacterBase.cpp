@@ -76,6 +76,14 @@ void ACharacterBase::PostInitializeComponents()
 	Super::PostInitializeComponents();
 }
 
+void ACharacterBase::AddTagToASC(FGameplayTag Tag)
+{
+	if (GetAbilitySystemComponent())
+	{
+		GetAbilitySystemComponent()->AddLooseGameplayTag(Tag);
+	}
+}
+
 void ACharacterBase::SetCharacterState(const ECharacterPresentationState State)
 {
 	CharacterState = State;

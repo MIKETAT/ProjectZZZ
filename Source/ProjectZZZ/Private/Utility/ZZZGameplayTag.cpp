@@ -25,6 +25,9 @@ namespace Combat::ActionTag
 
 	UE_DEFINE_GAMEPLAY_TAG(Quick_Assist, FName(TEXTVIEW("Combat.ActionTag.Quick_Assist")))
 	UE_DEFINE_GAMEPLAY_TAG(Defensive_Assist, FName(TEXTVIEW("Combat.ActionTag.Defensive_Assist")))
+
+	UE_DEFINE_GAMEPLAY_TAG(HitReaction_Front, FName(TEXTVIEW("Combat.ActionTag.HitReaction_Front")))
+	UE_DEFINE_GAMEPLAY_TAG(HitReaction_Back, FName(TEXTVIEW("Combat.ActionTag.HitReaction_Back")))
 }
 
 namespace Team
@@ -81,16 +84,17 @@ namespace Combat::SpecialAction
 	UE_DEFINE_GAMEPLAY_TAG(ChainAttack, FName(TEXTVIEW("Combat.SpecialAction.ChainAttack")))
 	UE_DEFINE_GAMEPLAY_TAG(QuickAssist, FName(TEXTVIEW("Combat.SpecialAction.QuickAssist")))
 	UE_DEFINE_GAMEPLAY_TAG(DefensiveAssist, FName(TEXTVIEW("Combat.SpecialAction.DefensiveAssist")))
+	UE_DEFINE_GAMEPLAY_TAG(Ultimate, FName(TEXTVIEW("Combat.SpecialAction.Ultimate")))
 }
 
 namespace Combat::Camera::Status
 {
-	UE_DEFINE_GAMEPLAY_TAG(CombatFollowCamera, FName(TEXTVIEW("Combat.Camera.CombatFollowCamera")))
-	UE_DEFINE_GAMEPLAY_TAG(HighSpeedMovementCamera, FName(TEXTVIEW("Combat.Camera.HighSpeedMovementCamera")))
-	UE_DEFINE_GAMEPLAY_TAG(ChainAttackCamera, FName(TEXTVIEW("Combat.Camera.ChainAttackCamera")))
-	UE_DEFINE_GAMEPLAY_TAG(QuickAssistCamera, FName(TEXTVIEW("Combat.Camera.QuickAssistCamera")))
-	UE_DEFINE_GAMEPLAY_TAG(UltimateCamera, FName(TEXTVIEW("Combat.Camera.UltimateCamera")))
-	UE_DEFINE_GAMEPLAY_TAG(ParryCamera, FName(TEXTVIEW("Combat.Camera.ParryCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(CombatFollowCamera, FName(TEXTVIEW("Combat.Camera.Status.CombatFollowCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(HighSpeedMovementCamera, FName(TEXTVIEW("Combat.Camera.Status.HighSpeedMovementCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(ChainAttackCamera, FName(TEXTVIEW("Combat.Camera.Status.ChainAttackCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(QuickAssistCamera, FName(TEXTVIEW("Combat.Camera.Status.QuickAssistCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(UltimateCamera, FName(TEXTVIEW("Combat.Camera.Status.UltimateCamera")))
+	UE_DEFINE_GAMEPLAY_TAG(ParryCamera, FName(TEXTVIEW("Combat.Camera.Status.ParryCamera")))
 }
 
 

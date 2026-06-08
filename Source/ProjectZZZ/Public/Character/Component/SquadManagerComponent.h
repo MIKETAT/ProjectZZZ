@@ -5,6 +5,7 @@
 #include "Player/PlayerCharacter.h"
 #include "SquadManagerComponent.generated.h"
 
+class UCameraRigAsset;
 class AEnemyCharacterBase;
 class UCombatComponentBase;
 class UCharacterCombatComponent;
@@ -19,6 +20,8 @@ class UImage;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTriggerChainAttackWindow, UTexture2D*, UTexture2D*);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssistWindow, UTexture2D*);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpdateCameraTransform, const FTransform&, CameraTransform);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggerChainAttack, FTransform, CameraTransform);
 
@@ -185,13 +188,15 @@ public:
 
 	APlayerCharacter* GetTargetAgent(const int32 TargetIndex) const;
 
+	bool GetLockAgentSwitch() const { return bLockAgentSwitch; }
+
+	void SetLockAgentSwitch(const bool bLock) { bLockAgentSwitch = bLock; }
+	
 	bool IsActiveAgentExecutingAction() const { return GetActiveAgent() && GetActiveAgent()->IsAnyActionActive(); }
 	
 	FChainAttackWindowStatus GetChainAttackWindowStatus() const { return ChainAttackStatus; }
-
-	//void ResetTargetEnemy() { TargetEnemy = nullptr; }
-
-	//AEnemyCharacterBase* GetTargetEnemy() const { return TargetEnemy.Get(); }
+	
+	FTransform CalculateUltimateCameraPosition(UCombatActionStep* Ultimate, const FTransform& AgentTransform);
 private:
 	// Switch Agent
 	// Todo: 切换到后台的代理人动作只执行到逻辑结算结束就退到后台，不播放收刀之类的后摇动画
@@ -214,7 +219,7 @@ private:
 
 	void HandleAgentSwitchOut(APlayerCharacter* OldAgent, const FAgentTransitionRequest& Request, const FAgentTransitionSnapshot& Snapshot);
 
-	void OnLingeringAgentActionFinished(APlayerCharacter* LingeringAgent);
+	void OnLingeringAgentActionFinished(APlayerCharacter* LingeringAgent, ECombatAnimRequestFinishReason Reason);
 	
 	void SwitchToPreviousAgent();
 	
@@ -227,6 +232,8 @@ private:
 	void AgentDefensiveAssist(const int32 TargetIndex, bool bIsPrevious);
 
 	void AgentQuickAssist(const int32 TargetIndex);
+
+	void AgentUltimateAttack();
 
 	// Squad 
 	void InitializeAgentSquad();
@@ -292,6 +299,7 @@ private:
 	FTransform CalculateChainAttackCameraPosition(const FAgentTransitionRequest& Request);*/
 
 	FTransform CalculateActionCameraPosition(const FAgentTransitionRequest& Request);
+
 	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -300,6 +308,9 @@ public:
 	FOnTriggerChainAttackWindow OnTriggerChainAttackWindow;
 
 	UPROPERTY(BlueprintAssignable)
+	FOnUpdateCameraTransform OnUpdateCameraTransform;
+	
+	/*UPROPERTY(BlueprintAssignable)
 	FOnTriggerChainAttack OnTriggerChainAttack;
 
 	UPROPERTY(BlueprintAssignable)
@@ -307,6 +318,7 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnTriggerQuickAssist OnTriggerQuickAssist;
+	*/
 	
 	FOnFinishChainAttack OnFinishChainAttack;
 
@@ -342,6 +354,9 @@ private:
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AEnemyCharacterBase> TargetEnemy{nullptr};
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	bool bLockAgentSwitch{false};
+	
 	// test
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	FVector ParryCameraOffset{-150.f, -80.f, -30.f};

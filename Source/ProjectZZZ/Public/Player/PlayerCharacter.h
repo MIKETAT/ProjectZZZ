@@ -4,8 +4,12 @@
 #include "Character/CharacterBase.h"
 #include "Character/Component/CharacterCombatComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
+#include "LevelSequence.h"
 #include "PlayerCharacter.generated.h"
 
+class ALevelSequenceActor;
+class ULevelSequencePlayer;
+struct FPendingUltimateCutInRequest;
 class UGameplayCameraComponent;
 class UImage;
 class AZZZPlayerController;
@@ -18,6 +22,81 @@ enum class EAgentPresenceState : uint8
 	Active,
 	Lingering,
 	OffField
+};
+
+USTRUCT(BlueprintType)
+struct FPendingUltimateCutInRequest
+{
+	GENERATED_BODY()
+
+	void Reset();
+
+	UPROPERTY()
+	TObjectPtr<APlayerCharacter> Agent{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<UCombatActionStep> UltimateAction{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<ULevelSequence> CutInSequence{nullptr};
+
+	UPROPERTY()
+	FGameplayTag CameraStateTag{FGameplayTag::EmptyTag};
+
+	UPROPERTY()
+	FLinearColor BackgroundColor{FLinearColor::White};
+
+	UPROPERTY()
+	int32 StencilValue{42};
+
+	/*UPROPERTY()
+	bool bHasCameraTransform{false};
+	
+	UPROPERTY()
+	FTransform CameraTransform{FTransform::Identity};*/
+	/*
+	UPROPERTY()
+	FGameplayTag RequiredCameraRigTag{FGameplayTag::EmptyTag};*/
+
+	UPROPERTY()
+	bool bIsValid{false};
+};
+
+USTRUCT(BlueprintType)
+struct FActiveUltimateExecutionState
+{
+	GENERATED_BODY()
+	
+public:
+	void Reset();
+	
+	UPROPERTY()
+	TObjectPtr<APlayerCharacter> Agent{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<ULevelSequencePlayer> SequencePlayer{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<ALevelSequenceActor> SequenceActor{nullptr};
+	
+	UPROPERTY()
+	FGameplayTag CameraStateTag{FGameplayTag::EmptyTag};
+
+	FDelegateHandle OnUltimateActionFinishedHandle;
+	
+	FDelegateHandle OnSequenceFinishedHandle;
+	
+	UPROPERTY()
+	bool bSequenceFinished{false};
+
+	UPROPERTY()
+	bool bIsValid{false};
+	
+	UPROPERTY()
+	bool bActionFinished{false};
+
+	UPROPERTY()
+	bool bAborting{false};
 };
 
 UCLASS()
@@ -77,7 +156,8 @@ public:
 	void SwitchToOffField();
 	
 	UCombatActionStep* GetSpecialAction(const FGameplayTag& Tag) const { return AgentCombatComponent ? AgentCombatComponent->GetSpecialAction(Tag) : nullptr;};
-	
+
+	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance) const;
 private:
 	void ProcessMovementInput(float DeltaTime);
 	
@@ -101,9 +181,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
 	TSubclassOf<UGameplayEffect> AgentExclusiveInitGE;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TObjectPtr<ULevelSequence> LevelSequence;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bPrintDebugInfo{false};
 
+
+	UPROPERTY()
+	FGameplayTag CurrentCameraRigTag{FGameplayTag::EmptyTag};
+	
 private:
 	UPROPERTY()
 	TObjectPtr<UAgentAttributeSet> AgentAttributeSet;

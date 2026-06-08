@@ -24,17 +24,20 @@ struct FMotionWarpCalcMethod
 };
 
 USTRUCT(BlueprintType)
-struct FWarpCalcMethod_EnemyRelative : public FMotionWarpCalcMethod
+struct FMotionWarpCalcMethod_EnemyRelative : public FMotionWarpCalcMethod
 {
 	GENERATED_BODY()
-
+	
 	UPROPERTY(EditDefaultsOnly)
-	FVector OffsetFromEnemy{FVector::ZeroVector};
+	bool bCloseToTarget{false};
+	
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "!bCloseToTarget"))
+	FVector OffsetFromTarget{FVector::ZeroVector};
 	
 };
 
 USTRUCT(BlueprintType)
-struct FWarpCalc_PiercingLine : public FMotionWarpCalcMethod
+struct FMotionWarpCalcMethod_PiercingLine : public FMotionWarpCalcMethod
 {
 	GENERATED_BODY()
 

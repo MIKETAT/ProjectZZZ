@@ -27,10 +27,7 @@ class PROJECTZZZ_API UCombatHitReactionAction : public UCombatActionStep
 
 public:
 	UCombatHitReactionAction();
-	
-private:
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = true))
-	bool bCanTriggerQuickAssist{false};
+
 };
 
 USTRUCT(BlueprintType)

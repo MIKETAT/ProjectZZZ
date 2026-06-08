@@ -4,9 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Character/Component/SquadManagerComponent.h"
 #include "QTEWidget.generated.h"
 
-class USquadManagerComponent;
 class UQTEAgent;
 class UTextBlock;
 struct FCombatEventMessage;

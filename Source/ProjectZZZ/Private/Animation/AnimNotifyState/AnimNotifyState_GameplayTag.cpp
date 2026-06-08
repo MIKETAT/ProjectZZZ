@@ -26,7 +26,7 @@ void UAnimNotifyState_GameplayTag::SetGameplayTag(USkeletalMeshComponent* MeshCo
 				ASC->AddLooseGameplayTag(Tag);
 			} else
 			{
-				ASC->RemoveLooseGameplayTag(Tag);
+				ASC->SetLooseGameplayTagCount(Tag, 0);
 			}
 		}
 	}

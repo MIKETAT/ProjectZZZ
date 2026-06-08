@@ -27,7 +27,9 @@ public class ProjectZZZ : ModuleRules
 			"AnimationModifiers",
 			"AnimationDataController",
 			"GameplayCameras",
-			"StructUtils"
+			"StructUtils",
+			"LevelSequence",
+			"MovieScene"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { });

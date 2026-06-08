@@ -138,7 +138,7 @@ UCombatActionStep* UCharacterCombatComponent::SelectComboActionIntent(const EInp
 	
 	if (const TObjectPtr<UCombatActionStep> Step = CurrentExecutionState.CurrentStep->ComboLinks.FindRef(Input))
 	{
-		if (CanAffordActionCost(Step.Get()))
+		if (MeetsActionRequirements(Step.Get()))
 		{
 			return Step;
 		}
@@ -157,7 +157,7 @@ UCombatActionStep* UCharacterCombatComponent::SelectCombatActionIntent(const EIn
 		}
 
 		// match RequiredTags and Cost
-		if (AbilitySystemComponent->HasAllMatchingGameplayTags(Step->RequiredTags) && CanAffordActionCost(Step))
+		if (MeetsActionRequirements(Step))
 		{
 			return Step;
 		}
@@ -239,6 +239,11 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 	return InstanceID;
 }
 
+int32 UCharacterCombatComponent::ExecuteUltimateAction(const FCombatActionContext& Context)
+{
+	return ExecuteAction(GetSpecialAction(Combat::SpecialAction::Ultimate), Context);
+}
+
 // QTE Bug
 
 void UCharacterCombatComponent::TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep, const AEnemyCharacterBase* Enemy)
@@ -300,9 +305,18 @@ void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpC
 	{
 		case EMotionWarpCalculationRules::EnemyRelativeFacing:
 			{
-				if (const FWarpCalcMethod_EnemyRelative* Method = Config.CalculationMethod.GetPtr<FWarpCalcMethod_EnemyRelative>())
+				if (const FMotionWarpCalcMethod_EnemyRelative* Method = Config.CalculationMethod.GetPtr<FMotionWarpCalcMethod_EnemyRelative>())
 				{
-					FVector Offset{Method->OffsetFromEnemy};
+					FVector Offset{FVector::ZeroVector};
+					if (Method->bCloseToTarget)
+					{
+						float Distance{Agent->GetCapsuleComponent()->GetScaledCapsuleRadius() + Enemy->GetCapsuleComponent()->GetScaledCapsuleRadius()};
+						Offset = Enemy->GetActorRotation().Quaternion().GetForwardVector() * Distance;
+					} else
+					{
+						Offset = Method->OffsetFromTarget;
+					}
+					
 					FVector TargetLocation{Enemy->GetActorLocation() + Enemy->GetActorRotation().RotateVector(Offset)};
 					TargetLocation.Z = Agent->GetActorLocation().Z;
 					FRotator TargetRotation{FacingEnemyRotation};	// facing
@@ -317,7 +331,7 @@ void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpC
 			break;
 		case EMotionWarpCalculationRules::PiercingLine:
 			{
-				if (const FWarpCalc_PiercingLine* Method = Config.CalculationMethod.GetPtr<FWarpCalc_PiercingLine>())
+				if (const FMotionWarpCalcMethod_PiercingLine* Method = Config.CalculationMethod.GetPtr<FMotionWarpCalcMethod_PiercingLine>())
 				{
 					float PiercingLength{Method->PiercingLength};
 					FVector TargetLocation{EnemyLocation + FacingEnemyRotation.Quaternion().GetForwardVector() * PiercingLength};
@@ -339,6 +353,7 @@ void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpC
 				DrawDebugCapsule(GetWorld(), AgentLocation, 80.f, 40.f, FQuat::Identity, FColor::Magenta, false, 15.f);
 			}
 			break;
+
 		default:
 			{
 				
@@ -465,12 +480,18 @@ void UCharacterCombatComponent::HandleCombatWindowChange(const FGameplayTag Tag,
 	}
 }
 
-bool UCharacterCombatComponent::CanAffordActionCost(const UCombatActionStep* Step) const
+bool UCharacterCombatComponent::MeetsActionRequirements(const UCombatActionStep* Step) const
 {
 	if (!IsValid(Step) || !IsValid(Step->CostGameplayEffect) || !IsValid(AbilitySystemComponent))
 	{
 		return false;
 	}
+
+	if (!AbilitySystemComponent->HasAllMatchingGameplayTags(Step->RequiredTags))
+	{
+		return false;
+	}
+	
 	if (AbilitySystemComponent->CanApplyAttributeModifiers(Step->CostGameplayEffect->GetDefaultObject<UGameplayEffect>(), 1, AbilitySystemComponent->MakeEffectContext()))
 	{
 		return true;
@@ -509,6 +530,10 @@ UCombatActionStep* UCharacterCombatComponent::GetSpecialAction(const FGameplayTa
 	if (Tag == Combat::SpecialAction::DefensiveAssist)
 	{
 		return DefensiveAssistAction;
+	}
+	if (Tag == Combat::SpecialAction::Ultimate)
+	{
+		return UltimateAction;
 	}
 	return nullptr;
 }

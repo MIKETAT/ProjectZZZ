@@ -3,10 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Component/SquadManagerComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "ZZZPlayerController.generated.h"
 
+class UPostProcessComponent;
+struct FPendingUltimateCutInRequest;
 class APlayerCharacter;
 class UGameplayCameraComponent;
 class UQuickAssistWindow;
@@ -14,6 +17,19 @@ class UQTEWidget;
 class USquadManagerComponent;
 class UPlayerInputHandlerComponent;
 class UInputMappingContext;
+
+USTRUCT()
+struct FCutInStencilDate
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TWeakObjectPtr<UPrimitiveComponent> Component;
+
+	bool bEnableRenderCustomDepth{false};
+
+	int32 CustomStencilDepth{0};
+};
 
 UCLASS()
 class PROJECTZZZ_API AZZZPlayerController : public APlayerController
@@ -25,6 +41,10 @@ public:
 	
 	/** Gameplay initialization */
 	virtual void BeginPlay() override;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	virtual void Tick(float DeltaTime) override;
 
 	/** Input mapping context setup */
 	virtual void SetupInputComponent() override;
@@ -38,16 +58,44 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	APlayerCharacter* GetActiveAgent() const;
+
+	bool GetBlockGameplayCameraActivation() const { return bBlockGameplayCameraActivation; }
 	
+	void SetBlockGameplayCameraActivation(bool bBlock) { bBlockGameplayCameraActivation = bBlock; }
+	
+	void RequestUltimateCutIn(const FPendingUltimateCutInRequest& Request);
+
+	UFUNCTION(BlueprintCallable)
+	void OnCameraRigSelected(const FGameplayTag& SelectedCameraRigTag);
+
+	void CommitPendingUltimateCutIn();
+
+	void ClearPreparedSequence(ULevelSequencePlayer* SequencePlayer, ALevelSequenceActor* SequenceActor);
+	
+	void CancelPendingUltimateCutIn();
+
+	UFUNCTION()
+	void HandleSequencePlayFinished();
+
+	UFUNCTION()
+	void HandleUltimateActionFinished(APlayerCharacter* Agent, ECombatAnimRequestFinishReason Reason);
 private:
 	void CreateQTEWidget();
 	
 	void BindUIDelegate();
 
 	void CreateQuickAssistWidget();
+
+	void EnableUltimateCutInStencil(APlayerCharacter* Agent, const int32 StencilValue = 1);
+
+	void DisableUltimateCutInStencil();
+
+	void EnableUltimateCutInPostProcess(APlayerCharacter* Agent, const FLinearColor& BackgroundColor, const int32 StencilValue);
+
+	void DisableUltimateCutInPostProcess();
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTagContainer CameraStatusTag;
+	FGameplayTag CurrentCameraRigTag;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UQTEWidget> QTEWidgetClass;
@@ -58,17 +106,40 @@ protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPlayerInputHandlerComponent> PlayerInputHandlerComponent{nullptr};
 
+	UPROPERTY(EditDefaultsOnly, Category = "Feature | Ultimate")
+	TObjectPtr<UMaterialInterface> UltimateCutInPostProcessMaterial{nullptr};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Feature | Ultimate")
+	TObjectPtr<UMaterialParameterCollection> MPC_UltimateCutIn;
+	
+	/*UPROPERTY()
+	TObjectPtr<UMaterialInstanceDynamic> UltimateCutInMID{nullptr};
+
+	UPROPERTY()
+	TObjectPtr<UPostProcessComponent> UltimateCutInPostProcessComponent{nullptr};*/
+
+	bool bUltimateCutInPostProcessActive{false};
+	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<USquadManagerComponent> SquadManager{nullptr};
 	
-	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UGameplayCameraComponent> GameplayCamera;*/
-
 	UPROPERTY()
 	TObjectPtr<UQTEWidget> QTEWidget{nullptr};
 
 	UPROPERTY()
 	TObjectPtr<UQuickAssistWindow> QuickAssistWidget{nullptr};
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+	bool bBlockGameplayCameraActivation{false};
+	
+	UPROPERTY()
+	FPendingUltimateCutInRequest PendingUltimateCutInRequest;
+
+	UPROPERTY()
+	FActiveUltimateExecutionState UltimateExecutionState;
+
+	UPROPERTY()
+	TArray<FCutInStencilDate> CutInStencilDate;
 	
 // Default	
 	/** Input Mapping Contexts */

@@ -1,14 +1,34 @@
 ﻿#include "Player/PlayerCharacter.h"
 #include "AbilitySystem/AgentAttributeSet.h"
-#include "Camera/CameraComponent.h"
 #include "Character/ZZZPlayerController.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/CharacterCombatComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameplayCameraComponent.h"
-#include "GameFramework/SpringArmComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "Utility/ZZZGameplayTag.h"
+
+void FPendingUltimateCutInRequest::Reset()
+{
+	Agent = nullptr;
+	UltimateAction = nullptr;
+	CutInSequence = nullptr;
+	CameraStateTag = FGameplayTag::EmptyTag;
+	//RequiredCameraRigTag = FGameplayTag::EmptyTag;
+	bIsValid = false;
+}
+
+void FActiveUltimateExecutionState::Reset()
+{
+	Agent = nullptr;
+	SequencePlayer = nullptr;
+	SequenceActor = nullptr;
+	CameraStateTag = FGameplayTag::EmptyTag;
+	bIsValid = false;
+	bSequenceFinished = false;
+	bActionFinished = false;
+	bAborting = false;
+}
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -134,6 +154,15 @@ void APlayerCharacter::SwitchToOffField()
 	SetAgentPresence(EAgentPresenceState::OffField);
 	SetActorHiddenInGame(true);
 	SetActorEnableCollision(false);
+}
+
+AEnemyCharacterBase* APlayerCharacter::FindClosestEnemy(const float MaxDistance) const
+{
+	if (AgentCombatComponent)
+	{
+		return AgentCombatComponent->FindClosestEnemy(MaxDistance);
+	}
+	return nullptr;
 }
 
 void APlayerCharacter::ProcessMovementInput(float DeltaTime)

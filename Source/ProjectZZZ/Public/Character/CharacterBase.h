@@ -62,6 +62,7 @@ public:
 	// !GAS Interface
 
 	// ICombatInterface
+	UFUNCTION(BlueprintCallable)
 	virtual UAbilitySystemComponent* GetAbilitySystemComp() const override { return AgentAbilitySystemComponent.Get(); }
 	
 	virtual UCombatComponentBase* GetCombatComp() const override { return CombatBase.Get(); }
@@ -75,7 +76,10 @@ public:
 	UCombatAnimSchedulerComponent* GetCombatAnimSchedulerComponent() const { return CombatAnimSchedulerComponent; }
 	
 	virtual UHitStopComponent* GetHitStopComponent() const { return HitStopComponent.Get(); }
-	
+
+	// temp
+	UFUNCTION(BlueprintCallable)
+	void AddTagToASC(FGameplayTag Tag);
 public:
 	virtual void Die() {};
 
