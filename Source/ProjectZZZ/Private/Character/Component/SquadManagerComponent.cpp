@@ -280,20 +280,40 @@ void USquadManagerComponent::HandleAgentSwitchOut(APlayerCharacter* OldAgent, co
 	UCharacterCombatComponent* CombatComponent = OldAgent->GetAgentCombatComponent();
 
 	OwnerController->UnPossess();
-	if (Request.SwitchOutMode == EAgentSwitchOutMode::FinishActionThenExit && Snapshot.bHasActiveAction)
+	
+	if (Request.SwitchOutMode == EAgentSwitchOutMode::FinishActionThenExit)
+	{
+		if (CombatComponent->IsCurrentActionLogicFinished())
+		{
+			ApplyAgentOffFieldState(OldAgent);
+		} else
+		{
+			ApplyAgentLingeringState(OldAgent);	
+		}
+		return;
+	}
+	
+	if (Request.SwitchOutMode == EAgentSwitchOutMode::ExitWithSwitchOutAnim)
 	{
 		ApplyAgentLingeringState(OldAgent);
+		const int32 RequestId = CombatComponent->ExecuteSwitchOutAction();
+		if (RequestId != INDEX_NONE)
+		{
+			PendingLingeringExitRequestIds.Add(OldAgent, RequestId);
+		} else
+		{
+			// Apply Switch Out Failed
+			ApplyAgentLingeringState(OldAgent);
+		}
+		return;
 	}
-	else if (Request.SwitchOutMode == EAgentSwitchOutMode::ExitWithSwitchOutAnim)
-	{
-		ApplyAgentLingeringState(OldAgent);
-		CombatComponent->ExecuteSwitchOutAction();
-	}
-	else if (Request.SwitchOutMode == EAgentSwitchOutMode::ExitImmediately)
+	
+	if (Request.SwitchOutMode == EAgentSwitchOutMode::ExitImmediately)
 	{
 		ApplyAgentOffFieldState(OldAgent);
+		return;
 	}
-	UE_LOG(LogTemp, Error, TEXT("Agent Switch Out went wrong. THIS LOG SHOULD NOT BE PRINTED"))
+	UE_LOG(LogTemp, Error, TEXT("Agent Switch Out went wrong. THIS LOG SHOULD NOT BE PRINTED"));
 }
 
 void USquadManagerComponent::BindAgentLingeringDelegate(APlayerCharacter* Agent)
@@ -306,6 +326,7 @@ void USquadManagerComponent::BindAgentLingeringDelegate(APlayerCharacter* Agent)
 	if (UCharacterCombatComponent* CombatComponent = Agent->GetAgentCombatComponent())
 	{
 		CombatComponent->OnCombatActionFinished.AddUObject(this, &USquadManagerComponent::OnLingeringAgentActionFinished);
+		CombatComponent->OnActionLogicFinished.AddUObject(this, &USquadManagerComponent::OnPendingExitAgentActionLogicFinished);
 	}
 }
 
@@ -314,14 +335,35 @@ void USquadManagerComponent::UnBindAgentLingeringDelegate(APlayerCharacter* Agen
 	// todo: UnBind when agent die
 }
 
+void USquadManagerComponent::OnPendingExitAgentActionLogicFinished(APlayerCharacter* Agent, int32 RequestId)
+{
+	if (!Agent)
+	{
+		return;
+	}
+
+	const int32* ExistRequestId = PendingLingeringExitRequestIds.Find(Agent);
+	if (ExistRequestId && *ExistRequestId != RequestId)
+	{
+		return;
+	}
+
+	PendingLingeringExitRequestIds.Remove(Agent);
+
+	if (Agent->GetAgentPresence() == EAgentPresenceState::Lingering)
+	{
+		ApplyAgentOffFieldState(Agent);	
+	}
+}
+
 void USquadManagerComponent::OnLingeringAgentActionFinished(APlayerCharacter* LingeringAgent, ECombatAnimRequestFinishReason Reason)
 {
-	// todo: 这里不太对, 动作结束语义 与 切出动作结束语义 是不同的。不应该所有动作结束都广播一下，然后再OnLingeringAgentActionFinished判断状态是不是Lingering
 	if (!IsValid(LingeringAgent) || LingeringAgent->GetAgentPresence() != EAgentPresenceState::Lingering)
 	{
 		return;
 	}
 
+	PendingLingeringExitRequestIds.Remove(LingeringAgent);
 	ApplyAgentOffFieldState(LingeringAgent);
 }
 
@@ -342,7 +384,7 @@ void USquadManagerComponent::SwitchToAgent(const int32 TargetIndex, bool bIsPrev
 		FAgentTransitionRequest Request;
 		Request.TargetAgentIndex = TargetIndex;
 		Request.SwitchInMode = GetActiveAgent()->HasMovementInput() ? EAgentSwitchInMode::InheritLocomotion : EAgentSwitchInMode::EnterWithSwitchInAnim;
-		Request.SwitchOutMode = EAgentSwitchOutMode::ExitWithSwitchOutAnim;
+		Request.SwitchOutMode = IsActiveAgentExecutingAction() ? EAgentSwitchOutMode::FinishActionThenExit : EAgentSwitchOutMode::ExitWithSwitchOutAnim;
 		Request.SpawnPolicy = bIsPrevious ? EAgentSpawnPolicy::AgentRelativeLeft : EAgentSpawnPolicy::AgentRelativeRight;
 		Request.CurrentAgent = GetActiveAgent();
 		Request.Enemy = nullptr;
@@ -358,7 +400,7 @@ void USquadManagerComponent::AgentChainAttack(const int32 TargetIndex, bool bIsP
 		FAgentTransitionRequest Request;
 		Request.TargetAgentIndex = TargetIndex;
 		Request.SwitchInMode = EAgentSwitchInMode::ExecuteChainAttack;
-		Request.SwitchOutMode = EAgentSwitchOutMode::ExitWithSwitchOutAnim;
+		Request.SwitchOutMode = IsActiveAgentExecutingAction() ? EAgentSwitchOutMode::FinishActionThenExit : EAgentSwitchOutMode::ExitWithSwitchOutAnim;
 		Request.SpawnPolicy = bIsPrevious ? EAgentSpawnPolicy::ChainAttackLeft : EAgentSpawnPolicy::ChainAttackRight;
 		Request.CurrentAgent = GetActiveAgent();
 		Request.Enemy = ChainAttackStatus.Enemy;
@@ -377,7 +419,7 @@ void USquadManagerComponent::AgentDefensiveAssist(const int32 TargetIndex, bool 
 		FAgentTransitionRequest Request;
 		Request.TargetAgentIndex = TargetIndex;
 		Request.SwitchInMode = EAgentSwitchInMode::ExecuteDefensiveAssist;
-		Request.SwitchOutMode = IsActiveAgentExecutingAction() ? EAgentSwitchOutMode::FinishActionThenExit : EAgentSwitchOutMode::ExitImmediately;		// todo: 确认
+		Request.SwitchOutMode = IsActiveAgentExecutingAction() ? EAgentSwitchOutMode::FinishActionThenExit : EAgentSwitchOutMode::ExitWithSwitchOutAnim;		// todo: 确认
 		Request.SpawnPolicy = EAgentSpawnPolicy::ParryAssistFacingTarget;
 		Request.CurrentAgent = GetActiveAgent();
 		Request.Enemy = PerfectAssistStatus.TargetEnemy;
@@ -396,7 +438,7 @@ void USquadManagerComponent::AgentQuickAssist(const int32 TargetIndex)
 		FAgentTransitionRequest Request;
 		Request.TargetAgentIndex = TargetIndex;
 		Request.SwitchInMode = EAgentSwitchInMode::ExecuteQuickAssist;
-		Request.SwitchOutMode = EAgentSwitchOutMode::ExitWithSwitchOutAnim;
+		Request.SwitchOutMode = IsActiveAgentExecutingAction() ? EAgentSwitchOutMode::FinishActionThenExit : EAgentSwitchOutMode::ExitWithSwitchOutAnim;
 		Request.SpawnPolicy = EAgentSpawnPolicy::QuickAssistFacingTarget;
 		Request.CurrentAgent = GetActiveAgent();
 		Request.Enemy = QuickAssistStatus.TargetEnemy;
@@ -890,7 +932,7 @@ void USquadManagerComponent::CalculateChainAttackSpawnTransform(const FAgentTran
 	
 	SpawnTransform.SetLocation(TargetSpawnLocation);
 	SpawnTransform.SetRotation(TargetSpawnRotation.Quaternion());
-	DrawDebugCapsule(GetWorld(), SpawnTransform.GetLocation(), 50.f, 30.f, FQuat::Identity, FColor::Green, false, 15.f);
+	//DrawDebugCapsule(GetWorld(), SpawnTransform.GetLocation(), 50.f, 30.f, FQuat::Identity, FColor::Green, false, 15.f);
 }
 
 void USquadManagerComponent::CalculateParrySpawnTransform(const FAgentTransitionRequest& Request, FTransform& SpawnTransform)
@@ -1009,9 +1051,10 @@ FTransform USquadManagerComponent::CalculateActionCameraPosition(const FAgentTra
 	TargetCameraTransform.SetLocation(CameraLocation);
 	TargetCameraTransform.SetRotation(CameraRotation.Quaternion());
 
-	DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
+	/*DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
 	DrawDebugDirectionalArrow(GetWorld(), CameraLocation, CameraLocation + 200.f * CameraRotation.Quaternion().GetForwardVector(),
 		10.f, FColor::Purple, false, 10.f);
+		*/
 	
 	return TargetCameraTransform;
 }
@@ -1055,9 +1098,10 @@ FTransform USquadManagerComponent::CalculateUltimateCameraPosition(UCombatAction
 	CameraTransform.SetLocation(CameraLocation);
 	CameraTransform.SetRotation(CameraRotation.Quaternion());
 
-	DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
+	/*DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
 	DrawDebugDirectionalArrow(GetWorld(), CameraLocation, CameraLocation + 200.f * CameraRotation.Quaternion().GetForwardVector(),
 		10.f, FColor::Purple, false, 10.f);
+		*/
 	
 
 	return CameraTransform;

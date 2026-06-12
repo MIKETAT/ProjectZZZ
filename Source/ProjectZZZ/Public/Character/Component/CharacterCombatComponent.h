@@ -17,6 +17,8 @@ class UCombatAnimSchedulerComponent;
 class UAnimInstanceBase;
 enum ECombatAnimRequestFinishReason : uint8;
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActionLogicFinished, APlayerCharacter*, int32);
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTZZZ_API UCharacterCombatComponent : public UCombatComponentBase
 {
@@ -61,9 +63,9 @@ public:
 	
 	void ExecuteSwitchInAction();
 	
-	void ExecuteSwitchOutAction();
+	int32 ExecuteSwitchOutAction();
 
-	void ExecuteSwitchAction(UCombatActionStep* Action, const FCombatActionContext& Context);
+	int32 ExecuteSwitchAction(UCombatActionStep* Action, const FCombatActionContext& Context);
 	
 	void OnEnergyChanged(const FOnAttributeChangeData& Data);
 
@@ -79,7 +81,12 @@ public:
 
 	int32 ExecuteUltimateAction(const FCombatActionContext& Context);
 	
-	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance); 
+	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance);
+
+	void NotifyActionLogicFinished(const FGameplayTag& Tag);
+
+	bool IsCurrentActionLogicFinished() const;
+	
 private:
 	// Input
 	void RefreshInputActionBitmask(const float DeltaTime);
@@ -104,10 +111,12 @@ private:
 	void TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep, const AEnemyCharacterBase* Enemy);
 
 	void ApplyStaticPointMotionWarping(const FMotionWarpConfig& Config, const APlayerCharacter* Agent, const AEnemyCharacterBase* Enemy);
-
-
+	
 	void PayActionCost(const UCombatActionStep* Step);
 	
+public:
+	
+	FOnActionLogicFinished OnActionLogicFinished;
 private:
 	float GlobalBufferLifespan{0.3f}; 
 	
@@ -146,7 +155,7 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<UCombatActionStep*> CombatActionList;
-
+	
 	
 	// Double Buffering. Use CurrentInputActionBitmask.
 public:

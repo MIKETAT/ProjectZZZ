@@ -10,7 +10,7 @@ UAnimMontage* UCombatDodgeAction::GetAnimMontage(const FCharacterFrameDataBus& D
 	FVector2D Input = Data.PlayerInputs.RawMovementInput;
 	if (Input.IsNearlyZero())
 	{
-		return Montage;
+		return DefaultDodgeMontage;
 	}
 
 	float InputAngle = FMath::RadiansToDegrees(FMath::Atan2(Input.X, Input.Y));
@@ -34,5 +34,5 @@ UAnimMontage* UCombatDodgeAction::GetAnimMontage(const FCharacterFrameDataBus& D
 		}
 	}
 	// Default Value
-	return Montage;
+	return DefaultDodgeMontage;
 }

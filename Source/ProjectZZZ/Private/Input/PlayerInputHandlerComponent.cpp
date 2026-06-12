@@ -1,11 +1,6 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
-#include "Input/PlayerInputHandlerComponent.h"
-
+﻿#include "Input/PlayerInputHandlerComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
-#include "Character/CharacterBase.h"
 #include "Character/CharacterFrameDataBus.h"
 
 UPlayerInputHandlerComponent::UPlayerInputHandlerComponent(const FObjectInitializer& ObjectInitializer)

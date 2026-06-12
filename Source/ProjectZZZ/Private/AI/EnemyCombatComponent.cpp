@@ -40,25 +40,23 @@ void UEnemyCombatComponent::HandleIncomingDamage(const FAttackContext& Context, 
 		// Trigger Chain Attack
 		if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
 		{
-			FCharacterDeathPayload Payload;
+			FChainAttackPayload Payload;
 			EventBus->BroadcastEvent(Combat::Event::ChainAttack, Context.Instigator, Context.Target, Context.Instigator, Payload);
 		}	
-
-		return;
 	}
-
+	
 	// Not Stun
 	ExecuteHitReaction(Context.Instigator, Context.PayloadConfig.AttackStrength);
 }
 
 int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context)
 {
-	if (!IsValid(ActionStep) || !IsValid(CombatAnimSchedulerComponent) || IsStunned())
+	if (!IsValid(ActionStep) || !IsValid(CombatAnimSchedulerComponent))
 	{
 		return INDEX_NONE;
 	}
 
-	if (IsAnyActionActive())
+	if (!IsAnyActionActive() || CanInterruptCurrentAction(ActionStep))
 	{
 		CombatAnimSchedulerComponent->CancelAnimRequest(CurrentExecutionState.MontageInstanceId);
 	}
@@ -66,6 +64,10 @@ int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep, 
 	FCombatAnimExecutionRequest Request;
 	Request.Montage = ActionStep->Montage;
 	Request.Priority = ActionStep->Priority;
+	if (ActionStep->bIsHitReaction)
+	{
+		Request.PlayRate = 2.f;
+	}
 
 	int32 InstanceID = CombatAnimSchedulerComponent->ExecuteAnimRequest(Request);
 	if (InstanceID != INDEX_NONE)

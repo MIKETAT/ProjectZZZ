@@ -36,4 +36,7 @@ public:
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	TArray<FDodgeDirectionEntry> DodgeEntries;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	TObjectPtr<UAnimMontage> DefaultDodgeMontage{nullptr};
 };

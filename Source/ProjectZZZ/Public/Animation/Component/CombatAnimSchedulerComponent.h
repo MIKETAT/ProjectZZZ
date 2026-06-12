@@ -44,7 +44,6 @@ struct FCombatAnimExecutionRequest
 
 	UPROPERTY()
 	float PlayRate{1.f};
-	// StartPosition?
 
 	int32 RequestID{INDEX_NONE};
 
@@ -56,7 +55,7 @@ public:
 	bool IsValid() const { return Montage != nullptr; }
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnZZZCombatAnimFinished, int32, RequestID, ECombatAnimRequestFinishReason, Reason);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCombatAnimFinished, int32, RequestID, ECombatAnimRequestFinishReason, Reason);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTZZZ_API UCombatAnimSchedulerComponent : public UActorComponent
@@ -109,7 +108,7 @@ private:
 
 public:
 	UPROPERTY(BlueprintAssignable)
-	FOnZZZCombatAnimFinished OnAnimRequestFinished;
+	FOnCombatAnimFinished OnAnimRequestFinished;
 private:
 	UPROPERTY()
 	TMap<int32, FCombatAnimExecutionRequest> ProceedingRequests;

@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
@@ -77,9 +75,9 @@ public:
 	
 	virtual UHitStopComponent* GetHitStopComponent() const { return HitStopComponent.Get(); }
 
-	// temp
 	UFUNCTION(BlueprintCallable)
 	void AddTagToASC(FGameplayTag Tag);
+	
 public:
 	virtual void Die() {};
 

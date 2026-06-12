@@ -81,6 +81,22 @@ struct FAttackResult
 	float HitStopTimeScale{1.f};
 };
 
+USTRUCT()
+struct FAttackDetectedTarget
+{
+	GENERATED_BODY()
+	
+	TWeakObjectPtr<AActor> Actor{nullptr};
+
+	TWeakObjectPtr<UPrimitiveComponent> Component{nullptr};
+
+	FHitResult HitResult;
+
+	bool bIsHitResult{false};
+
+	FVector QueryLocation{FVector::ZeroVector};
+};
+
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnCombatActionFinished, APlayerCharacter*, ECombatAnimRequestFinishReason)
 
 UCLASS(Abstract)
@@ -103,10 +119,12 @@ public:
 	virtual void ProcessHitEvent(ACharacterBase* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config/*, UCombatActionStep* SourceAction*/);// PURE_VIRTUAL(UCombatComponentBase::ProcessHitEvent,);
 
 	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& Result)  PURE_VIRTUAL(UCombatComponentBase::HandleIncomingDamage,);
-	
-	virtual void EnableAttackDetection(const FGameplayTag& Tag, UAttackDetectionConfig* DetectionConfig);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
 
-	virtual void DisableAttackDetection();// PURE_VIRTUAL(UCombatComponentBase::DisableAttackDetection, )
+	virtual bool ResolveAttackDetectionSegment(const FName& SegmentName, FResolvedAttackDetectionSegment& OutSegment);
+	
+	virtual void EnableAttackDetection(const FGameplayTag& Tag, const FName& SegmentName);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
+
+	virtual void DisableAttackDetection(const FName& SegmentName);// PURE_VIRTUAL(UCombatComponentBase::DisableAttackDetection, )
 
 	bool IsAnyActionActive() const;
 	
@@ -116,8 +134,24 @@ public:
 
 	void RefreshAttackDetection(float DeltaTime);
 
+	void RefreshWeaponSweep();
+	
 	void SubStepAttackDetection(const FTransform& LastWeaponRootTransform, const FTransform& LastWeaponTipTransform,
 								const FTransform& CurrentWeaponRootTransform, const FTransform& CurrentWeaponTipTransform);
+	
+	void RefreshActorPathSweep();
+	
+	void TriggerAttackDetectionQuery(const FGameplayTag& Tag, const FName& SegmentName);
+	
+	void RefreshShapeQuery();
+
+	FAttackDetectedTarget MakeDetectedTargetFromHit(const FHitResult& HitResult);
+
+	FAttackDetectedTarget MakeDetectedTargetFromOverlap(const FOverlapResult& OverlapResult, const FTransform& QueryTransform);
+
+	void ProcessDetectionResults(const FAttackDetectedTarget& DetectedTarget, const FResolvedAttackDetectionSegment& Segment, TSet<TObjectKey<AActor>>& ActivationHitActors);
+
+	bool PassHitDedupe(AActor* HitActor, const FResolvedAttackDetectionSegment& Segment, TSet<TObjectKey<AActor>>& ActivationHitActors);
 	
 	virtual void InjectAndBindASC(UAgentAbilitySystemComponent* InASC);
 	
@@ -140,7 +174,7 @@ protected:
 	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context);
 	
 	UFUNCTION()
-	void HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason);
+	virtual void HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason);
 	
 	void OnHealthChanged(const FOnAttributeChangeData& Data);
 
@@ -148,6 +182,19 @@ protected:
 
 private:
 	void DebugPrintCurrentActionState();
+
+	void DrawDebugAttackDetectionShape(const FSweepShapeConfig& ShapeConfig, const FTransform& TargetTransform);
+
+	static void DrawDebugSweepShape(
+		const UWorld* World,
+		const FVector& Start,
+		const FVector& End,
+		const FQuat& TraceRotation,
+		const FCollisionShape& Shape,
+		const bool bHit,
+		const TArray<FHitResult>& HitResults,
+		const float LifeTime = 1.0f,
+		const float Thickness = 1.5f);
 	
 public:
 	FOnCombatActionFinished OnCombatActionFinished;

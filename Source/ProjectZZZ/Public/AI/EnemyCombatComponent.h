@@ -21,7 +21,7 @@ protected:
 public:
 	UFUNCTION(BlueprintCallable)
 	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context) override;
-
+	
 	float GetCurrentActionParryOffset() const;
 	
 	virtual void HandleIncomingDamage(const FAttackContext& Context, FAttackResult& Result) override;
@@ -34,6 +34,7 @@ public:
 	
 	void OnDazeChanged(const FOnAttributeChangeData& Data);
 
+	UFUNCTION(BlueprintCallable)
 	bool IsStunned() const { return bIsStunned; };
 	
 	void EnterStunState();

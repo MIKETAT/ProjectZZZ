@@ -27,5 +27,8 @@ public:
 	FGameplayTag ActionTag;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack Detection")
-	TObjectPtr<UAttackDetectionConfig> DetectionConfig;
+	FName SegmentName{FName("Default")};
+
+	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack Detection")
+	TObjectPtr<UAttackDetectionConfig> DetectionConfig;*/
 };

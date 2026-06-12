@@ -12,9 +12,7 @@ class UTextBlock;
 struct FCombatEventMessage;
 class UProgressBar;
 class UImage;
-/**
- * 
- */
+
 UCLASS()
 class PROJECTZZZ_API UQTEWidget : public UUserWidget
 {

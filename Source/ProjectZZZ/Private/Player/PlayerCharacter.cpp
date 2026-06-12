@@ -14,7 +14,6 @@ void FPendingUltimateCutInRequest::Reset()
 	UltimateAction = nullptr;
 	CutInSequence = nullptr;
 	CameraStateTag = FGameplayTag::EmptyTag;
-	//RequiredCameraRigTag = FGameplayTag::EmptyTag;
 	bIsValid = false;
 }
 
@@ -33,19 +32,6 @@ void FActiveUltimateExecutionState::Reset()
 APlayerCharacter::APlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
-
-	/*
-	// Create a camera boom (pulls in towards the player if there is a collision)
-	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
-	CameraBoom->SetupAttachment(RootComponent);
-	CameraBoom->TargetArmLength = 400.0f;
-	CameraBoom->bUsePawnControlRotation = true;
-
-	// Create a follow camera
-	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
-	FollowCamera->bUsePawnControlRotation = false;
-	*/
 
 	GameplayCamera = CreateDefaultSubobject<UGameplayCameraComponent>(TEXT("GameplayCamera"));
 	GameplayCamera->SetupAttachment(RootComponent);
@@ -74,21 +60,6 @@ void APlayerCharacter::Tick(float DeltaTime)
 	ProcessMovementInput(DeltaTime);
 	ProcessLookInput(DeltaTime);
 	ProcessCombatActionInput(DeltaTime);
-
-	// debug
-	if (bIsActive && bPrintDebugInfo)
-	{
-		UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
-	
-		FGameplayTagContainer OwnedTags;
-		ASC->GetOwnedGameplayTags(OwnedTags);
-	
-		GEngine->AddOnScreenDebugMessage(
-			111,
-			-1.f,
-			FColor::Green,
-			FString::Printf(TEXT("Active Agent %s has Tags: %s"), *GetName(), *OwnedTags.ToString()));
-	}
 }
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -174,11 +145,16 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 
 	check(AgentCombatComponent);
 
-	if (AgentCombatComponent->IsAllowMovementInterruptAction())
+	if (AgentCombatComponent->IsAnyActionActive())
 	{
-		AgentCombatComponent->CancelCurrentAction();
+		if (AgentCombatComponent->IsAllowMovementInterruptAction())
+		{
+			AgentCombatComponent->CancelCurrentAction();
+			return;
+		}
+		// Block Movement while Action Active
 		return;
-	}	
+	}
 	
 	float Right = CharacterFrameDataBus.PlayerInputs.RawMovementInput.X;
 	float Forward = CharacterFrameDataBus.PlayerInputs.RawMovementInput.Y;
@@ -188,7 +164,7 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 	const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 
 	const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-
+	
 	AddMovementInput(ForwardDirection, Forward);
 	AddMovementInput(RightDirection, Right);
 }

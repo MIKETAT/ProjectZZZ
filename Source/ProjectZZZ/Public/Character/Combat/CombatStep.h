@@ -1,12 +1,14 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "AttackDetection.h"
 #include "GameplayTagContainer.h"
 #include "MotionWarpCalcMethod.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "StructUtils/InstancedStruct.h"
 #include "CombatStep.generated.h"
 
+struct FAttackDetectionConfig;
 class ULevelSequence;
 class AEnemyCharacterBase;
 enum class EMotionWarpCalculationRules : uint8;
@@ -18,20 +20,22 @@ UENUM(BlueprintType)
 enum class ECombatActionPriority : uint8
 {
 	None = 0					UMETA(DisplayName = "None"),
+
 	Switch = 5					UMETA(DisplayName = "Switch"),
 	
 	BasicAttack = 10			UMETA(DisplayName = "Attack"),
+	
 	Dodge = 20					UMETA(DisplayName = "Dodge"),
 
 	CounterAttack = 50			UMETA(DisplayName = "CounterAttack"),
-	
-	Ultimate = 80				UMETA(DisplayName = "Ultimate"),	
 	
 	HitReaction = 100			UMETA(DisplayName = "HitReaction"),
 
 	Knockback = 150				UMETA(DisplayName = "Knockback"),
 
 	HitFly = 200				UMETA(DisplayName = "HitFly"),
+
+	Ultimate = 225				UMETA(DisplayName = "Ultimate"),	
 	
 	Dead = 255					UMETA(DisplayName = "Dead"),
 };
@@ -217,6 +221,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly)
 	bool bIsAttackAction{false};		// Basic Attack / Special Attack / Ultimate / Chain Attack / Quick Assist / Dodge Attack / Rush Attack
+
+	UPROPERTY(EditDefaultsOnly)
+	bool bIsHitReaction{false};
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	uint8 bIsBasicAttack : 1 {false};
@@ -253,6 +260,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | Ultimate")
 	FUltimateActionConfig UltimateConfig;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Feature | AttackDetection")
+	FAttackDetectionConfig AttackDetectionConfig;
 	
 	// for enemy
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (ShowOnlyInnerProperties), Category = "Features | ParriedActionConfig")
@@ -334,6 +344,10 @@ public:
 	UPROPERTY()
 	TObjectPtr<const UCombatActionStep> CurrentStep{nullptr};
 
+	bool bActionLogicFinished{false};
+
+	int32 LogicFinishedActionRequestId{INDEX_NONE};
+	
 	int32 MontageInstanceId{INDEX_NONE};
 	
 	// Todo: use Bitmask

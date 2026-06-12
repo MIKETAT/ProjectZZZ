@@ -132,10 +132,10 @@ public:
 	UPlayerInputHandlerComponent(const FObjectInitializer& ObjectInitializer);
 
 	// ActorComponent Interface
-public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	
 	virtual void InitializeComponent() override;
+	
 protected:
 	virtual void BeginPlay() override;
 	// ~ActorComponent Interface
@@ -145,9 +145,10 @@ public:
 	
 	void RegisterInput();
 	
-	FCharacterFrameDataBus& GetCharacterFrameDataBus() { return DataBus; };
+	FCharacterFrameDataBus& GetCharacterFrameDataBus() { return DataBus; }
 
-	bool HasMovementInput() const { return DataBus.HasMovementInput(); };
+	bool HasMovementInput() const { return DataBus.HasMovementInput(); }
+	
 private:
 	// On_Input_XXX Function
 	void On_Input_Movement(const FInputActionInstance& Instance);
@@ -202,6 +203,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* ChainAttack_Cancel_Action{nullptr};
+	
 private:
 	UPROPERTY()
 	FCharacterFrameDataBus DataBus;

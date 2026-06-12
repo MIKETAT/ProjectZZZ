@@ -34,11 +34,6 @@ void UCharacterCombatComponent::BeginPlay()
 	{
 		GetAgentAnimInstance()->OnCombatWindowChanged.AddDynamic(this, &ThisClass::HandleCombatWindowChange);
 	}
-
-	if (IsValid(CombatAnimSchedulerComponent))
-	{
-		CombatAnimSchedulerComponent->OnAnimRequestFinished.AddDynamic(this, &ThisClass::HandleAnimFinished);
-	}
 }
 
 void UCharacterCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -89,11 +84,14 @@ void UCharacterCombatComponent::ProcessBufferedInput(const float DeltaTime)
 
 	if (CurrentExecutionState.bProceedWindowOpen && CurrentExecutionState.bHasConfirmedNextAction)
 	{
-		if (ExecuteAction(PendingIntent.ActionStep, FCombatActionContext()) != INDEX_NONE)
+		if (!IsAnyActionActive() || CanInterruptCurrentAction(PendingIntent.ActionStep))
 		{
-			// Cost and CurrentExecutionState already handled in ExecuteAction
-			PendingIntent.Reset();
-		} 
+			if (ExecuteAction(PendingIntent.ActionStep, FCombatActionContext()) != INDEX_NONE)
+			{
+				// Cost and CurrentExecutionState already handled in ExecuteAction
+				PendingIntent.Reset();
+			} 	
+		}
 	}
 }
 
@@ -244,18 +242,31 @@ int32 UCharacterCombatComponent::ExecuteUltimateAction(const FCombatActionContex
 	return ExecuteAction(GetSpecialAction(Combat::SpecialAction::Ultimate), Context);
 }
 
-// QTE Bug
-
 void UCharacterCombatComponent::TryApplyMotionWarpingIfNeeded(const UCombatActionStep* ActionStep, const AEnemyCharacterBase* Enemy)
 {
-	if (!IsValid(ActionStep) || !IsValid(Enemy) || !ActionStep->bEnableMotionWarp)
+	APlayerCharacter* Agent = Cast<APlayerCharacter>(Character);
+	if (!IsValid(ActionStep) || !IsValid(Agent) || !Agent->GetMotionWarpingComponent() || !ActionStep->bEnableMotionWarp)
 	{
+		return;
+	}
+	
+	Agent->GetMotionWarpingComponent()->RemoveAllWarpTargets();
+	
+	// out of Motion Warping Range. Still try to adjust agent rotation toward closet enemy.
+	if (Enemy == nullptr)
+	{
+		if (AEnemyCharacterBase* ClosetEnemy = FindClosestEnemy(1200.f)) {	// hard code for now
+			const FVector ToEnemy{(ClosetEnemy->GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D()};
+			if (!ToEnemy.IsNearlyZero())
+			{
+				Character->SetActorRotation(ToEnemy.Rotation(), ETeleportType::TeleportPhysics);	
+			}
+		}
 		return;
 	}
 	
 	for (const FMotionWarpConfig& Config : ActionStep->WarpConfigs)
 	{
-		APlayerCharacter* Agent = Cast<APlayerCharacter>(Character);
 		float AgentRadius{0.f};
 		float EnemyRadius{0.f};
 		if (UCapsuleComponent* AgentCap = Agent->GetCapsuleComponent())
@@ -267,14 +278,11 @@ void UCharacterCombatComponent::TryApplyMotionWarpingIfNeeded(const UCombatActio
 			EnemyRadius = EnemyCaps->GetScaledCapsuleRadius();
 		}
 		float StandOffDistance{AgentRadius + EnemyRadius};
-	
-		Agent->GetMotionWarpingComponent()->RemoveAllWarpTargets();
-
+		
 		if (Config.TrackingMode == EMotionWarpTrackingMode::DynamicComponent)
 		{
 			FVector WarpOffset{FVector(StandOffDistance, 0.f, 0.f)};
 			FRotator FacingEnemyRotation{FRotator(0.f, 180.f, 0.f)};
-			Character->SetActorRotation(FacingEnemyRotation, ETeleportType::TeleportPhysics);
 			Agent->GetMotionWarpingComponent()->AddOrUpdateWarpTargetFromComponent(
 				Config.WarpTargetName,
 				Enemy->GetRootComponent(),
@@ -350,7 +358,7 @@ void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpC
 						Config.WarpTargetName,
 						AgentLocation,
 						Agent->GetActorRotation());
-				DrawDebugCapsule(GetWorld(), AgentLocation, 80.f, 40.f, FQuat::Identity, FColor::Magenta, false, 15.f);
+				//DrawDebugCapsule(GetWorld(), AgentLocation, 80.f, 40.f, FQuat::Identity, FColor::Magenta, false, 15.f);
 			}
 			break;
 
@@ -405,6 +413,33 @@ AEnemyCharacterBase* UCharacterCombatComponent::FindClosestEnemy(const float Max
 	}
 	Enemy = Cast<AEnemyCharacterBase>(Candidate);
 	return Enemy;
+}
+
+void UCharacterCombatComponent::NotifyActionLogicFinished(const FGameplayTag& Tag)
+{
+	if (!CurrentExecutionState.CurrentStep || CurrentExecutionState.CurrentStep->ActionTag != Tag)
+	{
+		return;
+	}
+
+	APlayerCharacter* Agent{Cast<APlayerCharacter>(Character)};
+	if (!Agent)
+	{
+		return;
+	}
+
+	CurrentExecutionState.bActionLogicFinished = true;
+	CurrentExecutionState.LogicFinishedActionRequestId = CurrentExecutionState.MontageInstanceId;
+	
+	OnActionLogicFinished.Broadcast(Agent, CurrentExecutionState.MontageInstanceId);
+}
+
+bool UCharacterCombatComponent::IsCurrentActionLogicFinished() const
+{
+	return		CurrentExecutionState.CurrentStep
+			&&	CurrentExecutionState.bHasSuccessfullyStarted
+			&&	CurrentExecutionState.bActionLogicFinished
+			&&	CurrentExecutionState.MontageInstanceId == CurrentExecutionState.LogicFinishedActionRequestId;
 }
 
 void UCharacterCombatComponent::RefreshInputActionBitmask(const float DeltaTime)
@@ -645,20 +680,21 @@ void UCharacterCombatComponent::ExecuteSwitchInAction()
 	ExecuteSwitchAction(SwitchInAction, FCombatActionContext());
 }
 
-void UCharacterCombatComponent::ExecuteSwitchOutAction()
+int32 UCharacterCombatComponent::ExecuteSwitchOutAction()
 {
-	ExecuteSwitchAction(SwitchOutAction, FCombatActionContext());
+	return ExecuteSwitchAction(SwitchOutAction, FCombatActionContext());
 }
 
-void UCharacterCombatComponent::ExecuteSwitchAction(UCombatActionStep* Action, const FCombatActionContext& Context)
+int32 UCharacterCombatComponent::ExecuteSwitchAction(UCombatActionStep* Action, const FCombatActionContext& Context)
 {
-	if (!Action || !IsAnyActionActive() || CanInterruptCurrentAction(Action))
+	if (Action && (!IsAnyActionActive() || CanInterruptCurrentAction(Action)))
 	{
 		UE_LOG(LogTemp, Error, TEXT("Execute Switch Action. Action Name: %s"), *Action->GetName());
-		ExecuteAction(Action, Context);
+		return ExecuteAction(Action, Context);
 	} else
 	{
 		UE_LOG(LogTemp, Error, TEXT("Execute Switch Action Failed. Action Name: %s"), *Action->GetName());
+		return INDEX_NONE;
 	}
 }
 

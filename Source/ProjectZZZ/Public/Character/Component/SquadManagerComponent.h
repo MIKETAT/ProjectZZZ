@@ -19,20 +19,15 @@ class APlayerCharacter;
 class UImage;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTriggerChainAttackWindow, UTexture2D*, UTexture2D*);
+
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssistWindow, UTexture2D*);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpdateCameraTransform, const FTransform&, CameraTransform);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggerChainAttack, FTransform, CameraTransform);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggerParry, FTransform, CameraTransform);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssist, FTransform, CameraTransform);
-
-//DECLARE_MULTICAST_DELEGATE(FOnTriggerQuickAssist);
-
 DECLARE_MULTICAST_DELEGATE(FOnFinishChainAttack);
+
 DECLARE_MULTICAST_DELEGATE(FOnFinishQuickAssist);
+
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveAgentChanged, APlayerCharacter*, APlayerCharacter*)
 
 USTRUCT(BlueprintType)
@@ -242,6 +237,8 @@ private:
 
 	void UnBindAgentLingeringDelegate(APlayerCharacter* Agent);
 
+	void OnPendingExitAgentActionLogicFinished(APlayerCharacter* Agent, int32 RequestId);
+
 	APlayerCharacter* GetPreviousAgent() const;
 
 	APlayerCharacter* GetNextAgent() const;
@@ -310,16 +307,6 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnUpdateCameraTransform OnUpdateCameraTransform;
 	
-	/*UPROPERTY(BlueprintAssignable)
-	FOnTriggerChainAttack OnTriggerChainAttack;
-
-	UPROPERTY(BlueprintAssignable)
-	FOnTriggerParry OnTriggerParry;
-
-	UPROPERTY(BlueprintAssignable)
-	FOnTriggerQuickAssist OnTriggerQuickAssist;
-	*/
-	
 	FOnFinishChainAttack OnFinishChainAttack;
 
 	FOnTriggerQuickAssistWindow OnTriggerQuickAssistWindow;
@@ -350,9 +337,8 @@ private:
 	FPerfectAssistWindowStatus PerfectAssistStatus;
 	
 	FQuickAssistWindowStatus QuickAssistStatus;
-
-	UPROPERTY(Transient)
-	TWeakObjectPtr<AEnemyCharacterBase> TargetEnemy{nullptr};
+	
+	TMap<TWeakObjectPtr<APlayerCharacter>, int32> PendingLingeringExitRequestIds;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	bool bLockAgentSwitch{false};

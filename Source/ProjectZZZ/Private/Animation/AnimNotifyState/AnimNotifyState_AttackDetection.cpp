@@ -7,7 +7,7 @@ void UAnimNotifyState_AttackDetection::NotifyBegin(USkeletalMeshComponent* MeshC
 	Super::NotifyBegin(MeshComp, Animation, TotalDuration, EventReference);
 	if (GetCombatComponentBase(MeshComp))
 	{
-		GetCombatComponentBase(MeshComp)->EnableAttackDetection(ActionTag, DetectionConfig);	
+		GetCombatComponentBase(MeshComp)->EnableAttackDetection(ActionTag, SegmentName);	
 	}
 }
 
@@ -17,7 +17,7 @@ void UAnimNotifyState_AttackDetection::NotifyEnd(USkeletalMeshComponent* MeshCom
 	Super::NotifyEnd(MeshComp, Animation, EventReference);
 	if (GetCombatComponentBase(MeshComp))
 	{
-		GetCombatComponentBase(MeshComp)->DisableAttackDetection();	
+		GetCombatComponentBase(MeshComp)->DisableAttackDetection(SegmentName);	
 	}
 }
 

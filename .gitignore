@@ -138,6 +138,12 @@ __pycache__/
 
 Content/Asset/**
 Content/__ExternalActors__/*
-
+ Content/__ExternalActors__/**
 # 项目文件
 !*.uproject
+
+# AI Context
+
+Docs/AGENTS.md
+Docs/AI_CONTEXT/*
+Docs/AI_CONTEXT/**

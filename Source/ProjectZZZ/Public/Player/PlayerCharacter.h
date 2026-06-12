@@ -49,15 +49,6 @@ struct FPendingUltimateCutInRequest
 	UPROPERTY()
 	int32 StencilValue{42};
 
-	/*UPROPERTY()
-	bool bHasCameraTransform{false};
-	
-	UPROPERTY()
-	FTransform CameraTransform{FTransform::Identity};*/
-	/*
-	UPROPERTY()
-	FGameplayTag RequiredCameraRigTag{FGameplayTag::EmptyTag};*/
-
 	UPROPERTY()
 	bool bIsValid{false};
 };
@@ -120,6 +111,7 @@ public:
 	virtual void UnPossessed() override;
 
 	virtual void InitializeAttributes() override;
+	
 public:
 	bool IsAnyActionActive() const { return AgentCombatComponent && AgentCombatComponent->IsAnyActionActive(); };
 
@@ -142,8 +134,6 @@ public:
 	void SetAgentPresence(const EAgentPresenceState NewPresence) { AgentPresenceState = NewPresence; }
 	
 	UAgentAttributeSet* GetAgentAttributeSet() const { return AgentAttributeSet; }
-	
-	//virtual TSubclassOf<UGameplayEffect> GetExclusiveInitGE() const override { return AgentExclusiveInitGE; }
 
 	const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
 
@@ -158,6 +148,7 @@ public:
 	UCombatActionStep* GetSpecialAction(const FGameplayTag& Tag) const { return AgentCombatComponent ? AgentCombatComponent->GetSpecialAction(Tag) : nullptr;};
 
 	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance) const;
+	
 private:
 	void ProcessMovementInput(float DeltaTime);
 	
@@ -167,14 +158,6 @@ private:
 
 public:
 // Components
-	// 暂时使用默认的相机
-	/** Camera boom positioning the camera behind the character */
-	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* CameraBoom;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FollowCamera;*/
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UGameplayCameraComponent> GameplayCamera;
 	
@@ -186,8 +169,7 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bPrintDebugInfo{false};
-
-
+	
 	UPROPERTY()
 	FGameplayTag CurrentCameraRigTag{FGameplayTag::EmptyTag};
 	
@@ -201,7 +183,7 @@ private:
 	UPROPERTY()
 	TWeakObjectPtr<AZZZPlayerController> OwnerController;
 	
-	FDelegateHandle DeathListenerHandle;		//
+	FDelegateHandle DeathListenerHandle;
 
 	EAgentPresenceState AgentPresenceState{EAgentPresenceState::OffField};
 	
