@@ -314,6 +314,7 @@ public:
 	FOnFinishQuickAssist OnFinishQuickAssist;
 
 	FOnActiveAgentChanged OnActiveAgentChanged;
+	
 private:
 	UPROPERTY()
 	TArray<APlayerCharacter*> Squad;
@@ -342,10 +343,6 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	bool bLockAgentSwitch{false};
-	
-	// test
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-	FVector ParryCameraOffset{-150.f, -80.f, -30.f};
 
 	// Y 只取正值, 方向通过SpawnPolicy确定
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))

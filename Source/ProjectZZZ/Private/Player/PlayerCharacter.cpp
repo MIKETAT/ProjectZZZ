@@ -57,9 +57,9 @@ void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	ProcessMovementInput(DeltaTime);
+	/*ProcessMovementInput(DeltaTime);
 	ProcessLookInput(DeltaTime);
-	ProcessCombatActionInput(DeltaTime);
+	ProcessCombatActionInput(DeltaTime);*/
 }
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -71,7 +71,7 @@ void APlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 	
-	CharacterFrameDataBus.bIsLocalPlayer = NewController->IsLocalPlayerController();
+	bIsLocalPlayer = NewController->IsLocalPlayerController();
 	OwnerController = Cast<AZZZPlayerController>(GetController());
 
 	if (AgentAbilitySystemComponent)
@@ -88,7 +88,7 @@ void APlayerCharacter::PossessedBy(AController* NewController)
 void APlayerCharacter::UnPossessed()
 {
 	Super::UnPossessed();
-	CharacterFrameDataBus.bIsLocalPlayer = false;
+	bIsLocalPlayer = false;
 	OwnerController = nullptr;
 }
 
@@ -136,9 +136,16 @@ AEnemyCharacterBase* APlayerCharacter::FindClosestEnemy(const float MaxDistance)
 	return nullptr;
 }
 
-void APlayerCharacter::ProcessMovementInput(float DeltaTime)
+void APlayerCharacter::ProcessFrameInput(const FCharacterFrameDataBus& DataBus)
 {
-	if (!CharacterFrameDataBus.bIsLocalPlayer || !CharacterFrameDataBus.HasMovementInput())
+	ProcessMovementInput(DataBus);
+	ProcessLookInput(DataBus);
+	ProcessCombatActionInput(DataBus);
+}
+
+void APlayerCharacter::ProcessMovementInput(const FCharacterFrameDataBus& DataBus)
+{
+	if (!bIsLocalPlayer || !DataBus.HasMovementInput())
 	{
 		return;
 	}
@@ -156,8 +163,8 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 		return;
 	}
 	
-	float Right = CharacterFrameDataBus.PlayerInputs.RawMovementInput.X;
-	float Forward = CharacterFrameDataBus.PlayerInputs.RawMovementInput.Y;
+	float Right = DataBus.PlayerInputs.RawMovementInput.X;
+	float Forward = DataBus.PlayerInputs.RawMovementInput.Y;
 	
 	const FRotator Rotation = GetController()->GetControlRotation();
 	const FRotator YawRotation(0, Rotation.Yaw, 0);
@@ -169,24 +176,25 @@ void APlayerCharacter::ProcessMovementInput(float DeltaTime)
 	AddMovementInput(RightDirection, Right);
 }
 
-void APlayerCharacter::ProcessLookInput(float DeltaTime)
+void APlayerCharacter::ProcessLookInput(const FCharacterFrameDataBus& DataBus)
 {
-	if (!CharacterFrameDataBus.bIsLocalPlayer || CharacterFrameDataBus.PlayerInputs.RawLookInput.IsNearlyZero())
+	if (!bIsLocalPlayer || DataBus.PlayerInputs.RawLookInput.IsNearlyZero())
 	{
 		return;
 	}
 	if (GetController())
 	{
-		AddControllerYawInput(CharacterFrameDataBus.PlayerInputs.RawLookInput.X);
-		AddControllerPitchInput(CharacterFrameDataBus.PlayerInputs.RawLookInput.Y);	
+		AddControllerYawInput(DataBus.PlayerInputs.RawLookInput.X);
+		AddControllerPitchInput(DataBus.PlayerInputs.RawLookInput.Y);	
 	}
 }
 
-void APlayerCharacter::ProcessCombatActionInput(float DeltaTime)
+void APlayerCharacter::ProcessCombatActionInput(const FCharacterFrameDataBus& DataBus)
 {
 	if (AgentCombatComponent.Get())
 	{
-		AgentCombatComponent->InputActionBitmask = CharacterFrameDataBus.PlayerInputs.InputActionBitmask; 
+		//AgentCombatComponent->SetPendingInputActionBitmask(DataBus.PlayerInputs.InputActionBitmask);
+		AgentCombatComponent->SetPendingPlayerInputs(DataBus.PlayerInputs);
 	}
 }
 

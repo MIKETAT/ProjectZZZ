@@ -31,7 +31,7 @@ class PROJECTZZZ_API UCombatDodgeAction : public UCombatActionStep
 	GENERATED_BODY()
 
 public:
-	virtual UAnimMontage* GetAnimMontage(const FCharacterFrameDataBus& Data) const override;
+	virtual UAnimMontage* GetAnimMontage(const FVector2D& MovementInput) const override;
 
 public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)

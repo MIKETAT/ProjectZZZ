@@ -14,9 +14,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Player/PlayerCharacter.h"
 #include "Utility/ZZZGameplayTag.h"
-#include "Character/Combat/CombatHitReactionAction.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
-#include "Character/Component/SquadManagerComponent.h"
 
 UCharacterCombatComponent::UCharacterCombatComponent()
 {
@@ -39,7 +37,7 @@ void UCharacterCombatComponent::BeginPlay()
 void UCharacterCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	RefreshInputActionBitmask(DeltaTime);
+	RefreshPlayerInputs(DeltaTime);
 	ProcessInputAction(DeltaTime);
 	ProcessBufferedInput(DeltaTime);
 }
@@ -52,7 +50,7 @@ void UCharacterCombatComponent::InitializeComponent()
 void UCharacterCombatComponent::ProcessInputAction(const float DeltaTime)
 {
 	// Invalid Character or No Input Action
-	if (!IsValid(Character) || !CurrentInputActionBitmask.Any())
+	if (!IsValid(Character) || !CurrentPlayerInputs.InputActionBitmask.Any())
 	{
 		return;
 	}
@@ -99,7 +97,7 @@ void UCharacterCombatComponent::ProcessBufferedInput(const float DeltaTime)
 UCombatActionStep* UCharacterCombatComponent::SelectTargetAction()
 {
 	UCombatActionStep* TargetAction{nullptr};
-	CurrentInputActionBitmask.ForEachSetAction([&](EInputAction InputAction)
+	CurrentPlayerInputs.InputActionBitmask.ForEachSetAction([&](EInputAction InputAction)
 	{
 		UCombatActionStep* ThisAction{SelectComboActionIntent(InputAction)};
 		if (ThisAction == nullptr)
@@ -121,7 +119,7 @@ UCombatActionStep* UCharacterCombatComponent::SelectTargetAction()
 	
 	if (TargetAction && Player)
 	{
-		TargetAction->Montage = TargetAction->GetAnimMontage(Player->GetCharacterFrameDataBus());
+		TargetAction->Montage = TargetAction->GetAnimMontage(CurrentPlayerInputs.RawMovementInput);
 	}
 	
 	return TargetAction;
@@ -442,11 +440,11 @@ bool UCharacterCombatComponent::IsCurrentActionLogicFinished() const
 			&&	CurrentExecutionState.MontageInstanceId == CurrentExecutionState.LogicFinishedActionRequestId;
 }
 
-void UCharacterCombatComponent::RefreshInputActionBitmask(const float DeltaTime)
+/*void UCharacterCombatComponent::RefreshInputActionBitmask(const float DeltaTime)
 {
 	CurrentInputActionBitmask = InputActionBitmask;
 	InputActionBitmask.Reset();
-}
+}*/
 
 void UCharacterCombatComponent::InitializeCombatStepList()
 {
@@ -550,6 +548,17 @@ void UCharacterCombatComponent::PayActionCost(const UCombatActionStep* Step)
 	FGameplayEffectContextHandle EffectContext{AbilitySystemComponent->MakeEffectContext()};
 	FGameplayEffectSpecHandle EffectSpec{AbilitySystemComponent->MakeOutgoingSpec(Step->CostGameplayEffect, 1.f, EffectContext)};
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
+}
+
+void UCharacterCombatComponent::SetPendingPlayerInputs(const FPlayerInputs& PendingInputs)
+{
+	PendingPlayerInputs = PendingInputs;
+}
+
+void UCharacterCombatComponent::RefreshPlayerInputs(const float DeltaTime)
+{
+	CurrentPlayerInputs = PendingPlayerInputs;
+	PendingPlayerInputs.Reset();
 }
 
 UCombatActionStep* UCharacterCombatComponent::GetSpecialAction(const FGameplayTag& Tag) const

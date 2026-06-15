@@ -98,9 +98,18 @@ struct FPlayerInputs
 	GENERATED_BODY()
 
 public:
+	bool HasMovementInput() const { return !RawMovementInput.IsNearlyZero(); }
+	
 	void ConsumeInputAction(EInputAction Action)
 	{
 		InputActionBitmask.Set(Action, false);	
+	}
+
+	void Reset()
+	{
+		InputActionBitmask.Reset();
+		RawLookInput = FVector2D::ZeroVector;
+		RawMovementInput = FVector2D::ZeroVector;
 	}
 	
 	FInputBitmask InputActionBitmask;

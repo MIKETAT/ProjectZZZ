@@ -49,7 +49,6 @@ public:
 	// Only process the effects of this attack on self
 	virtual void ProcessHitFeedback(const FAttackResult& Result) override;
 	/*
-	
 	virtual void ProcessHitEvent(AActor* Victim, const FHitResult& HitResult, const FHitPayloadConfig& Config) override;
 	
 	virtual void EnableAttackDetection(UCombatActionStep* ActionStep, const FHitShapeConfig& ShapeConfig) override;
@@ -86,10 +85,13 @@ public:
 	void NotifyActionLogicFinished(const FGameplayTag& Tag);
 
 	bool IsCurrentActionLogicFinished() const;
-	
+
+	bool HasMovementInput() const { return !CurrentPlayerInputs.HasMovementInput(); }
+
+	void SetPendingPlayerInputs(const FPlayerInputs& PendingInputs);
 private:
 	// Input
-	void RefreshInputActionBitmask(const float DeltaTime);
+	void RefreshPlayerInputs(const float DeltaTime);
 	
 	void ProcessInputAction(const float DeltaTime);
 	
@@ -115,8 +117,8 @@ private:
 	void PayActionCost(const UCombatActionStep* Step);
 	
 public:
-	
 	FOnActionLogicFinished OnActionLogicFinished;
+	
 private:
 	float GlobalBufferLifespan{0.3f}; 
 	
@@ -156,11 +158,9 @@ private:
 	UPROPERTY(Transient)
 	TArray<UCombatActionStep*> CombatActionList;
 	
+	// Double Buffering. Use CurrentPlayerInputs.
+	FPlayerInputs PendingPlayerInputs;
 	
-	// Double Buffering. Use CurrentInputActionBitmask.
-public:
-	FInputBitmask InputActionBitmask;
-private:
-	FInputBitmask CurrentInputActionBitmask;	
+	FPlayerInputs CurrentPlayerInputs;
 };
 

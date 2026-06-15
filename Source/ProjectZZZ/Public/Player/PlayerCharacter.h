@@ -121,7 +121,7 @@ public:
 
 	void SetAgentActive(bool bActive) { bIsActive = bActive; }
 	
-	bool HasMovementInput() const { return CharacterFrameDataBus.HasMovementInput(); }
+	bool HasMovementInput() const { return AgentCombatComponent && AgentCombatComponent->HasMovementInput(); }
 	
 	UTexture2D* GetAgentHead() const { return AgentHead; }
 
@@ -135,9 +135,9 @@ public:
 	
 	UAgentAttributeSet* GetAgentAttributeSet() const { return AgentAttributeSet; }
 
-	const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
+	//const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
 
-	void RefreshCharacterFrameInputData(const FCharacterFrameDataBus& DataBus) { CharacterFrameDataBus.PlayerInputs = DataBus.PlayerInputs; }
+	//void RefreshCharacterFrameInputData(const FCharacterFrameDataBus& DataBus) { CharacterFrameDataBus.PlayerInputs = DataBus.PlayerInputs; }
 
 	ECombatEventHandleResult HandleEnemyDeath(const FCombatEventMessage& Msg);
 
@@ -149,12 +149,14 @@ public:
 
 	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance) const;
 	
+	void ProcessFrameInput(const FCharacterFrameDataBus& DataBus);
+	
 private:
-	void ProcessMovementInput(float DeltaTime);
+	void ProcessMovementInput(const FCharacterFrameDataBus& DataBus);
 	
-	void ProcessLookInput(float DeltaTime);
+	void ProcessLookInput(const FCharacterFrameDataBus& DataBus);
 	
-	void ProcessCombatActionInput(float DeltaTime);
+	void ProcessCombatActionInput(const FCharacterFrameDataBus& DataBus);
 
 public:
 // Components
@@ -170,9 +172,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bPrintDebugInfo{false};
 	
-	UPROPERTY()
-	FGameplayTag CurrentCameraRigTag{FGameplayTag::EmptyTag};
-	
 private:
 	UPROPERTY()
 	TObjectPtr<UAgentAttributeSet> AgentAttributeSet;
@@ -187,11 +186,11 @@ private:
 
 	EAgentPresenceState AgentPresenceState{EAgentPresenceState::OffField};
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	FCharacterFrameDataBus CharacterFrameDataBus;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UTexture2D> AgentHead;
 
 	bool bIsActive{false};
+
+	bool bIsLocalPlayer{false};
 };

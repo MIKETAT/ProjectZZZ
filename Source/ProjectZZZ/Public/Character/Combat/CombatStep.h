@@ -207,7 +207,7 @@ class PROJECTZZZ_API UCombatActionStep : public UDataAsset
 	GENERATED_BODY()
 
 public:
-	virtual UAnimMontage* GetAnimMontage(const FCharacterFrameDataBus& Data) const { return Montage; };
+	virtual UAnimMontage* GetAnimMontage(const FVector2D& MovementInput) const { return Montage; };
 
 public:
 	UPROPERTY(EditDefaultsOnly)

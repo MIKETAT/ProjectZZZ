@@ -623,10 +623,8 @@ void USquadManagerComponent::RouteInput()
 	if (UPlayerInputHandlerComponent* HandlerComp = OwnerController->GetPlayerInputHandlerComponent())
 	{
 		FCharacterFrameDataBus DataBus{HandlerComp->GetCharacterFrameDataBus()};
-		if (!SquadConsumeInput(DataBus))
-		{
-			AgentConsumeInput(DataBus);
-		}	
+		SquadConsumeInput(DataBus);
+		AgentConsumeInput(DataBus);
 	}
 }
 
@@ -738,7 +736,7 @@ void USquadManagerComponent::AgentConsumeInput(FCharacterFrameDataBus& DataBus)
 {
 	if (APlayerCharacter* ActiveAgent = GetActiveAgent())
 	{
-		ActiveAgent->RefreshCharacterFrameInputData(DataBus);
+		ActiveAgent->ProcessFrameInput(DataBus);
 	}
 }
 

@@ -5,15 +5,14 @@
 
 #include "Character/CharacterFrameDataBus.h"
 
-UAnimMontage* UCombatDodgeAction::GetAnimMontage(const FCharacterFrameDataBus& Data) const
+UAnimMontage* UCombatDodgeAction::GetAnimMontage(const FVector2D& MovementInput) const
 {
-	FVector2D Input = Data.PlayerInputs.RawMovementInput;
-	if (Input.IsNearlyZero())
+	if (MovementInput.IsNearlyZero())
 	{
 		return DefaultDodgeMontage;
 	}
 
-	float InputAngle = FMath::RadiansToDegrees(FMath::Atan2(Input.X, Input.Y));
+	float InputAngle = FMath::RadiansToDegrees(FMath::Atan2(MovementInput.X, MovementInput.Y));
 	for (const auto& Entry : DodgeEntries)
 	{
 		// Edge Case. Across border
