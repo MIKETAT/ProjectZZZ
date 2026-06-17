@@ -71,7 +71,7 @@ APlayerCharacter* AZZZPlayerController::GetActiveAgent() const
 
 void AZZZPlayerController::RequestUltimateCutIn(const FPendingUltimateCutInRequest& Request)
 {
-	if (!Request.bIsValid || !Request.Agent || PendingUltimateCutInRequest.bIsValid || UltimateExecutionState.bIsValid)
+	if (!Request.bIsValid || !Request.Agent.IsValid() || PendingUltimateCutInRequest.bIsValid || UltimateExecutionState.bIsValid)
 	{
 		return;
 	}
@@ -101,14 +101,14 @@ void AZZZPlayerController::OnCameraRigSelected(const FGameplayTag& SelectedCamer
 void AZZZPlayerController::CommitPendingUltimateCutIn()
 {
 	// Invalid Pending Request	
-	if (!PendingUltimateCutInRequest.bIsValid || !PendingUltimateCutInRequest.Agent
-		|| !PendingUltimateCutInRequest.CutInSequence || !PendingUltimateCutInRequest.UltimateAction)
+	if (!PendingUltimateCutInRequest.bIsValid || !PendingUltimateCutInRequest.Agent.IsValid()
+		|| !PendingUltimateCutInRequest.CutInSequence.IsValid() || !PendingUltimateCutInRequest.UltimateAction.IsValid())
 	{
 		CancelPendingUltimateCutIn();
 		return;
 	}
 
-	APlayerCharacter* Agent{PendingUltimateCutInRequest.Agent};
+	APlayerCharacter* Agent{PendingUltimateCutInRequest.Agent.Get()};
 	UCharacterCombatComponent* CombatComponent{Agent->GetAgentCombatComponent()};
 	if (!CombatComponent)
 	{
@@ -116,20 +116,22 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 		return;
 	}
 	
-	ALevelSequenceActor* SequenceActor;
+	ALevelSequenceActor* SequenceActor{nullptr};
 	FMovieSceneSequencePlaybackSettings Settings;
-	ULevelSequencePlayer* SequencePlayer = ULevelSequencePlayer::CreateLevelSequencePlayer(GetWorld(), PendingUltimateCutInRequest.CutInSequence, Settings, SequenceActor);
+	ULevelSequencePlayer* SequencePlayer = ULevelSequencePlayer::CreateLevelSequencePlayer(GetWorld(), PendingUltimateCutInRequest.CutInSequence.Get(), Settings, SequenceActor);
 	
 	TArray<AActor*> Actors;
-	Actors.Add(PendingUltimateCutInRequest.Agent);
+	Actors.Add(PendingUltimateCutInRequest.Agent.Get());
 	
 	if (!SequencePlayer || !SequenceActor)
 	{
 		CancelPendingUltimateCutIn();
 		return;
 	}
-
-	const TArray<FMovieSceneObjectBindingID>& Bindings = SequenceActor->FindNamedBindings(FName("RuntimeAgent"));
+	
+	const TArray<FMovieSceneObjectBindingID>& Bindings =
+		SequenceActor->FindNamedBindings(PendingUltimateCutInRequest.UltimateAction->UltimateConfig.SequenceBindingTag);
+	
 	if (Bindings.IsEmpty())
 	{
 		CancelPendingUltimateCutIn();
@@ -138,7 +140,6 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 	
 	SequenceActor->SetBindingByTag(FName("RuntimeAgent"), Actors, false);
 	SequencePlayer->OnFinished.AddDynamic(this, &AZZZPlayerController::HandleSequencePlayFinished);
-	
 	const int32 InstanceID{CombatComponent->ExecuteUltimateAction(FCombatActionContext())};
 	if (InstanceID == INDEX_NONE)
 	{
@@ -157,7 +158,7 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 	UKismetMaterialLibrary::SetVectorParameterValue(GetWorld(),MPC_UltimateCutIn, TEXT("BackgroundColor"), PendingUltimateCutInRequest.BackgroundColor);
 	UKismetMaterialLibrary::SetScalarParameterValue(GetWorld(), MPC_UltimateCutIn, TEXT("AgentStencilValue"), PendingUltimateCutInRequest.StencilValue);
 	UKismetMaterialLibrary::SetScalarParameterValue(GetWorld(), MPC_UltimateCutIn, TEXT("EffectAlpha"), 1.f);
-	
+
 	if (SquadManager && Ultimate)
 	{
 		// Adjust Rotation to Face Enemy
@@ -170,7 +171,7 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 		}
 
 		FTransform CameraTransform{SquadManager->CalculateUltimateCameraPosition(Ultimate, Agent->GetTransform())};
-		SquadManager->OnUpdateCameraTransform.Broadcast(CameraTransform);	
+		SquadManager->OnUpdateCameraTransform.Broadcast(CameraTransform);
 	} else
 	{
 		UE_LOG(LogTemp, Error, TEXT("SquadManager invalid! THIS LOG SHOULD NOT BE PRINTED!"));
@@ -183,7 +184,7 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 	UltimateExecutionState.SequencePlayer = SequencePlayer;
 	UltimateExecutionState.SequenceActor = SequenceActor;
 	UltimateExecutionState.CameraStateTag = PendingUltimateCutInRequest.CameraStateTag;
-	
+
 	PendingUltimateCutInRequest.Reset();
 }
 
@@ -202,7 +203,7 @@ void AZZZPlayerController::ClearPreparedSequence(ULevelSequencePlayer* SequenceP
 
 void AZZZPlayerController::CancelPendingUltimateCutIn()
 {
-	if (PendingUltimateCutInRequest.Agent)
+	if (PendingUltimateCutInRequest.Agent.IsValid())
 	{
 		if (UAbilitySystemComponent* ASC = PendingUltimateCutInRequest.Agent->GetAbilitySystemComponent())
 		{
@@ -229,14 +230,14 @@ void AZZZPlayerController::HandleSequencePlayFinished()
 	
 	UltimateExecutionState.bActionFinished = true;
 	
-	if (UltimateExecutionState.SequencePlayer)
+	if (UltimateExecutionState.SequencePlayer.IsValid())
 	{
 		UltimateExecutionState.SequencePlayer->OnFinished.RemoveDynamic(this, &AZZZPlayerController::HandleSequencePlayFinished);
 	}
 	
 	UltimateExecutionState.SequencePlayer = nullptr;
 
-	if (UltimateExecutionState.SequenceActor)
+	if (UltimateExecutionState.SequenceActor.IsValid())
 	{
 		UltimateExecutionState.SequenceActor->Destroy();
 		UltimateExecutionState.SequenceActor = nullptr;
@@ -254,7 +255,7 @@ void AZZZPlayerController::HandleUltimateActionFinished(APlayerCharacter* Agent,
 
 	DisableUltimateCutInPostProcess();
 	
-	if (Reason == ERequestFinishReason_Cancelled && UltimateExecutionState.SequencePlayer)
+	if (Reason == ERequestFinishReason_Cancelled && UltimateExecutionState.SequencePlayer.IsValid())
 	{
 		UltimateExecutionState.SequencePlayer->Stop();
 		DisableUltimateCutInPostProcess();
@@ -349,7 +350,7 @@ void AZZZPlayerController::EnableUltimateCutInStencil(APlayerCharacter* Agent, c
 			continue;
 		}
 
-		FCutInStencilDate Data;
+		FCutInStencilData Data;
 		Data.Component = Primitive;
 		Data.bEnableRenderCustomDepth = true;
 		Data.CustomStencilDepth = Primitive->CustomDepthStencilValue;
@@ -362,7 +363,7 @@ void AZZZPlayerController::EnableUltimateCutInStencil(APlayerCharacter* Agent, c
 
 void AZZZPlayerController::DisableUltimateCutInStencil()
 {
-	for (const FCutInStencilDate& Data : CutInStencilDate)
+	for (const FCutInStencilData& Data : CutInStencilDate)
 	{
 		UPrimitiveComponent* Comp = Data.Component.Get();
 		if (!IsValid(Comp))

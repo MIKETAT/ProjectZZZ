@@ -137,6 +137,9 @@ __pycache__/
 !Content/
 
 Content/Asset/**
+Content/__ExternalActors__/
+Content/__ExternalObjects__/
+Content/__ExternalObjects__/ThirdPerson/
 Content/__ExternalActors__/Level/*
 Content/__ExternalActors__/Level/**
 Content/__ExternalActors__/*

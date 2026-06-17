@@ -125,10 +125,6 @@ struct PROJECTZZZ_API FCharacterFrameDataBus
 public:
 	bool HasMovementInput() const { return !PlayerInputs.RawMovementInput.IsNearlyZero(); }
 	
-public:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
-	uint8 bIsLocalPlayer : 1 {false};
-	
 	FPlayerInputs PlayerInputs;
 };
 
@@ -150,13 +146,11 @@ protected:
 	// ~ActorComponent Interface
 
 public:
-	void BuildCharacterFrameDataBus();
-	
 	void RegisterInput();
 	
-	FCharacterFrameDataBus& GetCharacterFrameDataBus() { return DataBus; }
+	const FCharacterFrameDataBus& CommitFrameInput();
 
-	bool HasMovementInput() const { return DataBus.HasMovementInput(); }
+	void ClearPendingInput();
 	
 private:
 	// On_Input_XXX Function
@@ -214,12 +208,9 @@ public:
 	UInputAction* ChainAttack_Cancel_Action{nullptr};
 	
 private:
-	UPROPERTY()
-	FCharacterFrameDataBus DataBus;
-	
-	FInputBitmask InputActionBitmask;
-	FVector2D RawInputMovementVector{FVector::ZeroVector};
-	FVector2D RawInputLookVector{FVector::ZeroVector};
+	// Double Buffering. Use CurrentPlayerInputs.
+	FCharacterFrameDataBus PendingInputFrame;
+	FCharacterFrameDataBus CurrentInputFrame;
 
 	UPROPERTY()
 	UEnhancedInputComponent* EnhancedInputComponent{nullptr};

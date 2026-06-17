@@ -193,8 +193,7 @@ void APlayerCharacter::ProcessCombatActionInput(const FCharacterFrameDataBus& Da
 {
 	if (AgentCombatComponent.Get())
 	{
-		//AgentCombatComponent->SetPendingInputActionBitmask(DataBus.PlayerInputs.InputActionBitmask);
-		AgentCombatComponent->SetPendingPlayerInputs(DataBus.PlayerInputs);
+		AgentCombatComponent->ProcessFrameInput(DataBus.PlayerInputs);
 	}
 }
 

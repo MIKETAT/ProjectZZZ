@@ -37,9 +37,6 @@ void UCharacterCombatComponent::BeginPlay()
 void UCharacterCombatComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	RefreshPlayerInputs(DeltaTime);
-	ProcessInputAction(DeltaTime);
-	ProcessBufferedInput(DeltaTime);
 }
 
 void UCharacterCombatComponent::InitializeComponent()
@@ -47,15 +44,21 @@ void UCharacterCombatComponent::InitializeComponent()
 	Super::InitializeComponent();
 }
 
-void UCharacterCombatComponent::ProcessInputAction(const float DeltaTime)
+void UCharacterCombatComponent::ProcessFrameInput(const FPlayerInputs& FrameInputs)
+{
+	ProcessInputAction(FrameInputs);
+	ProcessBufferedInput(FrameInputs);
+}
+
+void UCharacterCombatComponent::ProcessInputAction(const FPlayerInputs& FrameInputs)
 {
 	// Invalid Character or No Input Action
-	if (!IsValid(Character) || !CurrentPlayerInputs.InputActionBitmask.Any())
+	if (!IsValid(Character) || !FrameInputs.InputActionBitmask.Any())
 	{
 		return;
 	}
 	
-	const UCombatActionStep* TargetAction{SelectTargetAction()};
+	const UCombatActionStep* TargetAction{SelectTargetAction(FrameInputs)};
 	if (!TargetAction)
 	{
 		return;
@@ -73,7 +76,8 @@ void UCharacterCombatComponent::ProcessInputAction(const float DeltaTime)
 	}
 }
 
-void UCharacterCombatComponent::ProcessBufferedInput(const float DeltaTime)
+// todo: Delete Parameter
+void UCharacterCombatComponent::ProcessBufferedInput(const FPlayerInputs& FrameInputs)
 {
 	if (!PendingIntent.IsValid())
 	{
@@ -94,10 +98,10 @@ void UCharacterCombatComponent::ProcessBufferedInput(const float DeltaTime)
 }
 
 // Only for Player Character
-UCombatActionStep* UCharacterCombatComponent::SelectTargetAction()
+UCombatActionStep* UCharacterCombatComponent::SelectTargetAction(const FPlayerInputs& FrameInputs)
 {
 	UCombatActionStep* TargetAction{nullptr};
-	CurrentPlayerInputs.InputActionBitmask.ForEachSetAction([&](EInputAction InputAction)
+	FrameInputs.InputActionBitmask.ForEachSetAction([&](EInputAction InputAction)
 	{
 		UCombatActionStep* ThisAction{SelectComboActionIntent(InputAction)};
 		if (ThisAction == nullptr)
@@ -119,7 +123,7 @@ UCombatActionStep* UCharacterCombatComponent::SelectTargetAction()
 	
 	if (TargetAction && Player)
 	{
-		TargetAction->Montage = TargetAction->GetAnimMontage(CurrentPlayerInputs.RawMovementInput);
+		TargetAction->Montage = TargetAction->GetAnimMontage(FrameInputs.RawMovementInput);
 	}
 	
 	return TargetAction;
@@ -356,7 +360,6 @@ void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpC
 						Config.WarpTargetName,
 						AgentLocation,
 						Agent->GetActorRotation());
-				//DrawDebugCapsule(GetWorld(), AgentLocation, 80.f, 40.f, FQuat::Identity, FColor::Magenta, false, 15.f);
 			}
 			break;
 
@@ -548,17 +551,6 @@ void UCharacterCombatComponent::PayActionCost(const UCombatActionStep* Step)
 	FGameplayEffectContextHandle EffectContext{AbilitySystemComponent->MakeEffectContext()};
 	FGameplayEffectSpecHandle EffectSpec{AbilitySystemComponent->MakeOutgoingSpec(Step->CostGameplayEffect, 1.f, EffectContext)};
 	AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
-}
-
-void UCharacterCombatComponent::SetPendingPlayerInputs(const FPlayerInputs& PendingInputs)
-{
-	PendingPlayerInputs = PendingInputs;
-}
-
-void UCharacterCombatComponent::RefreshPlayerInputs(const float DeltaTime)
-{
-	CurrentPlayerInputs = PendingPlayerInputs;
-	PendingPlayerInputs.Reset();
 }
 
 UCombatActionStep* UCharacterCombatComponent::GetSpecialAction(const FGameplayTag& Tag) const

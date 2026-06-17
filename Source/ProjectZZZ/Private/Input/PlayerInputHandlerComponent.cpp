@@ -14,13 +14,6 @@ void UPlayerInputHandlerComponent::BeginPlay()
 	RegisterInput();
 }
 
-void UPlayerInputHandlerComponent::BuildCharacterFrameDataBus()
-{
-	DataBus.PlayerInputs.InputActionBitmask = InputActionBitmask;
-	DataBus.PlayerInputs.RawMovementInput = RawInputMovementVector;
-	DataBus.PlayerInputs.RawLookInput = RawInputLookVector;
-}
-
 void UPlayerInputHandlerComponent::RegisterInput()
 {
 	UEnhancedInputLocalPlayerSubsystem* InputSubSystem{nullptr};
@@ -71,7 +64,6 @@ void UPlayerInputHandlerComponent::RegisterInput()
 void UPlayerInputHandlerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	BuildCharacterFrameDataBus();
 }
 
 void UPlayerInputHandlerComponent::InitializeComponent()
@@ -79,14 +71,26 @@ void UPlayerInputHandlerComponent::InitializeComponent()
 	Super::InitializeComponent();
 }
 
+const FCharacterFrameDataBus& UPlayerInputHandlerComponent::CommitFrameInput()
+{
+	CurrentInputFrame = PendingInputFrame;
+	ClearPendingInput();
+	return CurrentInputFrame;
+}
+
+void UPlayerInputHandlerComponent::ClearPendingInput()
+{
+	PendingInputFrame.PlayerInputs.Reset();
+}
+
 void UPlayerInputHandlerComponent::On_Input_Movement(const FInputActionInstance& Instance)
 {
 	if (const ETriggerEvent TriggerEvent{Instance.GetTriggerEvent()}; TriggerEvent == ETriggerEvent::Triggered)
 	{
-		RawInputMovementVector = Instance.GetValue().Get<FVector2D>();
+		PendingInputFrame.PlayerInputs.RawMovementInput = Instance.GetValue().Get<FVector2D>();
 	} else if (TriggerEvent == ETriggerEvent::Completed || TriggerEvent == ETriggerEvent::Canceled)
 	{
-		RawInputMovementVector = FVector2D::ZeroVector;
+		PendingInputFrame.PlayerInputs.RawMovementInput = FVector2D::ZeroVector;
 	}
 }
 
@@ -94,10 +98,10 @@ void UPlayerInputHandlerComponent::On_Input_Look(const FInputActionInstance& Ins
 {
 	if (const ETriggerEvent TriggerEvent{Instance.GetTriggerEvent()}; TriggerEvent == ETriggerEvent::Triggered)
 	{
-		RawInputLookVector = Instance.GetValue().Get<FVector2D>();
+		PendingInputFrame.PlayerInputs.RawLookInput = Instance.GetValue().Get<FVector2D>();
 	} else if (TriggerEvent == ETriggerEvent::Completed || TriggerEvent == ETriggerEvent::Canceled)
 	{
-		RawInputLookVector = FVector2D::ZeroVector;
+		PendingInputFrame.PlayerInputs.RawLookInput = FVector2D::ZeroVector;
 	}
 }
 
@@ -106,10 +110,10 @@ void UPlayerInputHandlerComponent::On_Input_Dodge(const FInputActionInstance& In
 {
 	if (const ETriggerEvent TriggerEvent{Instance.GetTriggerEvent()}; TriggerEvent == ETriggerEvent::Triggered)
 	{
-		InputActionBitmask.Set(EInputAction::EInputActionFlag_Dodge, true);
+		PendingInputFrame.PlayerInputs.InputActionBitmask.Set(EInputAction::EInputActionFlag_Dodge, true);
 	} else if (TriggerEvent == ETriggerEvent::Completed || TriggerEvent == ETriggerEvent::Canceled)
 	{
-		InputActionBitmask.Set(EInputAction::EInputActionFlag_Dodge, false);
+		PendingInputFrame.PlayerInputs.InputActionBitmask.Set(EInputAction::EInputActionFlag_Dodge, false);
 	}
 }
 
@@ -118,10 +122,10 @@ void UPlayerInputHandlerComponent::FuncName(const FInputActionInstance& Instance
 { \
 	if (const ETriggerEvent TriggerEvent{Instance.GetTriggerEvent()}; TriggerEvent == ETriggerEvent::Triggered) \
 	{ \
-		InputActionBitmask.Set(EInputAction, true); \
+		PendingInputFrame.PlayerInputs.InputActionBitmask.Set(EInputAction, true); \
 	} else if (TriggerEvent == ETriggerEvent::Completed || TriggerEvent == ETriggerEvent::Canceled) \
 	{ \
-		InputActionBitmask.Set(EInputAction, false); \
+		PendingInputFrame.PlayerInputs.InputActionBitmask.Set(EInputAction, false); \
 	} \
 } \
 

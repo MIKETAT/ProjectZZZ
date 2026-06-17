@@ -85,22 +85,18 @@ public:
 	void NotifyActionLogicFinished(const FGameplayTag& Tag);
 
 	bool IsCurrentActionLogicFinished() const;
-
-	bool HasMovementInput() const { return !CurrentPlayerInputs.HasMovementInput(); }
-
-	void SetPendingPlayerInputs(const FPlayerInputs& PendingInputs);
+	
+	void ProcessFrameInput(const FPlayerInputs& FrameInputs);
 private:
 	// Input
-	void RefreshPlayerInputs(const float DeltaTime);
+	void ProcessInputAction(const FPlayerInputs& FrameInputs);
 	
-	void ProcessInputAction(const float DeltaTime);
-	
-	void ProcessBufferedInput(const float DeltaTime);
+	void ProcessBufferedInput(const FPlayerInputs& FrameInputs);
 	
 	// Action
 	void InitializeCombatStepList();
 	
-	UCombatActionStep* SelectTargetAction();
+	UCombatActionStep* SelectTargetAction(const FPlayerInputs& FrameInputs);
 	
 	UCombatActionStep* SelectComboActionIntent(const EInputAction Input);
 	
@@ -157,10 +153,5 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<UCombatActionStep*> CombatActionList;
-	
-	// Double Buffering. Use CurrentPlayerInputs.
-	FPlayerInputs PendingPlayerInputs;
-	
-	FPlayerInputs CurrentPlayerInputs;
 };
 

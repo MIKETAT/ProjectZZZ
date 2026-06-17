@@ -3,7 +3,6 @@
 #include "CoreMinimal.h"
 #include "Character/CharacterBase.h"
 #include "Character/Component/CharacterCombatComponent.h"
-#include "Input/PlayerInputHandlerComponent.h"
 #include "LevelSequence.h"
 #include "PlayerCharacter.generated.h"
 
@@ -30,26 +29,19 @@ struct FPendingUltimateCutInRequest
 	GENERATED_BODY()
 
 	void Reset();
-
-	UPROPERTY()
-	TObjectPtr<APlayerCharacter> Agent{nullptr};
-
-	UPROPERTY()
-	TObjectPtr<UCombatActionStep> UltimateAction{nullptr};
-
-	UPROPERTY()
-	TObjectPtr<ULevelSequence> CutInSequence{nullptr};
-
-	UPROPERTY()
+	
+	TWeakObjectPtr<APlayerCharacter> Agent{nullptr};
+	
+	TWeakObjectPtr<UCombatActionStep> UltimateAction{nullptr};
+	
+	TWeakObjectPtr<ULevelSequence> CutInSequence{nullptr};
+	
 	FGameplayTag CameraStateTag{FGameplayTag::EmptyTag};
-
-	UPROPERTY()
+	
 	FLinearColor BackgroundColor{FLinearColor::White};
-
-	UPROPERTY()
+	
 	int32 StencilValue{42};
-
-	UPROPERTY()
+	
 	bool bIsValid{false};
 };
 
@@ -61,32 +53,24 @@ struct FActiveUltimateExecutionState
 public:
 	void Reset();
 	
-	UPROPERTY()
-	TObjectPtr<APlayerCharacter> Agent{nullptr};
-
-	UPROPERTY()
-	TObjectPtr<ULevelSequencePlayer> SequencePlayer{nullptr};
-
-	UPROPERTY()
-	TObjectPtr<ALevelSequenceActor> SequenceActor{nullptr};
+	TWeakObjectPtr<APlayerCharacter> Agent{nullptr};
 	
-	UPROPERTY()
+	TWeakObjectPtr<ULevelSequencePlayer> SequencePlayer{nullptr};
+	
+	TWeakObjectPtr<ALevelSequenceActor> SequenceActor{nullptr};
+	
 	FGameplayTag CameraStateTag{FGameplayTag::EmptyTag};
 
 	FDelegateHandle OnUltimateActionFinishedHandle;
 	
 	FDelegateHandle OnSequenceFinishedHandle;
 	
-	UPROPERTY()
 	bool bSequenceFinished{false};
-
-	UPROPERTY()
+	
 	bool bIsValid{false};
 	
-	UPROPERTY()
 	bool bActionFinished{false};
-
-	UPROPERTY()
+	
 	bool bAborting{false};
 };
 
@@ -120,8 +104,6 @@ public:
 	bool IsActive() const { return bIsActive; }
 
 	void SetAgentActive(bool bActive) { bIsActive = bActive; }
-	
-	bool HasMovementInput() const { return AgentCombatComponent && AgentCombatComponent->HasMovementInput(); }
 	
 	UTexture2D* GetAgentHead() const { return AgentHead; }
 
@@ -166,9 +148,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GAS")
 	TSubclassOf<UGameplayEffect> AgentExclusiveInitGE;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TObjectPtr<ULevelSequence> LevelSequence;
-	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bPrintDebugInfo{false};
 	

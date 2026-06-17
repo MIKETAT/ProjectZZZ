@@ -5,6 +5,7 @@
 
 #include "Animation/CharacterAnimationPreset.h"
 #include "Character/CharacterBase.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
 
@@ -13,6 +14,10 @@ void UAnimInstanceBase::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
 	Character = Cast<ACharacterBase>(GetOwningActor());
+	if (Character)
+	{
+		MovementComponent = Cast<UCharacterMovementComponent>(Character->GetCharacterMovement());
+	}
 }
 
 void UAnimInstanceBase::NativeUpdateAnimation(float DeltaSeconds)

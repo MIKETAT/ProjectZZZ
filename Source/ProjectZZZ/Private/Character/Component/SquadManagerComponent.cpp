@@ -210,11 +210,13 @@ FAgentTransitionSnapshot USquadManagerComponent::CacheAgentSnapshot(APlayerChara
 		return Snapshot;
 	}
 
+	constexpr float MinSpeed{10.f};
+	
 	if (UCharacterMovementComponent* MovementComponent = OldAgent->GetCharacterMovement())
 	{
 		Snapshot.Velocity = MovementComponent->Velocity;
 		Snapshot.MovementMode = MovementComponent->MovementMode;
-		Snapshot.bWasMoving = !MovementComponent->Velocity.IsNormalized();
+		Snapshot.bWasMoving = MovementComponent->Velocity.SizeSquared2D() > FMath::Square(MinSpeed);
 	}
 
 	if (UCharacterCombatComponent* CombatComponent = OldAgent->GetAgentCombatComponent())
@@ -254,7 +256,7 @@ void USquadManagerComponent::HandleAgentSwitchIn(APlayerCharacter* NewAgent, con
 		MovementComponent->StopMovementImmediately();
 	}
 	
-	switch (Request.SwitchInMode)
+	switch (Request.SwitchInMode) 
 	{
 		case EAgentSwitchInMode::InitialIdle:			// todo: 这里要想一想怎么做
 		case EAgentSwitchInMode::InheritLocomotion:
@@ -367,23 +369,23 @@ void USquadManagerComponent::OnLingeringAgentActionFinished(APlayerCharacter* Li
 	ApplyAgentOffFieldState(LingeringAgent);
 }
 
-void USquadManagerComponent::SwitchToPreviousAgent()
+void USquadManagerComponent::SwitchToPreviousAgent(const FCharacterFrameDataBus& DataBus)
 {
-	SwitchToAgent(GetPreviousAgentIndex(), true);
+	SwitchToAgent(GetPreviousAgentIndex(), true, DataBus);
 }
 
-void USquadManagerComponent::SwitchToNextAgent()
+void USquadManagerComponent::SwitchToNextAgent(const FCharacterFrameDataBus& DataBus)
 {
-	SwitchToAgent(GetNextAgentIndex(), false);
+	SwitchToAgent(GetNextAgentIndex(), false, DataBus);
 }
 
-void USquadManagerComponent::SwitchToAgent(const int32 TargetIndex, bool bIsPrevious)
+void USquadManagerComponent::SwitchToAgent(const int32 TargetIndex, bool bIsPrevious, const FCharacterFrameDataBus& DataBus)
 {
 	if (TargetIndex != INDEX_NONE && Squad.IsValidIndex(TargetIndex))
 	{
 		FAgentTransitionRequest Request;
 		Request.TargetAgentIndex = TargetIndex;
-		Request.SwitchInMode = GetActiveAgent()->HasMovementInput() ? EAgentSwitchInMode::InheritLocomotion : EAgentSwitchInMode::EnterWithSwitchInAnim;
+		Request.SwitchInMode = DataBus.HasMovementInput() ? EAgentSwitchInMode::InheritLocomotion : EAgentSwitchInMode::EnterWithSwitchInAnim;
 		Request.SwitchOutMode = IsActiveAgentExecutingAction() ? EAgentSwitchOutMode::FinishActionThenExit : EAgentSwitchOutMode::ExitWithSwitchOutAnim;
 		Request.SpawnPolicy = bIsPrevious ? EAgentSpawnPolicy::AgentRelativeLeft : EAgentSpawnPolicy::AgentRelativeRight;
 		Request.CurrentAgent = GetActiveAgent();
@@ -477,8 +479,8 @@ void USquadManagerComponent::AgentUltimateAttack()
 	FPendingUltimateCutInRequest Request;
 	Request.Agent = GetActiveAgent();
 	Request.UltimateAction = UltimateAction;
-	Request.CameraStateTag = Combat::Camera::Status::UltimateCamera;
-	Request.CutInSequence = GetActiveAgent()->LevelSequence;
+	Request.CameraStateTag = Combat::Camera::Status::UltimateCamera;		// todo: read in ActionStep
+	Request.CutInSequence = UltimateAction->UltimateConfig.CutInSequence;
 	Request.bIsValid = true;
 	Request.BackgroundColor = UltimateAction->UltimateConfig.BackgroundColor;
 	Request.StencilValue = UltimateAction->UltimateConfig.AgentStencilValue;
@@ -622,9 +624,11 @@ void USquadManagerComponent::RouteInput()
 
 	if (UPlayerInputHandlerComponent* HandlerComp = OwnerController->GetPlayerInputHandlerComponent())
 	{
-		FCharacterFrameDataBus DataBus{HandlerComp->GetCharacterFrameDataBus()};
-		SquadConsumeInput(DataBus);
-		AgentConsumeInput(DataBus);
+		FCharacterFrameDataBus DataBus{HandlerComp->CommitFrameInput()};
+		if (!SquadConsumeInput(DataBus))
+		{
+			AgentConsumeInput(DataBus);	
+		}
 	}
 }
 
@@ -669,13 +673,13 @@ bool USquadManagerComponent::SquadConsumeInput(FCharacterFrameDataBus& DataBus)
 	// Normal Switch
 	if (DataBus.PlayerInputs.InputActionBitmask.Test(EInputAction::EInputActionFlag_SwitchCharacter_Previous))
 	{
-		SwitchToPreviousAgent();
+		SwitchToPreviousAgent(DataBus);
 		DataBus.PlayerInputs.ConsumeInputAction(EInputAction::EInputActionFlag_SwitchCharacter_Previous);
 		return true;
 	}
 	if (DataBus.PlayerInputs.InputActionBitmask.Test(EInputAction::EInputActionFlag_SwitchCharacter_Next))
 	{
-		SwitchToNextAgent();
+		SwitchToNextAgent(DataBus);
 		DataBus.PlayerInputs.ConsumeInputAction(EInputAction::EInputActionFlag_SwitchCharacter_Next);
 		return true;
 	}
@@ -1096,11 +1100,9 @@ FTransform USquadManagerComponent::CalculateUltimateCameraPosition(UCombatAction
 	CameraTransform.SetLocation(CameraLocation);
 	CameraTransform.SetRotation(CameraRotation.Quaternion());
 
-	/*DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
+	DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
 	DrawDebugDirectionalArrow(GetWorld(), CameraLocation, CameraLocation + 200.f * CameraRotation.Quaternion().GetForwardVector(),
 		10.f, FColor::Purple, false, 10.f);
-		*/
-	
 
 	return CameraTransform;
 }

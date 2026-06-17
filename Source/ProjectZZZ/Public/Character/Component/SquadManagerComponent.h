@@ -216,11 +216,11 @@ private:
 
 	void OnLingeringAgentActionFinished(APlayerCharacter* LingeringAgent, ECombatAnimRequestFinishReason Reason);
 	
-	void SwitchToPreviousAgent();
+	void SwitchToPreviousAgent(const FCharacterFrameDataBus& DataBus);
 	
-	void SwitchToNextAgent();
+	void SwitchToNextAgent(const FCharacterFrameDataBus& DataBus);
 	
-	void SwitchToAgent(const int32 TargetIndex, bool bIsPrevious);
+	void SwitchToAgent(const int32 TargetIndex, bool bIsPrevious, const FCharacterFrameDataBus& DataBus);
 
 	void AgentChainAttack(const int32 TargetIndex, bool bIsPrevious);
 

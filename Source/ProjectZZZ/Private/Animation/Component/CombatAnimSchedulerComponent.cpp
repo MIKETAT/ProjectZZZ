@@ -74,7 +74,7 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 			{
 				continue;
 			}
-			AnimInstance->Montage_StopWithBlendSettings(BlendSettings, StopRequest->Montage);
+			AnimInstance->Montage_StopWithBlendSettings(BlendSettings, StopRequest->Montage.Get());
 			UE_LOG(LogTemp, Warning, TEXT("Stop Montage: %s"), *StopRequest->Montage->GetName());
 		}
 		
@@ -91,10 +91,10 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 		AddedRequest.MontageEventFlags |= static_cast<uint8>(EMontageStatusFlag::EMontageStatus_Started);
 		ProceedingRequests.Add(NewId, AddedRequest);
 
-		FMontageBlendSettings BlendInSetting{GetMontageBlendInSetting(AddedRequest.Montage)};
-		AnimInstance->Montage_PlayWithBlendSettings(AddedRequest.Montage, BlendInSetting, AddedRequest.PlayRate);
+		FMontageBlendSettings BlendInSetting{GetMontageBlendInSetting(AddedRequest.Montage.Get())};
+		AnimInstance->Montage_PlayWithBlendSettings(AddedRequest.Montage.Get(), BlendInSetting, AddedRequest.PlayRate);
 		
-		BindMontageNativeDelegates(AddedRequest.Montage, AddedRequest.RequestID);
+		BindMontageNativeDelegates(AddedRequest.Montage.Get(), AddedRequest.RequestID);
 
 		//UE_LOG(LogTemp, Error, TEXT("Action: Execute Anim Request, Request ID = %d, Montage Name = %s"), AddedRequest.RequestID, *AddedRequest.Montage->GetName())
 		
@@ -118,7 +118,7 @@ void UCombatAnimSchedulerComponent::CancelAnimRequest(const int32 RequestID)
 		BlendSettings.Blend = Request->Montage->BlendIn;
 		BlendSettings.BlendMode = Request->Montage->BlendModeIn;
 		BlendSettings.BlendProfile = Request->Montage->BlendProfileIn;
-		AnimInstance->Montage_StopWithBlendSettings(BlendSettings, Request->Montage);
+		AnimInstance->Montage_StopWithBlendSettings(BlendSettings, Request->Montage.Get());
 		FinishRequest(RequestID, ERequestFinishReason_Cancelled);
 	}
 }
@@ -133,10 +133,10 @@ bool UCombatAnimSchedulerComponent::RequestMontageSetNextSection(const int32 Req
 
 	if (const FCombatAnimExecutionRequest* Request = ProceedingRequests.Find(RequestID))
 	{
-		if (!IsRequestMontageBlendingOut(Request) && Request->Montage)
+		if (!IsRequestMontageBlendingOut(Request) && Request->Montage.Get())
 		{
-			AnimInstance->Montage_JumpToSection(LoopSectionName, Request->Montage);
-			AnimInstance->Montage_SetNextSection(LoopSectionName, NextSectionName, Request->Montage);
+			AnimInstance->Montage_JumpToSection(LoopSectionName, Request->Montage.Get());
+			AnimInstance->Montage_SetNextSection(LoopSectionName, NextSectionName, Request->Montage.Get());
 			//AnimInstance->Montage_JumpToSection(SectionName, Request->Montage);
 			UE_LOG(LogTemp, Error, TEXT("Attack Detection: Montage Jump to Section Succeed"));
 			return true;
@@ -158,7 +158,7 @@ int32 UCombatAnimSchedulerComponent::CheckIfRequestMontageAlreadyPlaying(const F
 {
 	for (auto& [Id, ProceedingRequest] : ProceedingRequests)
 	{
-		if (ProceedingRequest.Montage && ProceedingRequest.Montage == Request.Montage && !IsRequestMontageBlendingOut(&ProceedingRequest))
+		if (ProceedingRequest.Montage.IsValid() && ProceedingRequest.Montage == Request.Montage && !IsRequestMontageBlendingOut(&ProceedingRequest))
 		{
 			return Id;
 		}
@@ -168,11 +168,11 @@ int32 UCombatAnimSchedulerComponent::CheckIfRequestMontageAlreadyPlaying(const F
 
 bool UCombatAnimSchedulerComponent::CanExecuteCombatAnimRequest(const FCombatAnimExecutionRequest& Request, TArray<int32>& PendingStopRequestIDs) const
 {
-	FName TargetSlotName = GetMontageSlotName(Request.Montage);
+	FName TargetSlotName = GetMontageSlotName(Request.Montage.Get());
 	
 	for (auto& [Id, ProceedingRequest] : ProceedingRequests)
 	{
-		FName ProceedingSlotName = GetMontageSlotName(ProceedingRequest.Montage);
+		FName ProceedingSlotName = GetMontageSlotName(ProceedingRequest.Montage.Get());
 		if (ProceedingSlotName != TargetSlotName)
 		{
 			continue;

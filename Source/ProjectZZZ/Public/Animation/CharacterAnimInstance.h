@@ -65,6 +65,7 @@ public:
 protected:
 	const UCharacterAnimationPreset_Locomotion* GetLocomotionAnimPreset() const; 
 
+	void UpdatePivotState();
 public:
 	FOnCombatWindowChanged OnCombatWindowChanged;
 	
@@ -82,7 +83,20 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	uint8 bHasMovementInput : 1 {false};
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	uint8 bPivotActive : 1 {false};
+	// Pivot
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Setting | Pivot")
+	uint8 bPivotActive : 1 {false};				// Allow Animation State Machine Transition
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting | Pivot")	//, meta=(ClampMin = )
+	float PivotEnterAngleDegrees{160.f};		// 进入Pivot所需的速度方向与加速度方向夹角
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting | Pivot")
+	float PivotMinSpeedRatio{0.75f};			// 进入Pivot所需速度至少占MaxWalkSpeed比率
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Setting | Pivot")
+	float PivotDot{1.f};		// delete after pivot done
+
+	bool bCanTriggerPivot{false};				// Allow Trigger Pivot Transition(Set bPivotActive true)
+
+	float EnterPivotDot{0.f};					// wait for initialize
 };

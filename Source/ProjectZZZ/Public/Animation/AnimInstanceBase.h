@@ -8,6 +8,7 @@
 #include "State/LocomotionAnimationState.h"
 #include "AnimInstanceBase.generated.h"
 
+class UCharacterMovementComponent;
 class ACharacterBase;
 class UCharacterAnimationPreset_Locomotion;
 
@@ -29,10 +30,12 @@ private:
 	void RefreshLocomotionAnimationStateOnGameThread(const float DeltaSeconds);
 
 protected:
-	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient)
-	TObjectPtr<ACharacterBase> Character;
+	TObjectPtr<ACharacterBase> Character{nullptr};
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient)
+	TObjectPtr<UCharacterMovementComponent> MovementComponent{nullptr};
+	
 	// State Variables
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
 	FLocomotionAnimationState LocomotionAnimState;

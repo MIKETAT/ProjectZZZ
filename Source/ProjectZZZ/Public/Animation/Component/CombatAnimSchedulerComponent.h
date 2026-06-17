@@ -35,9 +35,8 @@ USTRUCT(BlueprintType)
 struct FCombatAnimExecutionRequest
 {
 	GENERATED_BODY()
-
-	UPROPERTY()
-	UAnimMontage* Montage{nullptr};
+	
+	TWeakObjectPtr<UAnimMontage> Montage{nullptr};
 
 	UPROPERTY()
 	ECombatActionPriority Priority{ECombatActionPriority::None};
@@ -110,7 +109,7 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnCombatAnimFinished OnAnimRequestFinished;
 private:
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TMap<int32, FCombatAnimExecutionRequest> ProceedingRequests;
 
 	int32 NextIDGenerator{-1};

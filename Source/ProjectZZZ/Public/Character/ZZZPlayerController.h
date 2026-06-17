@@ -19,11 +19,10 @@ class UPlayerInputHandlerComponent;
 class UInputMappingContext;
 
 USTRUCT()
-struct FCutInStencilDate
+struct FCutInStencilData
 {
 	GENERATED_BODY()
-
-	UPROPERTY()
+	
 	TWeakObjectPtr<UPrimitiveComponent> Component;
 
 	bool bEnableRenderCustomDepth{false};
@@ -50,8 +49,6 @@ public:
 	virtual void SetupInputComponent() override;
 	
 	UPlayerInputHandlerComponent* GetPlayerInputHandlerComponent() const { return PlayerInputHandlerComponent; }
-
-	bool HasMovementInput() const {return PlayerInputHandlerComponent && PlayerInputHandlerComponent->HasMovementInput(); }
 
 	UFUNCTION(BlueprintCallable)
 	USquadManagerComponent* GetSquadManagerComponent() const { return SquadManager; }
@@ -131,15 +128,15 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	bool bBlockGameplayCameraActivation{false};
-	
-	UPROPERTY()
+
+	UPROPERTY(Transient)
 	FPendingUltimateCutInRequest PendingUltimateCutInRequest;
 
-	UPROPERTY()
+	UPROPERTY(Transient)
 	FActiveUltimateExecutionState UltimateExecutionState;
 
-	UPROPERTY()
-	TArray<FCutInStencilDate> CutInStencilDate;
+	UPROPERTY(Transient)
+	TArray<FCutInStencilData> CutInStencilDate;
 	
 // Default	
 	/** Input Mapping Contexts */
