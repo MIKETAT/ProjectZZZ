@@ -215,11 +215,7 @@ private:
 	void HandleAgentSwitchOut(APlayerCharacter* OldAgent, const FAgentTransitionRequest& Request, const FAgentTransitionSnapshot& Snapshot);
 
 	void OnLingeringAgentActionFinished(APlayerCharacter* LingeringAgent, ECombatAnimRequestFinishReason Reason);
-	
-	void SwitchToPreviousAgent(const FCharacterFrameDataBus& DataBus);
-	
-	void SwitchToNextAgent(const FCharacterFrameDataBus& DataBus);
-	
+
 	void SwitchToAgent(const int32 TargetIndex, bool bIsPrevious, const FCharacterFrameDataBus& DataBus);
 
 	void AgentChainAttack(const int32 TargetIndex, bool bIsPrevious);

@@ -18,8 +18,8 @@ enum class EMontageStatusFlag : uint8
 	EMontageStatus_None				= 0					UMETA(DisplayName = "None"),
 	EMontageStatus_Started			= 1 << 1			UMETA(DisplayName = "Started"),
 	EMontageStatus_BlendingOut		= 1 << 2			UMETA(DisplayName = "BlendingOut"),
-	EMontageStatus_Finished			= 1 << 3			UMETA(DisplayName = "Finished"),
-	EMontageStatus_Interrupted		= 1 << 4			UMETA(DisplayName = "Interrupted"),
+	//EMontageStatus_Finished			= 1 << 3			UMETA(DisplayName = "Finished"),
+	//EMontageStatus_Interrupted		= 1 << 4			UMETA(DisplayName = "Interrupted"),
 	EMontageStatus_Ended			= 1 << 5			UMETA(DisplayName = "Ended"),
 };
 
@@ -36,12 +36,13 @@ struct FCombatAnimExecutionRequest
 {
 	GENERATED_BODY()
 	
+public:
+	bool IsValid() const { return Montage != nullptr; }
+
 	TWeakObjectPtr<UAnimMontage> Montage{nullptr};
-
-	UPROPERTY()
+	
 	ECombatActionPriority Priority{ECombatActionPriority::None};
-
-	UPROPERTY()
+	
 	float PlayRate{1.f};
 
 	int32 RequestID{INDEX_NONE};
@@ -50,8 +51,6 @@ struct FCombatAnimExecutionRequest
 
 	uint8 MontageEventFlags{0U};	// 记录这个动画底层状态
 
-public:
-	bool IsValid() const { return Montage != nullptr; }
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCombatAnimFinished, int32, RequestID, ECombatAnimRequestFinishReason, Reason);
@@ -66,8 +65,10 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	
 public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	
 	virtual void InitializeComponent() override;
 
 public:
@@ -77,7 +78,6 @@ public:
 
 	bool RequestMontageSetNextSection(const int32 RequestID, const FName& LoopSectionName, const FName& NextSectionName);
 
-	//bool CanInterruptCurrentAction() const;
 private:
 	bool IsRequestMontageBlendingOut(const FCombatAnimExecutionRequest* Request) const;
 
@@ -85,7 +85,6 @@ private:
 
 	bool CanExecuteCombatAnimRequest(const FCombatAnimExecutionRequest& Request, TArray<int32>& PendingStopRequestIDs) const;
 
-	// Reason?
 	void FinishRequest(const int32 RequestID, const ECombatAnimRequestFinishReason Reason);
 
 	FName GetMontageSlotName(const UAnimMontage* Montage) const;
@@ -108,6 +107,7 @@ private:
 public:
 	UPROPERTY(BlueprintAssignable)
 	FOnCombatAnimFinished OnAnimRequestFinished;
+	
 private:
 	UPROPERTY(Transient)
 	TMap<int32, FCombatAnimExecutionRequest> ProceedingRequests;

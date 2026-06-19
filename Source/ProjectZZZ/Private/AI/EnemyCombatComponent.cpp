@@ -73,6 +73,7 @@ int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep, 
 	if (InstanceID != INDEX_NONE)
 	{
 		CurrentExecutionState.Reset();
+		DetectionStatus.ResetAll();
 		CurrentExecutionState.CurrentStep = ActionStep;
 		CurrentExecutionState.MontageInstanceId = InstanceID;
 		CurrentExecutionState.bHasSuccessfullyStarted = true;
@@ -85,7 +86,7 @@ float UEnemyCombatComponent::GetCurrentActionParryOffset() const
 {
 	float ParryOffset{0.f};
 
-	if (IsValid(CurrentExecutionState.CurrentStep) && CurrentExecutionState.CurrentStep->ParriedActionConfig.bIsParriedAction)
+	if (CurrentExecutionState.CurrentStep.IsValid() && CurrentExecutionState.CurrentStep->ParriedActionConfig.bIsParriedAction)
 	{
 		ParryOffset = CurrentExecutionState.CurrentStep->ParriedActionConfig.ParryOffset;
 	}

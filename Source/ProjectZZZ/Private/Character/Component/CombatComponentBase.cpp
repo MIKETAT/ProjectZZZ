@@ -76,7 +76,7 @@ void UCombatComponentBase::ProcessHitEvent(ACharacterBase* Victim, const FHitRes
 
 bool UCombatComponentBase::ResolveAttackDetectionSegment(const FName& SegmentName, FResolvedAttackDetectionSegment& OutSegment)
 {
-	if (!IsValid(CurrentExecutionState.CurrentStep))
+	if (!CurrentExecutionState.CurrentStep.IsValid())
 	{
 		return false;
 	}
@@ -122,7 +122,7 @@ bool UCombatComponentBase::ResolveAttackDetectionSegment(const FName& SegmentNam
 
 void UCombatComponentBase::EnableAttackDetection(const FGameplayTag& Tag, const FName& SegmentName)
 {
-	if (!IsValid(CurrentExecutionState.CurrentStep) || Tag != CurrentExecutionState.CurrentStep->ActionTag)
+	if (!CurrentExecutionState.CurrentStep.IsValid() || Tag != CurrentExecutionState.CurrentStep->ActionTag)
 	{
 		return;
 	}
@@ -178,12 +178,12 @@ void UCombatComponentBase::DisableAttackDetection(const FName& SegmentName)
 
 bool UCombatComponentBase::IsAnyActionActive() const
 {
-	return CurrentExecutionState.CurrentStep && CurrentExecutionState.bHasSuccessfullyStarted; 
+	return CurrentExecutionState.CurrentStep.IsValid() && CurrentExecutionState.bHasSuccessfullyStarted; 
 }
 
 void UCombatComponentBase::CancelCurrentAction()
 {
-	if (CurrentExecutionState.CurrentStep)
+	if (CurrentExecutionState.CurrentStep.IsValid())
 	{
 		CombatAnimSchedulerComponent->CancelAnimRequest(CurrentExecutionState.MontageInstanceId);
 	}
@@ -191,7 +191,7 @@ void UCombatComponentBase::CancelCurrentAction()
 
 bool UCombatComponentBase::CanInterruptCurrentAction(const UCombatActionStep* Step) const
 {
-	if (!IsValid(Step) || !IsValid(CurrentExecutionState.CurrentStep))
+	if (!IsValid(Step) || !CurrentExecutionState.CurrentStep.IsValid())
 	{
 		return false;
 	}
@@ -205,7 +205,7 @@ bool UCombatComponentBase::CanInterruptCurrentAction(const UCombatActionStep* St
 	}
 	
 	// Todo: Define explicit interruption conditions
-	return  Step->Priority > CurrentExecutionState.CurrentStep->Priority || CurrentExecutionState.bProceedWindowOpen;
+	return Step->Priority > CurrentExecutionState.CurrentStep->Priority || CurrentExecutionState.bProceedWindowOpen;
 }
 
 void UCombatComponentBase::RefreshAttackDetection(float DeltaTime)
@@ -214,17 +214,11 @@ void UCombatComponentBase::RefreshAttackDetection(float DeltaTime)
 	{
 		return;
 	}
-
-	if (DetectionStatus.DetectionSegment.ActionRequestId != CurrentExecutionState.MontageInstanceId)
-	{
-		DetectionStatus.ResetAll();
-		return;
-	}
 	
 	switch (DetectionStatus.DetectionSegment.DetectionSpec.DetectionMode)
 	{
 		case EAttackDetectionMode::WeaponSweep:
-			RefreshWeaponSweep();
+			RefreshWeaponSweep(DeltaTime);
 			break;
 		case EAttackDetectionMode::ActorPathSweep:
 			RefreshActorPathSweep();
@@ -238,7 +232,7 @@ void UCombatComponentBase::RefreshAttackDetection(float DeltaTime)
 	}
 }
 
-void UCombatComponentBase::RefreshWeaponSweep()
+void UCombatComponentBase::RefreshWeaponSweep(const float DeltaTime)
 {
 	if (DetectionStatus.DetectionSegment.DetectionSpec.DetectionMode != EAttackDetectionMode::WeaponSweep)
 	{
@@ -264,8 +258,11 @@ void UCombatComponentBase::RefreshWeaponSweep()
 	
 	FTransform LastSubStepWeaponRootTransform{LastWeaponRootTransform};
 	FTransform LastSubStepWeaponTipTransform{LastWeaponTipTransform};
+
+	// adjust SubStepCount by DeltaTime
+	const int32 Count{FMath::CeilToInt(DeltaTime / DetectionStatus.DetectionSegment.DetectionSpec.MaxSubStepTime)};
+	const int32 SubStepCount{FMath::Clamp(Count, 1, DetectionStatus.DetectionSegment.DetectionSpec.MaxSubStepCount)};
 	
-	const int32 SubStepCount{DetectionStatus.DetectionSegment.DetectionSpec.SubStepCount};
 	// Sweep
 	for (int32 Step = 0; Step < SubStepCount; Step++)
 	{
@@ -339,7 +336,7 @@ void UCombatComponentBase::SubStepAttackDetection(const FTransform& LastWeaponRo
 
 		for (const FHitResult& HitResult : TempHits)
 		{
-			ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment, DetectionStatus.HitActors);	
+			ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment);	
 		}
 	}
 }
@@ -408,13 +405,13 @@ void UCombatComponentBase::RefreshActorPathSweep()
 	
 	for (const FHitResult& HitResult: OutHitResult)
 	{
-		ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment, DetectionStatus.HitActors);
+		ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment);
 	}
 }
 
 void UCombatComponentBase::TriggerAttackDetectionQuery(const FGameplayTag& Tag, const FName& SegmentName)
 {
-	if (!CurrentExecutionState.CurrentStep || Tag != CurrentExecutionState.CurrentStep->ActionTag)
+	if (!CurrentExecutionState.CurrentStep.IsValid() || Tag != CurrentExecutionState.CurrentStep->ActionTag)
 	{
 		return;
 	}
@@ -464,7 +461,7 @@ void UCombatComponentBase::TriggerAttackDetectionQuery(const FGameplayTag& Tag, 
 	TSet<TObjectKey<AActor>> InstantQueryHitActors;
 	for (const FOverlapResult& OverlapResult : OutHitResults)
 	{
-		ProcessDetectionResults(MakeDetectedTargetFromOverlap(OverlapResult, TargetTransform), Segment, InstantQueryHitActors);
+		ProcessDetectionResults(MakeDetectedTargetFromOverlap(OverlapResult, TargetTransform), Segment);
 	}
 }
 
@@ -475,7 +472,6 @@ void UCombatComponentBase::RefreshShapeQuery()
 	{
 		return;
 	}
-	
 }
 
 FAttackDetectedTarget UCombatComponentBase::MakeDetectedTargetFromHit(const FHitResult& HitResult)
@@ -510,7 +506,7 @@ FAttackDetectedTarget UCombatComponentBase::MakeDetectedTargetFromOverlap(const 
 	return Target;
 }
 
-void UCombatComponentBase::ProcessDetectionResults(const FAttackDetectedTarget& DetectedTarget, const FResolvedAttackDetectionSegment& Segment, TSet<TObjectKey<AActor>>& ActivationHitActors)
+void UCombatComponentBase::ProcessDetectionResults(const FAttackDetectedTarget& DetectedTarget, const FResolvedAttackDetectionSegment& Segment)
 {
 	AActor* HitActor{DetectedTarget.Actor.Get()};
 	if (!HitActor || HitActor == Character)
@@ -521,10 +517,10 @@ void UCombatComponentBase::ProcessDetectionResults(const FAttackDetectedTarget& 
 	bool bPassHitDedupe{false};
 	if (Segment.DetectionSpec.TriggerMode == EAttackDetectionTriggerMode::InstantQuery)
 	{
-		bPassHitDedupe = PassHitDedupe(HitActor, Segment, ActivationHitActors);	
+		bPassHitDedupe = PassHitDedupe(HitActor, Segment);	
 	} else if (Segment.DetectionSpec.TriggerMode == EAttackDetectionTriggerMode::ContinuousWindow)
 	{
-		bPassHitDedupe = PassHitDedupe(HitActor, Segment, DetectionStatus.HitActors);
+		bPassHitDedupe = PassHitDedupe(HitActor, Segment);
 	}
 	
 	if (!bPassHitDedupe)
@@ -544,7 +540,7 @@ void UCombatComponentBase::ProcessDetectionResults(const FAttackDetectedTarget& 
 	}
 }
 
-bool UCombatComponentBase::PassHitDedupe(AActor* HitActor, const FResolvedAttackDetectionSegment& Segment, TSet<TObjectKey<AActor>>& ActivationHitActors)
+bool UCombatComponentBase::PassHitDedupe(AActor* HitActor, const FResolvedAttackDetectionSegment& Segment)
 {
 	if (!HitActor || HitActor == Character)
 	{
@@ -556,7 +552,7 @@ bool UCombatComponentBase::PassHitDedupe(AActor* HitActor, const FResolvedAttack
 	switch (Segment.DedupePolicy)
 	{
 		case EHitDedupePolicy::None:
-			return false;
+			return true;
 		case EHitDedupePolicy::OncePerAction:
 			{
 				if (DetectionStatus.ActionHitActors.Contains(HitKey))
@@ -568,15 +564,15 @@ bool UCombatComponentBase::PassHitDedupe(AActor* HitActor, const FResolvedAttack
 			}
 		case EHitDedupePolicy::OncePerActivation:
 			{
-				if (ActivationHitActors.Contains(HitKey))
+				if (DetectionStatus.SegmentHitActors.Contains(HitKey))
 				{
 					return false;
 				}
-				ActivationHitActors.Add(HitKey);
+				DetectionStatus.SegmentHitActors.Add(HitKey);
 				return true;
 			}	
 		default:
-			return false;
+			return true;
 	}
 }
 
@@ -760,7 +756,7 @@ void UCombatComponentBase::DebugPrintCurrentActionState()
 	}
 
 	
-	if (CurrentExecutionState.CurrentStep)
+	if (CurrentExecutionState.CurrentStep.IsValid())
 	{
 		
 		GEngine->AddOnScreenDebugMessage(

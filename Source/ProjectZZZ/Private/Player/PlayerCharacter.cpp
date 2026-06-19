@@ -45,10 +45,9 @@ void APlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	// Test
 	if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>()) {
 		FCombatEventDelegate Callback;
-		Callback.BindUObject(this, &APlayerCharacter::HandleEnemyDeath);
+		Callback.BindUObject(this, &APlayerCharacter::HandleAgentDeath);
 		DeathListenerHandle = EventBus->Subscribe(Combat::Event::Death, this,10, Callback);
 	}
 }
@@ -56,10 +55,6 @@ void APlayerCharacter::BeginPlay()
 void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	
-	/*ProcessMovementInput(DeltaTime);
-	ProcessLookInput(DeltaTime);
-	ProcessCombatActionInput(DeltaTime);*/
 }
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -103,7 +98,7 @@ bool APlayerCharacter::IsMoving() const
 	return  GetCharacterMovement() && !GetCharacterMovement()->Velocity.IsNearlyZero();
 }
 
-ECombatEventHandleResult APlayerCharacter::HandleEnemyDeath(const FCombatEventMessage& Msg)
+ECombatEventHandleResult APlayerCharacter::HandleAgentDeath(const FCombatEventMessage& Msg)
 {
 	return ECombatEventHandleResult::Consumed;
 }

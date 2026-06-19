@@ -1,7 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "Animation/Component/CombatAnimSchedulerComponent.h"
-
+﻿#include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Animation/AnimInstanceBase.h"
 #include "Character/CharacterBase.h"
 
@@ -12,17 +9,9 @@ UCombatAnimSchedulerComponent::UCombatAnimSchedulerComponent()
 	bWantsInitializeComponent = true;
 }
 
-
-// Called when the game starts
 void UCombatAnimSchedulerComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	/*// Bind Delegate
-	check(AnimInstance);
-	AnimInstance->OnMontageStarted.AddDynamic(this, &ThisClass::HandleMontageStarted);
-	AnimInstance->OnMontageBlendingOut.AddDynamic(this, &ThisClass::HandleMontageBlendingOut);
-	AnimInstance->OnMontageEnded.AddDynamic(this, &ThisClass::HandleMontageEnd);*/
 }
 
 void UCombatAnimSchedulerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -92,13 +81,16 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 		ProceedingRequests.Add(NewId, AddedRequest);
 
 		FMontageBlendSettings BlendInSetting{GetMontageBlendInSetting(AddedRequest.Montage.Get())};
-		AnimInstance->Montage_PlayWithBlendSettings(AddedRequest.Montage.Get(), BlendInSetting, AddedRequest.PlayRate);
+		if (AnimInstance->Montage_PlayWithBlendSettings(AddedRequest.Montage.Get(), BlendInSetting, AddedRequest.PlayRate) > 0.f)
+		{
+			BindMontageNativeDelegates(AddedRequest.Montage.Get(), AddedRequest.RequestID);
+			//UE_LOG(LogTemp, Error, TEXT("Action: Execute Anim Request, Request ID = %d, Montage Name = %s"), AddedRequest.RequestID, *AddedRequest.Montage->GetName())
 		
-		BindMontageNativeDelegates(AddedRequest.Montage.Get(), AddedRequest.RequestID);
-
-		//UE_LOG(LogTemp, Error, TEXT("Action: Execute Anim Request, Request ID = %d, Montage Name = %s"), AddedRequest.RequestID, *AddedRequest.Montage->GetName())
-		
-		return AddedRequest.RequestID;
+			return AddedRequest.RequestID;
+		} else
+		{
+			return INDEX_NONE;
+		}
 	}
 	// Can't Execute
 	UE_LOG(LogTemp, Error, TEXT("Can not Execute Anim Request. Montage = %s"), *Request.Montage->GetName());
@@ -127,7 +119,6 @@ bool UCombatAnimSchedulerComponent::RequestMontageSetNextSection(const int32 Req
 {
 	if (!IsValid(AnimInstance))
 	{
-		UE_LOG(LogTemp, Error, TEXT("Attack Detection: Montage Jump to Section Failed. Invalid AnimInstance"));
 		return false;
 	}
 
@@ -137,8 +128,6 @@ bool UCombatAnimSchedulerComponent::RequestMontageSetNextSection(const int32 Req
 		{
 			AnimInstance->Montage_JumpToSection(LoopSectionName, Request->Montage.Get());
 			AnimInstance->Montage_SetNextSection(LoopSectionName, NextSectionName, Request->Montage.Get());
-			//AnimInstance->Montage_JumpToSection(SectionName, Request->Montage);
-			UE_LOG(LogTemp, Error, TEXT("Attack Detection: Montage Jump to Section Succeed"));
 			return true;
 		}
 	}
@@ -179,7 +168,7 @@ bool UCombatAnimSchedulerComponent::CanExecuteCombatAnimRequest(const FCombatAni
 		}
 		
 		// Not Blending Out. New Request has lower priority
-		if (!IsRequestMontageBlendingOut(&ProceedingRequest) && ProceedingRequest.Priority > Request.Priority)
+		if (!IsRequestMontageBlendingOut(&ProceedingRequest) && Request.Priority > ProceedingRequest.Priority)
 		{
 			UE_LOG(LogTemp, Warning, TEXT("Current Montage Not Blending Out. New Request has lower priority"));
 			return false;	
@@ -208,7 +197,7 @@ FName UCombatAnimSchedulerComponent::GetMontageSlotName(const UAnimMontage* Mont
 {
 	if (!IsValid(Montage) || Montage->SlotAnimTracks.Num() <= 0)
 	{
-		return FName("DefaultSlot");
+		return FName("InvalidSlotName");
 	}
 	return Montage->SlotAnimTracks[0].SlotName;
 }
@@ -273,7 +262,6 @@ void UCombatAnimSchedulerComponent::HandleMontageEnd(UAnimMontage* Montage, bool
 
 void UCombatAnimSchedulerComponent::RefreshProceedingRequest()
 {
-	
 	TArray<TPair<int32, ECombatAnimRequestFinishReason>> PendingFinishRequests;
 	TArray<TPair<int32, ECombatAnimRequestFinishReason>> PendingRemoveRequests;
 

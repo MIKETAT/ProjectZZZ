@@ -121,7 +121,7 @@ public:
 
 	//void RefreshCharacterFrameInputData(const FCharacterFrameDataBus& DataBus) { CharacterFrameDataBus.PlayerInputs = DataBus.PlayerInputs; }
 
-	ECombatEventHandleResult HandleEnemyDeath(const FCombatEventMessage& Msg);
+	ECombatEventHandleResult HandleAgentDeath(const FCombatEventMessage& Msg);
 
 	void SwitchToOnField();
 	

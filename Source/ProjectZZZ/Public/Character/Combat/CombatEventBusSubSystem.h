@@ -25,8 +25,6 @@ struct FCombatEventMessage
 	UPROPERTY(BlueprintReadOnly)
 	FGameplayTag EventTag;
 
-	// Scope
-
 	UPROPERTY(BlueprintReadOnly)
 	TWeakObjectPtr<UObject> Source;
 
@@ -37,13 +35,18 @@ struct FCombatEventMessage
 	TWeakObjectPtr<UObject> Instigator;
 
 	UPROPERTY(BlueprintReadOnly)
-	FGameplayTagContainer ContextTags;
-
-	UPROPERTY(BlueprintReadOnly)
-	int32 SequenceID{0};
-
-	UPROPERTY(BlueprintReadOnly)
 	FInstancedStruct Payload;
+	
+	template <typename TPayload>
+	const TPayload* GetPayloadPtr() const
+	{
+		if (!Payload.IsValid())
+		{
+			return nullptr;
+		}
+
+		return Payload.GetPtr<TPayload>();
+	}
 };
 
 DECLARE_DELEGATE_RetVal_OneParam(ECombatEventHandleResult, FCombatEventDelegate, const FCombatEventMessage&);
@@ -83,11 +86,9 @@ public:
 	template<typename PayloadType>
 	void BroadcastEvent(
 		const FGameplayTag& EventTag,
-		// ECombatEventScope  Character/Squad/Global
 		AActor* Source,
 		AActor* Target,
 		AActor* Instigator,
-		//const FGameplayTagContainer& ContextTags,
 		const PayloadType& Payload
 	)
 	{
@@ -96,22 +97,18 @@ public:
 		Message.Source = Source;
 		Message.Target = Target;
 		Message.Instigator = Instigator;
-		// ...
 		Message.Payload = FInstancedStruct::Make(Payload);
 		Dispatch(Message);
 	}
-
-	// Subscribe
+	
 	FDelegateHandle Subscribe(const FGameplayTag& EventTag, UObject* ListenerOwner, int32 Priority, FCombatEventDelegate Callback);
 	
-	// UnSubscribe
 	void Unsubscribe(const FGameplayTag& EventTag, FDelegateHandle Handle);
 	
 private:
 	void Dispatch(const FCombatEventMessage& Message);
 
 private:
-	int32 SequenceCounter{0};
 
 	TMap<FGameplayTag, FCombatEventChannel> Channels;	
 };

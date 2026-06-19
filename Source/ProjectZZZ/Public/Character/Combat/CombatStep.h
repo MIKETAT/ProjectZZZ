@@ -341,8 +341,8 @@ public:
 		bHasSuccessfullyStarted = false;
 	}
 	
-	UPROPERTY()
-	TObjectPtr<const UCombatActionStep> CurrentStep{nullptr};
+	UPROPERTY(Transient)
+	TWeakObjectPtr<const UCombatActionStep> CurrentStep{nullptr};
 
 	bool bActionLogicFinished{false};
 
@@ -355,7 +355,7 @@ public:
 	uint8 bProceedWindowOpen : 1 {false};
 	uint8 bMovementInterruptWindowOpen : 1 {false};
 	uint8 bIsRecoveryWindowOpen : 1 {false};
-	uint8 bParryWindowOpen  : 1 {false};	// only parry?
+	uint8 bParryWindowOpen : 1 {false};	// only parry?
 	uint8 bHasSuccessfullyStarted : 1 {false};
 	uint8 bHasConfirmedNextAction : 1 {false};
 };

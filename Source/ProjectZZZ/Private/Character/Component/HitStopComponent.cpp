@@ -1,7 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
-#include "Character/Component/HitStopComponent.h"
+﻿#include "Character/Component/HitStopComponent.h"
 
 UHitStopComponent::UHitStopComponent()
 {

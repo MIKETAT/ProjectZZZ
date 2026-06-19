@@ -67,34 +67,6 @@ public:
 	bool bValidConfig{false};
 };
 
-/*UCLASS()
-class UAttackDetectionConfig : public UDataAsset
-{
-	GENERATED_BODY()
-	
-public:
-	UPROPERTY(EditDefaultsOnly)
-	FName WeaponRootSocketName;
-
-	UPROPERTY(EditDefaultsOnly)
-	FName WeaponTipSocketName;
-	
-	UPROPERTY(EditDefaultsOnly)
-	TEnumAsByte<ECollisionChannel> Channel;
-
-	UPROPERTY(EditDefaultsOnly)
-	float MaxSegmentLength{20.f};
-	
-	UPROPERTY(EditDefaultsOnly)
-	int32 SubStepCount{4};
-
-	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "1"))
-	int32 SampleCount{10};
-
-	UPROPERTY(EditDefaultsOnly)
-	FSweepShapeConfig SweepShapeConfig;
-};*/
-
 UENUM(BlueprintType)
 enum class EAttackDetectionMode : uint8
 {
@@ -150,9 +122,6 @@ struct FAttackDetectionSpec
 	UPROPERTY(EditDefaultsOnly)
 	EAttackDetectionTriggerMode TriggerMode{EAttackDetectionTriggerMode::None};
 
-	/*UPROPERTY(EditDefaultsOnly)
-	EHitDedupePolicy DedupePolicy{EHitDedupePolicy::None};*/
-
 	UPROPERTY(EditDefaultsOnly)
 	TEnumAsByte<ECollisionChannel> TraceChannel;
 
@@ -167,7 +136,10 @@ struct FAttackDetectionSpec
 	FName WeaponTipSocketName{FName("WeaponTip")};
 
 	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep || DetectionMode == EAttackDetectionMode::ActorPathSweep", EditConditionHides))
-	int32 SubStepCount{1};
+	int32 MaxSubStepCount{1};
+
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep || DetectionMode == EAttackDetectionMode::ActorPathSweep", EditConditionHides))
+	float MaxSubStepTime{1 / 120.f};
 
 	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep", EditConditionHides))
 	int32 SampleCount{1};
@@ -232,7 +204,6 @@ struct FAttackDetectionSegmentBinding
 	// todo: DOT
 	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "DedupePolicy == EHitDedupePolicy::MultiHitInterval", EditConditionHides))
 	float MultiHitInterval{0.2f};*/
-
 };
 
 USTRUCT(BlueprintType)
@@ -315,9 +286,11 @@ struct FAttackDetectionStatus
 	
 	FRotator LockedRotator{FRotator::ZeroRotator};
 	
-	TSet<TObjectKey<AActor>> HitActors;
+	TSet<TObjectKey<AActor>> SegmentHitActors;
 
 	TSet<TObjectKey<AActor>> ActionHitActors;	// for PerAction
+
+	int32 CurrentActionRequestId{INDEX_NONE};
 };
 
 inline void FAttackDetectionStatus::ResetAll()
@@ -336,7 +309,7 @@ inline void FAttackDetectionStatus::ResetActivationState()
 	LockedForward = FVector::ForwardVector;
 	LockedRotator = FRotator::ZeroRotator;
 	DetectionSegment = FResolvedAttackDetectionSegment();
-	HitActors.Empty();
+	SegmentHitActors.Empty();
 }
 
 inline void FAttackDetectionStatus::ClearActionHitActor()

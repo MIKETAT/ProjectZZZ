@@ -369,19 +369,9 @@ void USquadManagerComponent::OnLingeringAgentActionFinished(APlayerCharacter* Li
 	ApplyAgentOffFieldState(LingeringAgent);
 }
 
-void USquadManagerComponent::SwitchToPreviousAgent(const FCharacterFrameDataBus& DataBus)
-{
-	SwitchToAgent(GetPreviousAgentIndex(), true, DataBus);
-}
-
-void USquadManagerComponent::SwitchToNextAgent(const FCharacterFrameDataBus& DataBus)
-{
-	SwitchToAgent(GetNextAgentIndex(), false, DataBus);
-}
-
 void USquadManagerComponent::SwitchToAgent(const int32 TargetIndex, bool bIsPrevious, const FCharacterFrameDataBus& DataBus)
 {
-	if (TargetIndex != INDEX_NONE && Squad.IsValidIndex(TargetIndex))
+	if (TargetIndex != INDEX_NONE && TargetIndex != ActiveAgentIndex && Squad.IsValidIndex(TargetIndex))
 	{
 		FAgentTransitionRequest Request;
 		Request.TargetAgentIndex = TargetIndex;
@@ -397,7 +387,7 @@ void USquadManagerComponent::SwitchToAgent(const int32 TargetIndex, bool bIsPrev
 
 void USquadManagerComponent::AgentChainAttack(const int32 TargetIndex, bool bIsPrevious)
 {
-	if (Squad.IsValidIndex(TargetIndex) && ActiveAgentIndex != TargetIndex)
+	if (TargetIndex != INDEX_NONE && TargetIndex != ActiveAgentIndex && Squad.IsValidIndex(TargetIndex))
 	{
 		FAgentTransitionRequest Request;
 		Request.TargetAgentIndex = TargetIndex;
@@ -648,6 +638,7 @@ bool USquadManagerComponent::SquadConsumeInput(FCharacterFrameDataBus& DataBus)
 		if (ConsumePerfectAssistInput(DataBus))
 		{
 			PerfectAssistStatus.ResetPerfectAssistWindow();
+			return true;
 		}
 	}
 	
@@ -673,13 +664,13 @@ bool USquadManagerComponent::SquadConsumeInput(FCharacterFrameDataBus& DataBus)
 	// Normal Switch
 	if (DataBus.PlayerInputs.InputActionBitmask.Test(EInputAction::EInputActionFlag_SwitchCharacter_Previous))
 	{
-		SwitchToPreviousAgent(DataBus);
+		SwitchToAgent(GetPreviousAgentIndex(), true, DataBus);
 		DataBus.PlayerInputs.ConsumeInputAction(EInputAction::EInputActionFlag_SwitchCharacter_Previous);
 		return true;
 	}
 	if (DataBus.PlayerInputs.InputActionBitmask.Test(EInputAction::EInputActionFlag_SwitchCharacter_Next))
 	{
-		SwitchToNextAgent(DataBus);
+		SwitchToAgent(GetNextAgentIndex(), false, DataBus);
 		DataBus.PlayerInputs.ConsumeInputAction(EInputAction::EInputActionFlag_SwitchCharacter_Next);
 		return true;
 	}
@@ -783,24 +774,23 @@ void USquadManagerComponent::ExitChainAttackSlowMotion(UWorld* World)
 
 ECombatEventHandleResult USquadManagerComponent::TriggerPerfectAssistWindow(const FCombatEventMessage& CombatEventMessage)
 {
-	if (!CombatEventMessage.Payload.IsValid() || CombatEventMessage.Payload.GetScriptStruct() != FPerfectAssistStatePayload::StaticStruct())
-	{
-		return ECombatEventHandleResult::UnHandled;
-	}
-
 	if (AEnemyCharacterBase* Enemy = Cast<AEnemyCharacterBase>(CombatEventMessage.Source.Get()))
 	{
-		const FPerfectAssistStatePayload& Payload = CombatEventMessage.Payload.Get<FPerfectAssistStatePayload>();
-		PerfectAssistStatus.bPerfectAssistWindowOpen = Payload.bWindowOpen;
-		if (Payload.bWindowOpen)
+		const FPerfectAssistStatePayload* Payload{CombatEventMessage.GetPayloadPtr<FPerfectAssistStatePayload>()};
+		if (!Payload)
+		{
+			return ECombatEventHandleResult::UnHandled;
+		}
+		
+		PerfectAssistStatus.bPerfectAssistWindowOpen = Payload->bWindowOpen;
+		if (Payload->bWindowOpen)
 		{
 			PerfectAssistStatus.TargetEnemy = Enemy;
-			PerfectAssistStatus.ParryReferenceOffset = Payload.ParryReferenceOffset;
+			PerfectAssistStatus.ParryReferenceOffset = Payload->ParryReferenceOffset;
 		} else
 		{
 			PerfectAssistStatus.ResetPerfectAssistWindow();
 		}
-
 		return ECombatEventHandleResult::Handled;
 	}
 	
@@ -809,7 +799,8 @@ ECombatEventHandleResult USquadManagerComponent::TriggerPerfectAssistWindow(cons
 
 ECombatEventHandleResult USquadManagerComponent::TriggerQuickAssistWindow(const FCombatEventMessage& CombatEventMessage)
 {
-	if (!CombatEventMessage.Payload.IsValid() || CombatEventMessage.Payload.GetScriptStruct() != FQuickAssistPayload::StaticStruct())
+	const FQuickAssistPayload* Payload = CombatEventMessage.GetPayloadPtr<FQuickAssistPayload>();
+	if (!Payload)
 	{
 		return ECombatEventHandleResult::UnHandled;
 	}

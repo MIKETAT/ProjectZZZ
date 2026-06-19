@@ -134,7 +134,7 @@ public:
 
 	void RefreshAttackDetection(float DeltaTime);
 
-	void RefreshWeaponSweep();
+	void RefreshWeaponSweep(const float DeltaTime);
 	
 	void SubStepAttackDetection(const FTransform& LastWeaponRootTransform, const FTransform& LastWeaponTipTransform,
 								const FTransform& CurrentWeaponRootTransform, const FTransform& CurrentWeaponTipTransform);
@@ -149,9 +149,9 @@ public:
 
 	FAttackDetectedTarget MakeDetectedTargetFromOverlap(const FOverlapResult& OverlapResult, const FTransform& QueryTransform);
 
-	void ProcessDetectionResults(const FAttackDetectedTarget& DetectedTarget, const FResolvedAttackDetectionSegment& Segment, TSet<TObjectKey<AActor>>& ActivationHitActors);
+	void ProcessDetectionResults(const FAttackDetectedTarget& DetectedTarget, const FResolvedAttackDetectionSegment& Segment);
 
-	bool PassHitDedupe(AActor* HitActor, const FResolvedAttackDetectionSegment& Segment, TSet<TObjectKey<AActor>>& ActivationHitActors);
+	bool PassHitDedupe(AActor* HitActor, const FResolvedAttackDetectionSegment& Segment);
 	
 	virtual void InjectAndBindASC(UAgentAbilitySystemComponent* InASC);
 	

@@ -229,6 +229,7 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 		TryApplyMotionWarpingIfNeeded(ActionStep, Enemy);
 			
 		CurrentExecutionState.Reset();
+		DetectionStatus.ResetAll();
 		CurrentExecutionState.CurrentStep = ActionStep;
 		CurrentExecutionState.MontageInstanceId = InstanceID;
 		CurrentExecutionState.bHasSuccessfullyStarted = true;
@@ -418,7 +419,7 @@ AEnemyCharacterBase* UCharacterCombatComponent::FindClosestEnemy(const float Max
 
 void UCharacterCombatComponent::NotifyActionLogicFinished(const FGameplayTag& Tag)
 {
-	if (!CurrentExecutionState.CurrentStep || CurrentExecutionState.CurrentStep->ActionTag != Tag)
+	if (!CurrentExecutionState.CurrentStep.IsValid() || CurrentExecutionState.CurrentStep->ActionTag != Tag)
 	{
 		return;
 	}
@@ -437,7 +438,7 @@ void UCharacterCombatComponent::NotifyActionLogicFinished(const FGameplayTag& Ta
 
 bool UCharacterCombatComponent::IsCurrentActionLogicFinished() const
 {
-	return		CurrentExecutionState.CurrentStep
+	return		CurrentExecutionState.CurrentStep.IsValid()
 			&&	CurrentExecutionState.bHasSuccessfullyStarted
 			&&	CurrentExecutionState.bActionLogicFinished
 			&&	CurrentExecutionState.MontageInstanceId == CurrentExecutionState.LogicFinishedActionRequestId;
@@ -469,12 +470,12 @@ void UCharacterCombatComponent::InitializeCombatStepList()
 
 bool UCharacterCombatComponent::IsAllowMovementInterruptAction() const
 {
-	return CurrentExecutionState.CurrentStep && CurrentExecutionState.bMovementInterruptWindowOpen;
+	return CurrentExecutionState.CurrentStep.IsValid() && CurrentExecutionState.bMovementInterruptWindowOpen;
 }
 
 void UCharacterCombatComponent::HandleCombatWindowChange(const FGameplayTag Tag, bool bIsOpen, UAnimMontage* SourceMontage)
 {
-	if (!IsValid(SourceMontage) || !IsValid(CurrentExecutionState.CurrentStep)
+	if (!IsValid(SourceMontage) || !CurrentExecutionState.CurrentStep.IsValid()
 		|| !IsValid(CurrentExecutionState.CurrentStep->Montage) || SourceMontage != CurrentExecutionState.CurrentStep->Montage)
 	{
 		return;
@@ -595,7 +596,7 @@ void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Conte
 	}
 
 	// Parry Check
-	if (CurrentExecutionState.CurrentStep && CurrentExecutionState.CurrentStep->ParryConfig.bIsParryAction
+	if (CurrentExecutionState.CurrentStep.IsValid() && CurrentExecutionState.CurrentStep->ParryConfig.bIsParryAction
 		&& AbilitySystemComponent->HasMatchingGameplayTag(Combat::Status::Agent::Parry))
 	{
 		// Jump to Section
