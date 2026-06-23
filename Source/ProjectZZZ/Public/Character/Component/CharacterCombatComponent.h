@@ -87,6 +87,11 @@ public:
 	bool IsCurrentActionLogicFinished() const;
 	
 	void ProcessFrameInput(const FPlayerInputs& FrameInputs);
+
+	// Camera
+	bool ActivateCombatCamera(const ECombatCameraMode CameraMode);
+
+	void DeactivateCombatCamera(const ECombatCameraMode CameraMode);
 private:
 	// Input
 	void ProcessInputAction(const FPlayerInputs& FrameInputs);

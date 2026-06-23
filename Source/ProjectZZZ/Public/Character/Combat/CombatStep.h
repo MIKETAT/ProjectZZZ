@@ -5,9 +5,11 @@
 #include "GameplayTagContainer.h"
 #include "MotionWarpCalcMethod.h"
 #include "Input/PlayerInputHandlerComponent.h"
+#include "Public/Camera/CombatCameraTypes.h"
 #include "StructUtils/InstancedStruct.h"
 #include "CombatStep.generated.h"
 
+class APlayerCharacter;
 struct FAttackDetectionConfig;
 class ULevelSequence;
 class AEnemyCharacterBase;
@@ -242,6 +244,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Features | Camera")
 	FCinematicCameraConfig CameraConfig;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Features | Camera")
+	FCombatCameraConfig CombatCameraConfig;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Features | MotionWarp")
 	bool bEnableMotionWarp{false};
@@ -330,6 +335,7 @@ public:
 	void Reset()
 	{
 		CurrentStep = nullptr;
+		Enemy = nullptr;
 		MontageInstanceId = INDEX_NONE;
 
 		bInputBufferWindowOpen = false;
@@ -343,6 +349,9 @@ public:
 	
 	UPROPERTY(Transient)
 	TWeakObjectPtr<const UCombatActionStep> CurrentStep{nullptr};
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ACharacterBase> Enemy{nullptr};
 
 	bool bActionLogicFinished{false};
 

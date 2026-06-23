@@ -8,6 +8,7 @@
 #include "Animation/AnimInstanceBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/CharacterBase.h"
+#include "Character/ZZZPlayerController.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/HitStopComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -15,6 +16,7 @@
 #include "Player/PlayerCharacter.h"
 #include "Utility/ZZZGameplayTag.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
+#include "Character/Component/CombatCameraDirectorComponent.h"
 
 UCharacterCombatComponent::UCharacterCombatComponent()
 {
@@ -48,6 +50,72 @@ void UCharacterCombatComponent::ProcessFrameInput(const FPlayerInputs& FrameInpu
 {
 	ProcessInputAction(FrameInputs);
 	ProcessBufferedInput(FrameInputs);
+}
+
+bool UCharacterCombatComponent::ActivateCombatCamera(const ECombatCameraMode CameraMode)
+{
+	APlayerCharacter* Agent{Cast<APlayerCharacter>(Character)};
+	if (!Agent || CameraMode == ECombatCameraMode::None)
+	{
+		return false;
+	}
+
+	AZZZPlayerController* PC{Cast<AZZZPlayerController>(Agent->GetController())};
+	if (!PC || !CurrentExecutionState.CurrentStep.IsValid())
+	{
+		return false; 
+	}
+
+	const UCombatActionStep* ActionStep{CurrentExecutionState.CurrentStep.Get()};
+	if (!ActionStep)
+	{
+		return false;
+	}
+	
+	const FCombatCameraConfig& Config{ActionStep->CombatCameraConfig};
+	if (!Config.bEnableCombatCamera || Config.CameraMode != CameraMode)
+	{
+		return false;
+	}
+
+	UCombatCameraDirectorComponent* DirectorComponent{PC->GetCameraDirectorComponent()};
+	if (!DirectorComponent)
+	{
+		return false;
+	}
+
+	FCombatCameraSectionContext Context;
+	Context.Agent = Agent;
+	Context.CameraMode = CameraMode;
+	Context.CameraConfig = Config;
+	Context.AgentSectionTransform = Agent->GetActorTransform();
+	Context.Enemy = CurrentExecutionState.Enemy.Get();
+	
+	return DirectorComponent->ActivateCameraSection(Context); 
+}
+
+// todo: Review
+void UCharacterCombatComponent::DeactivateCombatCamera(const ECombatCameraMode CameraMode)
+{
+	APlayerCharacter* Agent{Cast<APlayerCharacter>(Character)};
+	if (!Agent || CameraMode == ECombatCameraMode::None)
+	{
+		return;
+	}
+
+	AZZZPlayerController* PC{Cast<AZZZPlayerController>(Agent->GetController())};
+	if (!PC)
+	{
+		return; 
+	}
+	
+	UCombatCameraDirectorComponent* DirectorComponent{PC->GetCameraDirectorComponent()};
+	if (!DirectorComponent)
+	{
+		return;
+	}
+
+	DirectorComponent->DeactivateCameraSection(CameraMode, Agent);
 }
 
 void UCharacterCombatComponent::ProcessInputAction(const FPlayerInputs& FrameInputs)
@@ -230,7 +298,9 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 			
 		CurrentExecutionState.Reset();
 		DetectionStatus.ResetAll();
+		
 		CurrentExecutionState.CurrentStep = ActionStep;
+		CurrentExecutionState.Enemy = Enemy;
 		CurrentExecutionState.MontageInstanceId = InstanceID;
 		CurrentExecutionState.bHasSuccessfullyStarted = true;
 	} else

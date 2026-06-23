@@ -5,6 +5,7 @@
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
 #include "Character/Component/CharacterCombatComponent.h"
+#include "Character/Component/CombatCameraDirectorComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameModeBase.h"
 #include "Kismet/GameplayStatics.h"
@@ -399,7 +400,7 @@ void USquadManagerComponent::AgentChainAttack(const int32 TargetIndex, bool bIsP
 		Request.SpecialActionToExecute = bIsPrevious ? GetPreviousAgent()->GetSpecialAction(Combat::SpecialAction::ChainAttack) : GetNextAgent()->GetSpecialAction(Combat::SpecialAction::ChainAttack);
 		ExecuteAgentTransition(Request);
 
-		OnUpdateCameraTransform.Broadcast(CalculateActionCameraPosition(Request));
+		//OnUpdateCameraTransform.Broadcast(CalculateActionCameraPosition(Request));
 	}
 	CloseChainAttackWindow();
 }
@@ -411,15 +412,21 @@ void USquadManagerComponent::AgentDefensiveAssist(const int32 TargetIndex, bool 
 		FAgentTransitionRequest Request;
 		Request.TargetAgentIndex = TargetIndex;
 		Request.SwitchInMode = EAgentSwitchInMode::ExecuteDefensiveAssist;
-		Request.SwitchOutMode = IsActiveAgentExecutingAction() ? EAgentSwitchOutMode::FinishActionThenExit : EAgentSwitchOutMode::ExitWithSwitchOutAnim;		// todo: 确认
+		Request.SwitchOutMode = IsActiveAgentExecutingAction() ? EAgentSwitchOutMode::FinishActionThenExit : EAgentSwitchOutMode::ExitImmediately;
 		Request.SpawnPolicy = EAgentSpawnPolicy::ParryAssistFacingTarget;
 		Request.CurrentAgent = GetActiveAgent();
 		Request.Enemy = PerfectAssistStatus.TargetEnemy;
 		Request.SpecialActionToExecute = bIsPrevious ?	GetPreviousAgent()->GetSpecialAction(Combat::SpecialAction::DefensiveAssist) :
 														GetNextAgent()->GetSpecialAction(Combat::SpecialAction::DefensiveAssist);
+
+		if (!CanExecuteAgentTransition(Request))
+		{
+			return;
+		}
+		
+		PrepareParryAssistCameraContext(Request, bIsPrevious);
 		ExecuteAgentTransition(Request);
 		
-		OnUpdateCameraTransform.Broadcast(CalculateActionCameraPosition(Request));
 	}
 }
 
@@ -437,7 +444,7 @@ void USquadManagerComponent::AgentQuickAssist(const int32 TargetIndex)
 		Request.SpecialActionToExecute = GetNextAgent()->GetSpecialAction(Combat::SpecialAction::QuickAssist);
 		ExecuteAgentTransition(Request);
 
-		OnUpdateCameraTransform.Broadcast(CalculateActionCameraPosition(Request));
+		//OnUpdateCameraTransform.Broadcast(CalculateActionCameraPosition(Request));
 	}
 }
 
@@ -1050,6 +1057,91 @@ FTransform USquadManagerComponent::CalculateActionCameraPosition(const FAgentTra
 		*/
 	
 	return TargetCameraTransform;
+}
+
+/*void USquadManagerComponent::PrepareCameraRequest(const FAgentTransitionRequest& Request)
+{
+	if (!OwnerController.Get() || !Request.SpecialActionToExecute || !Request.Enemy)
+	{
+		return;
+	}
+
+	APlayerCharacter* TargetAgent{GetTargetAgent(Request.TargetAgentIndex)};
+	if (!TargetAgent)
+	{
+		return;
+	}
+
+	const FCombatCameraConfig& CameraConfig{Request.SpecialActionToExecute->CombatCameraConfig};
+	if (CameraConfig.CameraMode != ECombatCameraMode::ParryAssist)
+	{
+		return;
+	}
+
+	UCombatCameraDirectorComponent* DirectorComponent{OwnerController->GetCameraDirectorComponent()};
+	if (!DirectorComponent)
+	{
+		return;
+	}
+
+	const FVector EnemyLocation{Request.Enemy->GetActorLocation()};
+	FVector EnemyForward{FVector::VectorPlaneProject(Request.Enemy->GetActorForwardVector(), FVector::UpVector).GetSafeNormal()};
+	if (EnemyForward.IsNearlyZero())
+	{
+		return;
+	}
+
+	FCombatCameraRequest CameraRequest;
+	CameraRequest.Agent = TargetAgent;
+	CameraRequest.Config = CameraConfig;
+	CameraRequest.AnchorLocation = EnemyLocation + EnemyForward * PerfectAssistStatus.ParryReferenceOffset;
+	CameraRequest.BasisForward = -EnemyForward;
+	CameraRequest.SideSign = -1;	//todo
+
+	DrawDebugSphere(GetWorld(), CameraRequest.AnchorLocation, 5.f, 8, FColor::Purple, false, 5.f);
+	
+	DirectorComponent->PrepareCameraRequest(CameraRequest);
+}*/
+
+void USquadManagerComponent::PrepareParryAssistCameraContext(const FAgentTransitionRequest& Request, bool bIsPrevious)
+{
+	if (!OwnerController.Get() || !Request.SpecialActionToExecute || !Request.Enemy)
+	{
+		return;
+	}
+
+	APlayerCharacter* TargetAgent{GetTargetAgent(Request.TargetAgentIndex)};
+	if (!TargetAgent)
+	{
+		return;
+	}
+
+	const FCombatCameraConfig& CameraConfig{Request.SpecialActionToExecute->CombatCameraConfig};
+	if (CameraConfig.CameraMode != ECombatCameraMode::ParryAssist)
+	{
+		return;
+	}
+
+	UCombatCameraDirectorComponent* DirectorComponent{OwnerController->GetCameraDirectorComponent()};
+	if (!DirectorComponent)
+	{
+		return;
+	}
+
+	const FVector EnemyLocation{Request.Enemy->GetActorLocation()};
+	const FVector EnemyToAgentDir{(EnemyLocation - TargetAgent->GetActorLocation()).GetSafeNormal()};
+	FVector EnemyForward{FVector::VectorPlaneProject(EnemyToAgentDir, FVector::UpVector).GetSafeNormal()};
+	if (EnemyForward.IsNearlyZero())
+	{
+		return;
+	}
+
+	FCombatCameraContext Context;
+	Context.bHasAnchorLocation = true;
+	Context.AnchorLocation = EnemyLocation + EnemyForward * PerfectAssistStatus.ParryReferenceOffset;
+	Context.SideSign = bIsPrevious ? -1 : 1;
+	
+	DirectorComponent->PrepareCameraContext(ECombatCameraMode::ParryAssist, TargetAgent, Context);
 }
 
 FTransform USquadManagerComponent::CalculateUltimateCameraPosition(UCombatActionStep* Ultimate, const FTransform& AgentTransform)

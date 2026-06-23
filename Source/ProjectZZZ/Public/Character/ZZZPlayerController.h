@@ -8,6 +8,7 @@
 #include "Input/PlayerInputHandlerComponent.h"
 #include "ZZZPlayerController.generated.h"
 
+class UCombatCameraDirectorComponent;
 class UPostProcessComponent;
 struct FPendingUltimateCutInRequest;
 class APlayerCharacter;
@@ -53,6 +54,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	USquadManagerComponent* GetSquadManagerComponent() const { return SquadManager; }
 
+	UFUNCTION()
+	UCombatCameraDirectorComponent* GetCameraDirectorComponent() const { return CameraDirectorComponent;}
+	
 	UFUNCTION(BlueprintCallable)
 	APlayerCharacter* GetActiveAgent() const;
 
@@ -63,7 +67,7 @@ public:
 	void RequestUltimateCutIn(const FPendingUltimateCutInRequest& Request);
 
 	UFUNCTION(BlueprintCallable)
-	void OnCameraRigSelected(const FGameplayTag& SelectedCameraRigTag);
+	void OnCameraRigSelected(const ECombatCameraMode SelectedCameraMode);
 
 	void CommitPendingUltimateCutIn();
 
@@ -76,6 +80,12 @@ public:
 
 	UFUNCTION()
 	void HandleUltimateActionFinished(APlayerCharacter* Agent, ECombatAnimRequestFinishReason Reason);
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateCombatCameraForEvaluator(const float DeltaTime);
+
+	UFUNCTION(BlueprintCallable)
+	ECombatCameraMode GetActiveCombatCameraMode() const;
 private:
 	void CreateQTEWidget();
 	
@@ -90,6 +100,7 @@ private:
 	void EnableUltimateCutInPostProcess(APlayerCharacter* Agent, const FLinearColor& BackgroundColor, const int32 StencilValue);
 
 	void DisableUltimateCutInPostProcess();
+	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FGameplayTag CurrentCameraRigTag;
@@ -99,6 +110,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UQuickAssistWindow> QuickAssistWidgetClass;
+	
 protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPlayerInputHandlerComponent> PlayerInputHandlerComponent{nullptr};
@@ -108,17 +120,14 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Feature | Ultimate")
 	TObjectPtr<UMaterialParameterCollection> MPC_UltimateCutIn;
-	
-	/*UPROPERTY()
-	TObjectPtr<UMaterialInstanceDynamic> UltimateCutInMID{nullptr};
-
-	UPROPERTY()
-	TObjectPtr<UPostProcessComponent> UltimateCutInPostProcessComponent{nullptr};*/
 
 	bool bUltimateCutInPostProcessActive{false};
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<USquadManagerComponent> SquadManager{nullptr};
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	TObjectPtr<UCombatCameraDirectorComponent> CameraDirectorComponent{nullptr};
 	
 	UPROPERTY()
 	TObjectPtr<UQTEWidget> QTEWidget{nullptr};

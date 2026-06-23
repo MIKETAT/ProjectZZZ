@@ -22,7 +22,7 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTriggerChainAttackWindow, UTexture2D*, U
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssistWindow, UTexture2D*);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpdateCameraTransform, const FTransform&, CameraTransform);
+//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpdateCameraTransform, const FTransform&, CameraTransform);
 
 DECLARE_MULTICAST_DELEGATE(FOnFinishChainAttack);
 
@@ -287,12 +287,12 @@ private:
 
 	FTransform GetInitialSpawnTransform() const;
 
-	/*FTransform CalculateParryCameraPosition(const FAgentTransitionRequest& Request);
-
-	FTransform CalculateChainAttackCameraPosition(const FAgentTransitionRequest& Request);*/
-
+	// Camera
 	FTransform CalculateActionCameraPosition(const FAgentTransitionRequest& Request);
 
+	//void PrepareCameraRequest(const FAgentTransitionRequest& Request);
+
+	void PrepareParryAssistCameraContext(const FAgentTransitionRequest& Request, bool bIsPrevious);
 	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -300,8 +300,9 @@ public:
 
 	FOnTriggerChainAttackWindow OnTriggerChainAttackWindow;
 
-	UPROPERTY(BlueprintAssignable)
+	/*UPROPERTY(BlueprintAssignable)
 	FOnUpdateCameraTransform OnUpdateCameraTransform;
+	*/
 	
 	FOnFinishChainAttack OnFinishChainAttack;
 

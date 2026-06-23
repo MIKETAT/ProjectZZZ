@@ -7,6 +7,7 @@
 #include "AI/EnemyCharacterBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Blueprint/UserWidget.h"
+#include "Character/Component/CombatCameraDirectorComponent.h"
 #include "Character/Component/SquadManagerComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "Kismet/KismetMaterialLibrary.h"
@@ -20,6 +21,8 @@ AZZZPlayerController::AZZZPlayerController()
 	PlayerInputHandlerComponent = CreateDefaultSubobject<UPlayerInputHandlerComponent>(TEXT("InputHandlerComponent"));
 
 	SquadManager = CreateDefaultSubobject<USquadManagerComponent>(TEXT("SquadManager"));
+
+	CameraDirectorComponent = CreateDefaultSubobject<UCombatCameraDirectorComponent>(TEXT("CameraDirectorComponent"));
 }
 
 void AZZZPlayerController::BeginPlay()
@@ -84,18 +87,19 @@ void AZZZPlayerController::RequestUltimateCutIn(const FPendingUltimateCutInReque
 	Request.Agent->GetAbilitySystemComp()->AddLooseGameplayTag(Combat::Camera::Status::UltimateCamera);
 }
 
-void AZZZPlayerController::OnCameraRigSelected(const FGameplayTag& SelectedCameraRigTag)
+void AZZZPlayerController::OnCameraRigSelected(const ECombatCameraMode SelectedCameraMode)
 {
-	if (SelectedCameraRigTag == CurrentCameraRigTag)
+	// todo
+	/*if (SelectedCameraMode == CurrentCameraRigTag)
 	{
 		return;
 	}
 
-	CurrentCameraRigTag = SelectedCameraRigTag;
-	if (PendingUltimateCutInRequest.bIsValid && SelectedCameraRigTag == PendingUltimateCutInRequest.CameraStateTag)
+	CurrentCameraRigTag = SelectedCameraMode;
+	if (PendingUltimateCutInRequest.bIsValid && SelectedCameraMode == PendingUltimateCutInRequest.CameraStateTag)
 	{
 		CommitPendingUltimateCutIn();
-	} 
+	} */
 }
 
 void AZZZPlayerController::CommitPendingUltimateCutIn()
@@ -171,7 +175,7 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 		}
 
 		FTransform CameraTransform{SquadManager->CalculateUltimateCameraPosition(Ultimate, Agent->GetTransform())};
-		SquadManager->OnUpdateCameraTransform.Broadcast(CameraTransform);
+		//SquadManager->OnUpdateCameraTransform.Broadcast(CameraTransform);
 	} else
 	{
 		UE_LOG(LogTemp, Error, TEXT("SquadManager invalid! THIS LOG SHOULD NOT BE PRINTED!"));
@@ -276,6 +280,19 @@ void AZZZPlayerController::HandleUltimateActionFinished(APlayerCharacter* Agent,
 	SquadManager->SetLockAgentSwitch(false);
 	
 	UltimateExecutionState.Reset();
+}
+
+void AZZZPlayerController::UpdateCombatCameraForEvaluator(const float DeltaTime)
+{
+	if (CameraDirectorComponent)
+	{
+		CameraDirectorComponent->UpdateCamera(DeltaTime);
+	}
+}
+
+ECombatCameraMode AZZZPlayerController::GetActiveCombatCameraMode() const
+{
+	return CameraDirectorComponent ? CameraDirectorComponent->GetActiveCombatCameraMode() : ECombatCameraMode::None;
 }
 
 void AZZZPlayerController::CreateQTEWidget()
