@@ -36,8 +36,6 @@ struct FPendingUltimateCutInRequest
 	
 	TWeakObjectPtr<ULevelSequence> CutInSequence{nullptr};
 	
-	FGameplayTag CameraStateTag{FGameplayTag::EmptyTag};
-	
 	FLinearColor BackgroundColor{FLinearColor::White};
 	
 	int32 StencilValue{42};

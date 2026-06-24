@@ -49,7 +49,7 @@ void UCharacterCombatComponent::InitializeComponent()
 void UCharacterCombatComponent::ProcessFrameInput(const FPlayerInputs& FrameInputs)
 {
 	ProcessInputAction(FrameInputs);
-	ProcessBufferedInput(FrameInputs);
+	ProcessBufferedInput();
 }
 
 bool UCharacterCombatComponent::ActivateCombatCamera(const ECombatCameraMode CameraMode)
@@ -94,7 +94,6 @@ bool UCharacterCombatComponent::ActivateCombatCamera(const ECombatCameraMode Cam
 	return DirectorComponent->ActivateCameraSection(Context); 
 }
 
-// todo: Review
 void UCharacterCombatComponent::DeactivateCombatCamera(const ECombatCameraMode CameraMode)
 {
 	APlayerCharacter* Agent{Cast<APlayerCharacter>(Character)};
@@ -144,8 +143,7 @@ void UCharacterCombatComponent::ProcessInputAction(const FPlayerInputs& FrameInp
 	}
 }
 
-// todo: Delete Parameter
-void UCharacterCombatComponent::ProcessBufferedInput(const FPlayerInputs& FrameInputs)
+void UCharacterCombatComponent::ProcessBufferedInput()
 {
 	if (!PendingIntent.IsValid())
 	{
@@ -373,19 +371,23 @@ void UCharacterCombatComponent::TryApplyMotionWarpingIfNeeded(const UCombatActio
 
 void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpConfig& Config, const APlayerCharacter* Agent, const AEnemyCharacterBase* Enemy)
 {
-	if (!Agent || !Enemy)
+	if (!Agent)
 	{
 		return;
 	}
 	
 	FVector AgentLocation{Agent->GetActorLocation()};
-	FVector EnemyLocation{Enemy->GetActorLocation()};
-	FRotator FacingEnemyRotation{(EnemyLocation - AgentLocation).GetSafeNormal2D().Rotation()};
 	
 	switch (Config.Rules)
 	{
 		case EMotionWarpCalculationRules::EnemyRelativeFacing:
 			{
+				if (!Enemy)
+				{
+					break;
+				}
+				FVector EnemyLocation{Enemy->GetActorLocation()};
+				FRotator FacingEnemyRotation{(EnemyLocation - AgentLocation).GetSafeNormal2D().Rotation()};
 				if (const FMotionWarpCalcMethod_EnemyRelative* Method = Config.CalculationMethod.GetPtr<FMotionWarpCalcMethod_EnemyRelative>())
 				{
 					FVector Offset{FVector::ZeroVector};
@@ -412,6 +414,12 @@ void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpC
 			break;
 		case EMotionWarpCalculationRules::PiercingLine:
 			{
+				if (!Enemy)
+				{
+					break;
+				}
+				FVector EnemyLocation{Enemy->GetActorLocation()};
+				FRotator FacingEnemyRotation{(EnemyLocation - AgentLocation).GetSafeNormal2D().Rotation()};
 				if (const FMotionWarpCalcMethod_PiercingLine* Method = Config.CalculationMethod.GetPtr<FMotionWarpCalcMethod_PiercingLine>())
 				{
 					float PiercingLength{Method->PiercingLength};
@@ -431,13 +439,12 @@ void UCharacterCombatComponent::ApplyStaticPointMotionWarping(const FMotionWarpC
 						Config.WarpTargetName,
 						AgentLocation,
 						Agent->GetActorRotation());
+				//DrawDebugCapsule(GetWorld(), AgentLocation, 50.f, 30.f, Agent->GetActorRotation().Quaternion(), FColor::Green, false, 5.f);
 			}
 			break;
 
 		default:
-			{
-				
-			}	
+			{}	
 	}
 }
 
@@ -675,8 +682,18 @@ void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Conte
 		
 		// Apply GE On Enemy
 		const FParryActionConfig& ParryConfig{CurrentExecutionState.CurrentStep->ParryConfig};
-		ApplyGameplayEffectOnTarget(AbilitySystemComponent, Context.InstigatorASC.Get(), ParryConfig.ParryEffectOnEnemy);
+		ApplyGameplayEffectOnTarget(AbilitySystemComponent, Context.InstigatorASC.Get(), ParryConfig.ParryEffectOnEnemy); 
 
+		// Play Sound
+		if (ParryConfig.ParrySuccessSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(this,
+												ParryConfig.ParrySuccessSound,
+												Character->GetActorLocation(),
+												ParryConfig.ParrySuccessVolume,
+												ParryConfig.ParrySuccessPitch);
+		}
+		
 		// Apply HitStop
 		Character->GetHitStopComponent()->ApplyHitStop(ParryConfig.HitStopDuration, ParryConfig.HitStopTimeScale);
 		
@@ -686,6 +703,11 @@ void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Conte
 		
 		CombatAnimSchedulerComponent->RequestMontageSetNextSection(CurrentExecutionState.MontageInstanceId, ParryConfig.LoopSectionName, ParryConfig.FollowSectionName);
 
+		// BroadCast Event
+		if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
+		{
+			EventBus->BroadcastEvent(Combat::Event::ParrySucceed, Character, Context.Target, Context.Instigator, FPlainPayload());	// ParrySucceed Payload
+		}
 		return;
 	}
 

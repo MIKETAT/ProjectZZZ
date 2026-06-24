@@ -22,8 +22,6 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTriggerChainAttackWindow, UTexture2D*, U
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnTriggerQuickAssistWindow, UTexture2D*);
 
-//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpdateCameraTransform, const FTransform&, CameraTransform);
-
 DECLARE_MULTICAST_DELEGATE(FOnFinishChainAttack);
 
 DECLARE_MULTICAST_DELEGATE(FOnFinishQuickAssist);
@@ -194,7 +192,6 @@ public:
 	FTransform CalculateUltimateCameraPosition(UCombatActionStep* Ultimate, const FTransform& AgentTransform);
 private:
 	// Switch Agent
-	// Todo: 切换到后台的代理人动作只执行到逻辑结算结束就退到后台，不播放收刀之类的后摇动画
 	// Todo: 运动状态下切换代理人, 应继承原运动状态(动画表现)
 	void ExecuteAgentTransition(const FAgentTransitionRequest& Request);
 
@@ -289,9 +286,7 @@ private:
 
 	// Camera
 	FTransform CalculateActionCameraPosition(const FAgentTransitionRequest& Request);
-
-	//void PrepareCameraRequest(const FAgentTransitionRequest& Request);
-
+	
 	void PrepareParryAssistCameraContext(const FAgentTransitionRequest& Request, bool bIsPrevious);
 	
 public:
@@ -299,10 +294,6 @@ public:
 	TArray<TSubclassOf<APlayerCharacter>> SquadPreset;
 
 	FOnTriggerChainAttackWindow OnTriggerChainAttackWindow;
-
-	/*UPROPERTY(BlueprintAssignable)
-	FOnUpdateCameraTransform OnUpdateCameraTransform;
-	*/
 	
 	FOnFinishChainAttack OnFinishChainAttack;
 

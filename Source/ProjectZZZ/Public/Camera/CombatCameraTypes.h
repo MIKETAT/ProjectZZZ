@@ -14,6 +14,7 @@ enum class  ECombatCameraMode : uint8
 	ParryAssist,
 	FixedActionView,
 	ActionFocusView,
+	ForwardDashFollowView,	// 跟随动作前进方向
 	// ...
 };
 
@@ -29,6 +30,8 @@ public:
 		CameraMode = ECombatCameraMode::None;
 		LocalCameraOffset = FVector::ZeroVector;
 		LocalLookAtOffset = FVector::ZeroVector;
+		AnchorTargetWeight = 0.f;
+		LookAtTargetWeight = 0.f;
 	}
 	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
@@ -43,11 +46,29 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = bEnableCombatCamera))
 	FVector LocalLookAtOffset{FVector::ZeroVector};		// 相机相对 看向点 的偏移
 
+	// Interp Smooth
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = bEnableCombatCamera))
-	float AnchorTargetWeight{0.f};
+	float LocationInterpSpeed{10.f};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = bEnableCombatCamera))
+	float RotationInterpSpeed{10.f};
+	
+	// for ActionFocusView
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bEnableCombatCamera && CameraMode == ECombatCameraMode::ActionFocusView"))
+	float AnchorTargetWeight{0.f};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bEnableCombatCamera && CameraMode == ECombatCameraMode::ActionFocusView"))
 	float LookAtTargetWeight{0.f};
+
+	// for ForwardDashFollowView
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bEnableCombatCamera && CameraMode == ECombatCameraMode::ForwardDashFollowView"))
+	float ForwardFollowWeight{1.0f};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bEnableCombatCamera && CameraMode == ECombatCameraMode::ForwardDashFollowView"))
+	float LateralFollowWeight{0.2f};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bEnableCombatCamera && CameraMode == ECombatCameraMode::ForwardDashFollowView"))
+	float VerticalFollowWeight{0.5f};
 };
 
 USTRUCT()
@@ -70,7 +91,7 @@ public:
 	TWeakObjectPtr<APlayerCharacter> Agent{nullptr};
 
 	UPROPERTY()
-	TWeakObjectPtr<AEnemyCharacterBase> Enemy{nullptr};
+	TWeakObjectPtr<ACharacterBase> Enemy{nullptr};
 
 	UPROPERTY()
 	FCombatCameraConfig Config;
@@ -104,7 +125,7 @@ public:
 	FVector AnchorLocation{FVector::ZeroVector};
 	
 	UPROPERTY()
-	TWeakObjectPtr<AEnemyCharacterBase> Enemy{nullptr};
+	TWeakObjectPtr<ACharacterBase> Enemy{nullptr};
 
 	float SideSign{1.f};
 };

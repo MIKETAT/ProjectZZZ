@@ -13,7 +13,6 @@ void FPendingUltimateCutInRequest::Reset()
 	Agent = nullptr;
 	UltimateAction = nullptr;
 	CutInSequence = nullptr;
-	CameraStateTag = FGameplayTag::EmptyTag;
 	bIsValid = false;
 }
 
@@ -22,7 +21,6 @@ void FActiveUltimateExecutionState::Reset()
 	Agent = nullptr;
 	SequencePlayer = nullptr;
 	SequenceActor = nullptr;
-	CameraStateTag = FGameplayTag::EmptyTag;
 	bIsValid = false;
 	bSequenceFinished = false;
 	bActionFinished = false;

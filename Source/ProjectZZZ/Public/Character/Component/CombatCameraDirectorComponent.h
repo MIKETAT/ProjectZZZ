@@ -18,6 +18,7 @@ public:
 		bActive = false;
 		Request.Reset();
 		LockedCameraLocation = FVector::ZeroVector;
+		SmoothedTransform = FTransform::Identity;
 	}
 	
 	bool bActive{false};
@@ -25,6 +26,7 @@ public:
 	FCombatCameraRequest Request;
 
 	FVector LockedCameraLocation{FVector::ZeroVector};
+	FTransform SmoothedTransform{FTransform::Identity};
 };
 
 USTRUCT()
@@ -82,6 +84,9 @@ public:
 	// for ActionFocusView
 	bool ResolveActionFocusRequest(const FCombatCameraSectionContext& Context, FCombatCameraRequest& OutRequest);
 
+	// for ForwardDashFollowView
+	bool ResolveForwardDashFollowViewRequest(const FCombatCameraSectionContext& Context, FCombatCameraRequest& OutRequest);
+	
 	bool ActivateCameraSection(const FCombatCameraSectionContext& InContext);
 
 	void DeactivateCameraSection(const ECombatCameraMode CameraMode, APlayerCharacter* Agent);
@@ -89,7 +94,7 @@ public:
 	// 初始化镜头动作镜头
 	bool InitializeStaticActionCameraState();
 
-	bool CalculateCurrentCameraTransform(FTransform& OutTransform);
+	bool CalculateCurrentCameraTransform(FTransform& OutTransform, const float DeltaTime);
 	
 	bool InitializeActiveCameraState();
 
@@ -97,19 +102,26 @@ public:
 	
 	bool CalculateFixedPointCameraTransform(FTransform& OutTransform);
 
+	bool CalculateActionFocusViewCameraTransform(FTransform& OutTransform, const float DeltaTime);
+
+	bool CalculateForwardDashFollowViewCameraTransform(FTransform& OutTransform, const float DeltaTime);
+	
 private:
 	void SetActiveCameraState(const FCombatCameraRequest& Request);
 
 	void ClearActiveCameraState();
 
 	void ApplyPreparedContextIfMatched(FCombatCameraSectionContext& OutContext);
+
+	void SmoothCameraTransform(const FTransform& TargetTransform, FTransform& OutTransform,
+		const float InterpLocationSpeed, const float InterpRotationSpeed, const float DeltaTime);
 	
 public:
 	UPROPERTY(BlueprintAssignable)
 	FOnUpdateCameraTransform OnUpdateCameraTransform;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	ECombatCameraMode CurrentCameraMode;
+	ECombatCameraMode CurrentCameraMode{ECombatCameraMode::CombatFollow};
 	
 private:
 	FActiveCombatCameraState ActiveCameraState;

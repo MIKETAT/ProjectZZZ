@@ -65,10 +65,7 @@ public:
 	void SetBlockGameplayCameraActivation(bool bBlock) { bBlockGameplayCameraActivation = bBlock; }
 	
 	void RequestUltimateCutIn(const FPendingUltimateCutInRequest& Request);
-
-	UFUNCTION(BlueprintCallable)
-	void OnCameraRigSelected(const ECombatCameraMode SelectedCameraMode);
-
+	
 	void CommitPendingUltimateCutIn();
 
 	void ClearPreparedSequence(ULevelSequencePlayer* SequencePlayer, ALevelSequenceActor* SequenceActor);
@@ -86,6 +83,15 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	ECombatCameraMode GetActiveCombatCameraMode() const;
+
+	UFUNCTION()
+	ECombatEventHandleResult HandleParrySucceedEvent(const FCombatEventMessage& Message);
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void PlayParryRadialBlur();
+
+	UFUNCTION(BlueprintCallable)
+	void SetParryRadialBlurParams(const float BlurOffset, const float BlurIntensity);
 private:
 	void CreateQTEWidget();
 	
@@ -100,10 +106,14 @@ private:
 	void EnableUltimateCutInPostProcess(APlayerCharacter* Agent, const FLinearColor& BackgroundColor, const int32 StencilValue);
 
 	void DisableUltimateCutInPostProcess();
+
+	void BindParrySucceedEvent();
+
+	void UnbindParrySucceededEvent();
 	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	FGameplayTag CurrentCameraRigTag;
+	bool bCinematicCameraOverrideActive{false};
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UQTEWidget> QTEWidgetClass;
@@ -121,6 +131,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Feature | Ultimate")
 	TObjectPtr<UMaterialParameterCollection> MPC_UltimateCutIn;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	bool bUltimateCutInPostProcessActive{false};
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
@@ -134,6 +145,11 @@ protected:
 
 	UPROPERTY()
 	TObjectPtr<UQuickAssistWindow> QuickAssistWidget{nullptr};
+
+	UPROPERTY(EditDefaultsOnly, Category = "Feature | Parry")
+	TObjectPtr<UMaterialParameterCollection> ParryRadialBlurMPC{nullptr};
+	
+	FDelegateHandle ParrySucceededDelegateHandle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
 	bool bBlockGameplayCameraActivation{false};

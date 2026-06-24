@@ -156,6 +156,15 @@ struct FParryActionConfig
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
 	TSubclassOf<UGameplayEffect> ParryEffectOnEnemy{nullptr};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
+	TObjectPtr<USoundBase> ParrySuccessSound{nullptr};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
+	float ParrySuccessVolume{1.f};
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsParryAction"))
+	float ParrySuccessPitch{1.f};
 };
 
 USTRUCT(BlueprintType)
@@ -174,7 +183,7 @@ USTRUCT(BlueprintType)
 struct FUltimateActionConfig
 {
 	GENERATED_BODY()
-
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	bool bIsUltimateAction{false};
 	
@@ -183,9 +192,6 @@ struct FUltimateActionConfig
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsUltimateAction"))
 	FName SequenceBindingTag{FName("RuntimeAgent")};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsUltimateAction"))
-	FGameplayTag CameraRequestTag{FGameplayTag::EmptyTag};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "bIsUltimateAction"))
 	FLinearColor BackgroundColor{FLinearColor::Green};

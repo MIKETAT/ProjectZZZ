@@ -96,7 +96,7 @@ private:
 	// Input
 	void ProcessInputAction(const FPlayerInputs& FrameInputs);
 	
-	void ProcessBufferedInput(const FPlayerInputs& FrameInputs);
+	void ProcessBufferedInput();
 	
 	// Action
 	void InitializeCombatStepList();

@@ -74,6 +74,7 @@ namespace Combat::Data
 namespace Combat::Event
 {
 	UE_DEFINE_GAMEPLAY_TAG(Death, FName(TEXTVIEW("Combat.Event.Death")));
+	UE_DEFINE_GAMEPLAY_TAG(ParrySucceed, FName(TEXTVIEW("Combat.Event.ParrySucceed")));
 	UE_DEFINE_GAMEPLAY_TAG(ChainAttack, FName(TEXTVIEW("Combat.Event.ChainAttack")));
 	UE_DEFINE_GAMEPLAY_TAG(PerfectAssist, FName(TEXTVIEW("Combat.Event.PerfectAssist")));
 	UE_DEFINE_GAMEPLAY_TAG(QuickAssist, FName(TEXTVIEW("Combat.Event.QuickAssist")));

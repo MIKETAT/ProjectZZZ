@@ -62,7 +62,6 @@ public:
 
 	FORCEINLINE bool Any() const { return MaskData != 0; }
 
-	// Todo: check if needed
 	FORCEINLINE bool TestAll(const FInputBitmask& Other) const
 	{
 		return (MaskData & Other.MaskData) == Other.MaskData; 

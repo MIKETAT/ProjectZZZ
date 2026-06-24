@@ -200,10 +200,6 @@ struct FAttackDetectionSegmentBinding
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	EHitDedupePolicy DedupePolicy{EHitDedupePolicy::None};
-
-	// todo: DOT
-	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "DedupePolicy == EHitDedupePolicy::MultiHitInterval", EditConditionHides))
-	float MultiHitInterval{0.2f};*/
 };
 
 USTRUCT(BlueprintType)

@@ -7,6 +7,7 @@
 #include "AI/EnemyCharacterBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Blueprint/UserWidget.h"
+#include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/CombatCameraDirectorComponent.h"
 #include "Character/Component/SquadManagerComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
@@ -32,11 +33,13 @@ void AZZZPlayerController::BeginPlay()
 	CreateQTEWidget();
 	CreateQuickAssistWidget();
 	BindUIDelegate();
+	BindParrySucceedEvent();
 }
 
 void AZZZPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	DisableUltimateCutInPostProcess();
+	UnbindParrySucceededEvent();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -82,24 +85,14 @@ void AZZZPlayerController::RequestUltimateCutIn(const FPendingUltimateCutInReque
 	PendingUltimateCutInRequest = Request;
 
 	// Add Camera Tag and Lock Switch
-	GetSquadManagerComponent()->SetLockAgentSwitch(true);
-	bBlockGameplayCameraActivation = true;
-	Request.Agent->GetAbilitySystemComp()->AddLooseGameplayTag(Combat::Camera::Status::UltimateCamera);
-}
-
-void AZZZPlayerController::OnCameraRigSelected(const ECombatCameraMode SelectedCameraMode)
-{
-	// todo
-	/*if (SelectedCameraMode == CurrentCameraRigTag)
+	if (SquadManager)
 	{
-		return;
+		SquadManager->SetLockAgentSwitch(true);
 	}
+	bBlockGameplayCameraActivation = true;	// todo:delete
 
-	CurrentCameraRigTag = SelectedCameraMode;
-	if (PendingUltimateCutInRequest.bIsValid && SelectedCameraMode == PendingUltimateCutInRequest.CameraStateTag)
-	{
-		CommitPendingUltimateCutIn();
-	} */
+	bCinematicCameraOverrideActive = true;
+	CommitPendingUltimateCutIn();
 }
 
 void AZZZPlayerController::CommitPendingUltimateCutIn()
@@ -173,9 +166,6 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 			
 			Agent->SetActorRotation(FRotator(0.f, FaceEnemyDir.Rotation().Yaw, 0.f));
 		}
-
-		FTransform CameraTransform{SquadManager->CalculateUltimateCameraPosition(Ultimate, Agent->GetTransform())};
-		//SquadManager->OnUpdateCameraTransform.Broadcast(CameraTransform);
 	} else
 	{
 		UE_LOG(LogTemp, Error, TEXT("SquadManager invalid! THIS LOG SHOULD NOT BE PRINTED!"));
@@ -187,7 +177,6 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 	UltimateExecutionState.Agent = PendingUltimateCutInRequest.Agent;
 	UltimateExecutionState.SequencePlayer = SequencePlayer;
 	UltimateExecutionState.SequenceActor = SequenceActor;
-	UltimateExecutionState.CameraStateTag = PendingUltimateCutInRequest.CameraStateTag;
 
 	PendingUltimateCutInRequest.Reset();
 }
@@ -231,6 +220,8 @@ void AZZZPlayerController::HandleSequencePlayFinished()
 	
 	// Close PostProcess
 	DisableUltimateCutInPostProcess();
+
+	bCinematicCameraOverrideActive = false;			// Stop CineCamera
 	
 	UltimateExecutionState.bActionFinished = true;
 	
@@ -293,6 +284,32 @@ void AZZZPlayerController::UpdateCombatCameraForEvaluator(const float DeltaTime)
 ECombatCameraMode AZZZPlayerController::GetActiveCombatCameraMode() const
 {
 	return CameraDirectorComponent ? CameraDirectorComponent->GetActiveCombatCameraMode() : ECombatCameraMode::None;
+}
+
+ECombatEventHandleResult AZZZPlayerController::HandleParrySucceedEvent(const FCombatEventMessage& Message)
+{
+	PlayParryRadialBlur();
+	return  ECombatEventHandleResult::Handled;
+}
+
+void AZZZPlayerController::SetParryRadialBlurParams(const float BlurOffset, const float BlurIntensity)
+{
+	if (!ParryRadialBlurMPC || !GetWorld())
+	{
+		return;
+	}
+
+	UKismetMaterialLibrary::SetScalarParameterValue(
+		GetWorld(),
+		ParryRadialBlurMPC,
+		TEXT("BlurOffset"),
+		BlurOffset);
+
+	UKismetMaterialLibrary::SetScalarParameterValue(
+		GetWorld(),
+		ParryRadialBlurMPC,
+		TEXT("BlurIntensity"),
+		BlurIntensity);
 }
 
 void AZZZPlayerController::CreateQTEWidget()
@@ -413,5 +430,51 @@ void AZZZPlayerController::DisableUltimateCutInPostProcess()
 	DisableUltimateCutInStencil();
 
 	bUltimateCutInPostProcessActive = false;
+}
+
+void AZZZPlayerController::BindParrySucceedEvent()
+{
+	if (!IsLocalPlayerController())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	if (UCombatEventBusSubSystem* EventBus = World->GetSubsystem<UCombatEventBusSubSystem>())
+	{
+		FCombatEventDelegate Callback;
+		Callback.BindUObject(this, &ThisClass::HandleParrySucceedEvent);
+		ParrySucceededDelegateHandle = EventBus->Subscribe(
+			Combat::Event::ParrySucceed,
+			this,
+			0,
+			Callback);
+	}
+}
+
+void AZZZPlayerController::UnbindParrySucceededEvent()
+{
+	if (!IsLocalPlayerController())
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	if (UCombatEventBusSubSystem* EventBus = World->GetSubsystem<UCombatEventBusSubSystem>())
+	{
+		EventBus->Unsubscribe(Combat::Event::ParrySucceed, ParrySucceededDelegateHandle);
+	}
+
+	ParrySucceededDelegateHandle.Reset();
 }
 

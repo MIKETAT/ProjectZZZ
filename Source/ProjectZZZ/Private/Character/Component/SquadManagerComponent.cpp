@@ -399,8 +399,6 @@ void USquadManagerComponent::AgentChainAttack(const int32 TargetIndex, bool bIsP
 		Request.Enemy = ChainAttackStatus.Enemy;
 		Request.SpecialActionToExecute = bIsPrevious ? GetPreviousAgent()->GetSpecialAction(Combat::SpecialAction::ChainAttack) : GetNextAgent()->GetSpecialAction(Combat::SpecialAction::ChainAttack);
 		ExecuteAgentTransition(Request);
-
-		//OnUpdateCameraTransform.Broadcast(CalculateActionCameraPosition(Request));
 	}
 	CloseChainAttackWindow();
 }
@@ -426,7 +424,6 @@ void USquadManagerComponent::AgentDefensiveAssist(const int32 TargetIndex, bool 
 		
 		PrepareParryAssistCameraContext(Request, bIsPrevious);
 		ExecuteAgentTransition(Request);
-		
 	}
 }
 
@@ -443,8 +440,6 @@ void USquadManagerComponent::AgentQuickAssist(const int32 TargetIndex)
 		Request.Enemy = QuickAssistStatus.TargetEnemy;
 		Request.SpecialActionToExecute = GetNextAgent()->GetSpecialAction(Combat::SpecialAction::QuickAssist);
 		ExecuteAgentTransition(Request);
-
-		//OnUpdateCameraTransform.Broadcast(CalculateActionCameraPosition(Request));
 	}
 }
 
@@ -476,7 +471,6 @@ void USquadManagerComponent::AgentUltimateAttack()
 	FPendingUltimateCutInRequest Request;
 	Request.Agent = GetActiveAgent();
 	Request.UltimateAction = UltimateAction;
-	Request.CameraStateTag = Combat::Camera::Status::UltimateCamera;		// todo: read in ActionStep
 	Request.CutInSequence = UltimateAction->UltimateConfig.CutInSequence;
 	Request.bIsValid = true;
 	Request.BackgroundColor = UltimateAction->UltimateConfig.BackgroundColor;
@@ -865,16 +859,16 @@ FTransform USquadManagerComponent::CalculateAgentSpawnTransform(const FAgentTran
 			break;
 		case EAgentSpawnPolicy::AgentRelativeLeft:
 			{
-				FVector SpawnLeftOffset = Request.CurrentAgent->GetActorRightVector() * 100.f;		// todo: hard code here
+				FVector SpawnLeftOffset = Request.CurrentAgent->GetActorRightVector() * 100.f;
 				SpawnTransform.AddToTranslation(-SpawnLeftOffset);
-				SpawnTransform.SetRotation(Request.CurrentAgent->GetActorRotation().Quaternion());	// todo: rotation?
+				SpawnTransform.SetRotation(Request.CurrentAgent->GetActorRotation().Quaternion());
 			}
 			break;
 		case EAgentSpawnPolicy::AgentRelativeRight:
 			{
-				FVector SpawnRightOffset = Request.CurrentAgent->GetActorRightVector() * 100.f;		// todo: hard code here
+				FVector SpawnRightOffset = Request.CurrentAgent->GetActorRightVector() * 100.f;
 				SpawnTransform.AddToTranslation(SpawnRightOffset);
-				SpawnTransform.SetRotation(Request.CurrentAgent->GetActorRotation().Quaternion());	// todo: rotation?	
+				SpawnTransform.SetRotation(Request.CurrentAgent->GetActorRotation().Quaternion());	
 			}
 			break;
 		case EAgentSpawnPolicy::ChainAttackLeft:
@@ -1059,7 +1053,7 @@ FTransform USquadManagerComponent::CalculateActionCameraPosition(const FAgentTra
 	return TargetCameraTransform;
 }
 
-/*void USquadManagerComponent::PrepareCameraRequest(const FAgentTransitionRequest& Request)
+void USquadManagerComponent::PrepareParryAssistCameraContext(const FAgentTransitionRequest& Request, bool bIsPrevious)
 {
 	if (!OwnerController.Get() || !Request.SpecialActionToExecute || !Request.Enemy)
 	{
@@ -1091,55 +1085,11 @@ FTransform USquadManagerComponent::CalculateActionCameraPosition(const FAgentTra
 		return;
 	}
 
-	FCombatCameraRequest CameraRequest;
-	CameraRequest.Agent = TargetAgent;
-	CameraRequest.Config = CameraConfig;
-	CameraRequest.AnchorLocation = EnemyLocation + EnemyForward * PerfectAssistStatus.ParryReferenceOffset;
-	CameraRequest.BasisForward = -EnemyForward;
-	CameraRequest.SideSign = -1;	//todo
-
-	DrawDebugSphere(GetWorld(), CameraRequest.AnchorLocation, 5.f, 8, FColor::Purple, false, 5.f);
-	
-	DirectorComponent->PrepareCameraRequest(CameraRequest);
-}*/
-
-void USquadManagerComponent::PrepareParryAssistCameraContext(const FAgentTransitionRequest& Request, bool bIsPrevious)
-{
-	if (!OwnerController.Get() || !Request.SpecialActionToExecute || !Request.Enemy)
-	{
-		return;
-	}
-
-	APlayerCharacter* TargetAgent{GetTargetAgent(Request.TargetAgentIndex)};
-	if (!TargetAgent)
-	{
-		return;
-	}
-
-	const FCombatCameraConfig& CameraConfig{Request.SpecialActionToExecute->CombatCameraConfig};
-	if (CameraConfig.CameraMode != ECombatCameraMode::ParryAssist)
-	{
-		return;
-	}
-
-	UCombatCameraDirectorComponent* DirectorComponent{OwnerController->GetCameraDirectorComponent()};
-	if (!DirectorComponent)
-	{
-		return;
-	}
-
-	const FVector EnemyLocation{Request.Enemy->GetActorLocation()};
-	const FVector EnemyToAgentDir{(EnemyLocation - TargetAgent->GetActorLocation()).GetSafeNormal()};
-	FVector EnemyForward{FVector::VectorPlaneProject(EnemyToAgentDir, FVector::UpVector).GetSafeNormal()};
-	if (EnemyForward.IsNearlyZero())
-	{
-		return;
-	}
-
 	FCombatCameraContext Context;
 	Context.bHasAnchorLocation = true;
 	Context.AnchorLocation = EnemyLocation + EnemyForward * PerfectAssistStatus.ParryReferenceOffset;
 	Context.SideSign = bIsPrevious ? -1 : 1;
+	Context.Enemy = Request.Enemy;
 	
 	DirectorComponent->PrepareCameraContext(ECombatCameraMode::ParryAssist, TargetAgent, Context);
 }
@@ -1182,10 +1132,6 @@ FTransform USquadManagerComponent::CalculateUltimateCameraPosition(UCombatAction
 	
 	CameraTransform.SetLocation(CameraLocation);
 	CameraTransform.SetRotation(CameraRotation.Quaternion());
-
-	DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
-	DrawDebugDirectionalArrow(GetWorld(), CameraLocation, CameraLocation + 200.f * CameraRotation.Quaternion().GetForwardVector(),
-		10.f, FColor::Purple, false, 10.f);
 
 	return CameraTransform;
 }
