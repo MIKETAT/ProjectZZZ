@@ -48,6 +48,7 @@ namespace Combat::Status::Agent
 {
 	UE_DEFINE_GAMEPLAY_TAG(Dodge, FName(TEXTVIEW("Combat.Status.Agent.Dodge")))
 	UE_DEFINE_GAMEPLAY_TAG(Parry, FName(TEXTVIEW("Combat.Status.Agent.Parry")))
+	UE_DEFINE_GAMEPLAY_TAG(Invulnerable, FName(TEXTVIEW("Combat.Status.Agent.Invulnerable")))
 }
 
 namespace Combat::Status::Enemy
@@ -82,6 +83,7 @@ namespace Combat::Event
 
 namespace Combat::SpecialAction
 {
+	UE_DEFINE_GAMEPLAY_TAG(SpecialAttackEX, FName(TEXTVIEW("Combat.SpecialAction.SpecialAttackEX")))
 	UE_DEFINE_GAMEPLAY_TAG(ChainAttack, FName(TEXTVIEW("Combat.SpecialAction.ChainAttack")))
 	UE_DEFINE_GAMEPLAY_TAG(QuickAssist, FName(TEXTVIEW("Combat.SpecialAction.QuickAssist")))
 	UE_DEFINE_GAMEPLAY_TAG(DefensiveAssist, FName(TEXTVIEW("Combat.SpecialAction.DefensiveAssist")))

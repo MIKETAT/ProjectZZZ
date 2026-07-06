@@ -49,6 +49,8 @@ ACharacterBase::ACharacterBase()
 void ACharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	InitializeAttributes();
 }
 
 void ACharacterBase::Tick(float DeltaTime)
@@ -63,7 +65,7 @@ void ACharacterBase::Tick(float DeltaTime)
 void ACharacterBase::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
-	InitializeAttributes();
+	//InitializeAttributes();
 }
 
 void ACharacterBase::UnPossessed()

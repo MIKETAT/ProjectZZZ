@@ -19,6 +19,24 @@ public:
 
 	virtual void NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference) override;
 
+	virtual void NotifyTick(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, float FrameDeltaTime, const FAnimNotifyEventReference& EventReference) override;
+
 private:
 	void SetOrientRotationToMovement(USkeletalMeshComponent* MeshComp, bool bOrientRotationToMovement);
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FName RotationYawCurveName{FName("RotationYaw")};
+	
+private:
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UAnimInstance> AnimInstance{nullptr};
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<ACharacter> Character{nullptr};
+	
+	bool bFirstUpdate{true};
+
+	float LastYaw{0.f};
+
 };

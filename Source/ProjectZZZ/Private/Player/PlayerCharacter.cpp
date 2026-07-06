@@ -1,5 +1,6 @@
 ﻿#include "Player/PlayerCharacter.h"
 #include "AbilitySystem/AgentAttributeSet.h"
+#include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "Character/ZZZPlayerController.h"
 #include "Character/Combat/CombatEventBusSubSystem.h"
 #include "Character/Component/CharacterCombatComponent.h"
@@ -134,6 +135,25 @@ void APlayerCharacter::ProcessFrameInput(const FCharacterFrameDataBus& DataBus)
 	ProcessMovementInput(DataBus);
 	ProcessLookInput(DataBus);
 	ProcessCombatActionInput(DataBus);
+}
+
+FAgentStatusSnapShot APlayerCharacter::BuildAgentStatusSnapshot()
+{
+	FAgentStatusSnapShot SnapShot;
+	
+	SnapShot.CurrentHealth = BaseCombatAttribute->GetHealth();
+	SnapShot.MaxHealth = BaseCombatAttribute->GetMaxHealth();
+	SnapShot.CurrentEnergy = AgentAttributeSet->GetEnergy();
+	SnapShot.MaxEnergy = AgentAttributeSet->GetMaxEnergy();
+	SnapShot.CurrentDecibels = AgentAttributeSet->GetDecibels();
+	SnapShot.MaxDecibels = AgentAttributeSet->GetMaxDecibels();
+	SnapShot.bCanExecuteSpecialAttackEX = AgentCombatComponent ? AgentCombatComponent->MeetsActionRequirements(GetSpecialAction(Combat::SpecialAction::SpecialAttackEX)) : false;
+	SnapShot.bCanExecuteUltimate = AgentCombatComponent ? AgentCombatComponent->MeetsActionRequirements(GetSpecialAction(Combat::SpecialAction::Ultimate)) : false;
+
+	SnapShot.Agent = this;
+	SnapShot.AgentHead = GetAgentHead();
+	
+	return SnapShot;
 }
 
 void APlayerCharacter::ProcessMovementInput(const FCharacterFrameDataBus& DataBus)

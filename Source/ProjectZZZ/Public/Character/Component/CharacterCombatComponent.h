@@ -11,6 +11,7 @@
 #include "Input/PlayerInputHandlerComponent.h"
 #include "CharacterCombatComponent.generated.h"
 
+enum class EActionIconSlot : uint8;
 class UCharacterAnimInstance;
 class AEnemyCharacterBase;
 class UCombatAnimSchedulerComponent;
@@ -18,6 +19,12 @@ class UAnimInstanceBase;
 enum ECombatAnimRequestFinishReason : uint8;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActionLogicFinished, APlayerCharacter*, int32);
+
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActionExecutableChanged, EActionIconSlot, bool);
+
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEnergyChanged, float/** CurrentEnergy*/, float/** MaxEnergy*/);
+
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnDecibelsChanged, float/** CurrentDecibels*/, float/** Decibels*/);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTZZZ_API UCharacterCombatComponent : public UCombatComponentBase
@@ -66,9 +73,13 @@ public:
 
 	int32 ExecuteSwitchAction(UCombatActionStep* Action, const FCombatActionContext& Context);
 	
-	void OnEnergyChanged(const FOnAttributeChangeData& Data);
+	void HandleEnergyChanged(const FOnAttributeChangeData& Data);
 
-	void OnDecibelsChanged(const FOnAttributeChangeData& Data);
+	void HandleDecibelsChanged(const FOnAttributeChangeData& Data);
+
+	void RefreshAllActionStatus();
+	
+	void RefreshActionStatus(const EActionIconSlot ActionSlot, const FGameplayTag& ActionTag);
 
 	UFUNCTION()
 	void HandleCombatWindowChange(const FGameplayTag Tag, bool bIsOpen, UAnimMontage* SourceMontage);
@@ -92,6 +103,10 @@ public:
 	bool ActivateCombatCamera(const ECombatCameraMode CameraMode);
 
 	void DeactivateCombatCamera(const ECombatCameraMode CameraMode);
+
+protected:
+	virtual void CachePointers() override;
+	
 private:
 	// Input
 	void ProcessInputAction(const FPlayerInputs& FrameInputs);
@@ -119,9 +134,18 @@ private:
 	
 public:
 	FOnActionLogicFinished OnActionLogicFinished;
+
+	FOnActionExecutableChanged OnActionExecutableChanged;
+
+	FOnEnergyChanged OnEnergyChanged;
+
+	FOnDecibelsChanged OnDecibelsChanged;
 	
 private:
-	float GlobalBufferLifespan{0.3f}; 
+	float GlobalBufferLifespan{0.3f};
+
+	UPROPERTY()
+	TObjectPtr<APlayerCharacter> AgentCharacter{nullptr};
 	
 	UPROPERTY()
 	TObjectPtr<UGameplayEffect> ActionCostGE{nullptr};
@@ -129,6 +153,9 @@ private:
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UAgentCombatSteps> AgentCombatSteps{nullptr};
 
+	UPROPERTY(EditDefaultsOnly, Category = "Combat | Special Action")
+	TObjectPtr<UCombatActionStep> SpecialAttackActionEX{nullptr};
+	
 	UPROPERTY(EditDefaultsOnly, Category = "Combat | Special Action")
 	TObjectPtr<UCombatActionStep> ChainAttackAction{nullptr};
 

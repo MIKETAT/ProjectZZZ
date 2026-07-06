@@ -1,14 +1,6 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
-#include "Animation/AnimInstanceBase.h"
-
-#include "Animation/CharacterAnimationPreset.h"
+﻿#include "Animation/AnimInstanceBase.h"
 #include "Character/CharacterBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Kismet/KismetMathLibrary.h"
-
-
 
 void UAnimInstanceBase::NativeInitializeAnimation()
 {

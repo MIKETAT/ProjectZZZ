@@ -6,6 +6,7 @@
 #include "LevelSequence.h"
 #include "PlayerCharacter.generated.h"
 
+struct FAgentStatusSnapShot;
 class ALevelSequenceActor;
 class ULevelSequencePlayer;
 struct FPendingUltimateCutInRequest;
@@ -105,6 +106,8 @@ public:
 	
 	UTexture2D* GetAgentHead() const { return AgentHead; }
 
+	UTexture2D* GetAgentSquareHead() const { return AgentSquareHead; }
+
 	UMotionWarpingComponent* GetMotionWarpingComponent() const { return MotionWarpingComponent; }
 	
 	UCharacterCombatComponent* GetAgentCombatComponent() const { return AgentCombatComponent; }
@@ -130,6 +133,8 @@ public:
 	AEnemyCharacterBase* FindClosestEnemy(const float MaxDistance) const;
 	
 	void ProcessFrameInput(const FCharacterFrameDataBus& DataBus);
+
+	FAgentStatusSnapShot BuildAgentStatusSnapshot();
 	
 private:
 	void ProcessMovementInput(const FCharacterFrameDataBus& DataBus);
@@ -163,10 +168,12 @@ private:
 
 	EAgentPresenceState AgentPresenceState{EAgentPresenceState::OffField};
 	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UTexture2D> AgentHead{nullptr};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UTexture2D> AgentHead;
-
+	TObjectPtr<UTexture2D> AgentSquareHead{nullptr};
+	
 	bool bIsActive{false};
 
 	bool bIsLocalPlayer{false};

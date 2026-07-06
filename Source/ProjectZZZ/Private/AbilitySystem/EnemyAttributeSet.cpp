@@ -1,23 +1,24 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-
-#include "AbilitySystem/EnemyAttributeSet.h"
-
+﻿#include "AbilitySystem/EnemyAttributeSet.h"
 #include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
 
 void UEnemyAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
 	Super::PreAttributeChange(Attribute, NewValue);
-
+	
 	if (Attribute == GetDazeAttribute())
 	{
 		NewValue = FMath::Clamp(NewValue, 0.0f, GetMaxDaze());
 	}
 	else if (Attribute == GetStunDMGMultiplierAttribute())
 	{
-		NewValue = FMath::Clamp(NewValue, 1.0f, GetStunDMGMultiplier());
+		NewValue = FMath::Clamp(NewValue, 1.0f, GetStunDMGMultiplier()); 
 	}
+}
+
+void UEnemyAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+{
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
 }
 
 void UEnemyAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

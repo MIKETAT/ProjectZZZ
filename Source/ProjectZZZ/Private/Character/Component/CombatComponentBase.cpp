@@ -729,14 +729,25 @@ void UCombatComponentBase::InjectAndBindASC(UAgentAbilitySystemComponent* InASC)
 	if (AbilitySystemComponent->GetSet<UBaseCombatAttributeSet>())
 	{
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
-			UBaseCombatAttributeSet::GetHealthAttribute()).AddUObject(this, &UCombatComponentBase::OnHealthChanged);
+			UBaseCombatAttributeSet::GetHealthAttribute()).AddUObject(this, &UCombatComponentBase::HandleHealthChanged);
 	}
 }
 
 
-void UCombatComponentBase::OnHealthChanged(const FOnAttributeChangeData& Data)
+void UCombatComponentBase::HandleHealthChanged(const FOnAttributeChangeData& Data)
 {
-	if (Data.NewValue <= 0.f && Data.OldValue > 0.f)
+	// UI
+	if (!AbilitySystemComponent || !Character)
+	{
+		return;
+	}
+
+	float CurrentHealth{Data.NewValue};
+	float MaxHealth{Character->GetBaseCombatAttribute()->GetMaxHealth()};
+
+	OnHealthChanged.Broadcast(CurrentHealth, MaxHealth);
+	
+	if (CurrentHealth <= 0.f && Data.OldValue > 0.f)
 	{
 		HandleDeath();
 	}

@@ -12,6 +12,7 @@
 #include "Character/Component/SquadManagerComponent.h"
 #include "Input/PlayerInputHandlerComponent.h"
 #include "Kismet/KismetMaterialLibrary.h"
+#include "UI/HUDWidget.h"
 #include "UI/QTEWidget/QTEWidget.h"
 #include "UI/QTEWidget/QuickAssistWindow.h"
 #include "Utility/ZZZGameplayTag.h"
@@ -30,10 +31,19 @@ void AZZZPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Create UI
+	CreateHUDWidget();
 	CreateQTEWidget();
 	CreateQuickAssistWidget();
-	BindUIDelegate();
+	
+	BindQTEDelegate();
 	BindParrySucceedEvent();
+	
+	SquadManager->InitializeAgentSquad();
+	
+	SquadManager->OnActiveAgentChanged.AddUObject(this, &AZZZPlayerController::HandleSquadActiveAgentChanged);
+
+	BindHUDDelegate();
 }
 
 void AZZZPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -163,13 +173,14 @@ void AZZZPlayerController::CommitPendingUltimateCutIn()
 		if (AEnemyCharacterBase* Enemy = Agent->FindClosestEnemy(Ultimate->MotionWarpingEffectiveDistance))
 		{
 			const FVector FaceEnemyDir{(Enemy->GetActorLocation() - Agent->GetActorLocation()).GetSafeNormal2D()};
-			
 			Agent->SetActorRotation(FRotator(0.f, FaceEnemyDir.Rotation().Yaw, 0.f));
 		}
 	} else
 	{
 		UE_LOG(LogTemp, Error, TEXT("SquadManager invalid! THIS LOG SHOULD NOT BE PRINTED!"));
 	}
+
+	OnUltimateExecutionStatusChangedDelegate.Broadcast(false);
 	
 	UltimateExecutionState.OnUltimateActionFinishedHandle = CombatComponent->OnCombatActionFinished.AddUObject(this, &AZZZPlayerController::HandleUltimateActionFinished);
 	
@@ -220,6 +231,8 @@ void AZZZPlayerController::HandleSequencePlayFinished()
 	
 	// Close PostProcess
 	DisableUltimateCutInPostProcess();
+
+	OnUltimateExecutionStatusChangedDelegate.Broadcast(true);
 
 	bCinematicCameraOverrideActive = false;			// Stop CineCamera
 	
@@ -312,6 +325,11 @@ void AZZZPlayerController::SetParryRadialBlurParams(const float BlurOffset, cons
 		BlurIntensity);
 }
 
+void AZZZPlayerController::HandleSquadActiveAgentChanged(APlayerCharacter* OldAgent, APlayerCharacter* NewAgent)
+{
+	BindHUDDelegate();
+}
+
 void AZZZPlayerController::CreateQTEWidget()
 {
 	if (IsValid(QTEWidgetClass))
@@ -329,7 +347,21 @@ void AZZZPlayerController::CreateQTEWidget()
 	}
 }
 
-void AZZZPlayerController::BindUIDelegate()
+void AZZZPlayerController::CreateHUDWidget()
+{
+	if (IsValid(HUDClass))
+	{
+		HUDWidget = CreateWidget<UHUDWidget>(this, HUDClass);
+	}
+	if (HUDWidget && SquadManager && ActionIconPreset)
+	{
+		HUDWidget->InitializeHUD(ActionIconPreset, this, SquadManager);
+		HUDWidget->AddToViewport();
+		HUDWidget->SetVisibility(ESlateVisibility::Visible);
+	}
+}
+
+void AZZZPlayerController::BindQTEDelegate()
 {
 	if (!IsValid(SquadManager))
 	{
@@ -476,5 +508,21 @@ void AZZZPlayerController::UnbindParrySucceededEvent()
 	}
 
 	ParrySucceededDelegateHandle.Reset();
+}
+
+void AZZZPlayerController::BindHUDDelegate()
+{
+	if (HUDWidget && SquadManager)
+	{
+		// UnBind
+		
+		// Bind
+		FHUDSquadSource Source;
+		SquadManager->BuildHUDSquadSource(Source);
+		HUDWidget->BindDelegate(Source, this);
+
+		// Refresh
+		HUDWidget->RefreshHUD(SquadManager->BuildSquadStatusSnapshot());
+	}
 }
 

@@ -26,7 +26,7 @@ DECLARE_MULTICAST_DELEGATE(FOnFinishChainAttack);
 
 DECLARE_MULTICAST_DELEGATE(FOnFinishQuickAssist);
 
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveAgentChanged, APlayerCharacter*, APlayerCharacter*)
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveAgentChanged, APlayerCharacter*/** OldAgent */,  APlayerCharacter*/** NewAgent */)
 
 USTRUCT(BlueprintType)
 struct FChainAttackWindowStatus
@@ -159,6 +159,101 @@ struct FAgentTransitionSnapshot
 	bool bHasActiveAction{false};
 };
 
+UENUM(BlueprintType)
+enum class EHUDSquadDisplaySlot : uint8
+{
+	Active			UMETA(DisplayName = "Active"),
+	Second		UMETA(DisplayName = "Second"),
+	Third			UMETA(DisplayName = "Third"),
+};
+
+USTRUCT(BlueprintType)
+struct FHUDSquadAgentSource
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	EHUDSquadDisplaySlot DisplaySlot{EHUDSquadDisplaySlot::Active};
+
+	UPROPERTY(BlueprintReadOnly)
+	TWeakObjectPtr<APlayerCharacter> Agent{nullptr};
+
+	UPROPERTY(BlueprintReadOnly)
+	TWeakObjectPtr<UCharacterCombatComponent> CombatComponent{nullptr};
+};
+
+USTRUCT(BlueprintType)
+struct FHUDSquadSource
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	FHUDSquadAgentSource ActiveAgent;
+
+	UPROPERTY(BlueprintReadOnly)
+	FHUDSquadAgentSource SecondAgent;
+
+	UPROPERTY(BlueprintReadOnly)
+	FHUDSquadAgentSource ThirdAgent;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<USquadManagerComponent> SquadManager{nullptr};
+};
+
+USTRUCT()
+struct FAgentStatusSnapShot
+{
+	GENERATED_BODY()
+
+public:
+	float CurrentHealth{0.0f};
+
+	float MaxHealth{0.0f};
+
+	float CurrentEnergy{0.0f};
+
+	float MaxEnergy{0.0f};
+
+	float CurrentDecibels{0.0f};
+
+	float MaxDecibels{0.0f};
+
+	bool bCanExecuteSpecialAttackEX{false};
+
+	bool bCanExecuteUltimate{false};
+	
+	UPROPERTY(Transient)
+	TWeakObjectPtr<APlayerCharacter> Agent{nullptr};
+	
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UTexture2D> AgentHead{nullptr};
+};
+
+USTRUCT()
+struct FSquadStatusSnapshot
+{
+	GENERATED_BODY()
+	
+	/*UPROPERTY(Transient)
+	TWeakObjectPtr<APlayerCharacter> SecondAgent{nullptr};
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<APlayerCharacter> ThirdAgent{nullptr};
+
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UTexture2D> SecondAgentHead{nullptr};
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<UTexture2D> ThirdAgentHead{nullptr};*/
+
+	FAgentStatusSnapShot ActiveAgentStatus;
+
+	FAgentStatusSnapShot SecondAgentStatus;
+
+	FAgentStatusSnapShot ThirdAgentStatus;
+};
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTZZZ_API USquadManagerComponent : public UActorComponent
 {
@@ -175,9 +270,16 @@ public:
 	
 	virtual void InitializeComponent() override;
 	
+	// Squad 
+	void InitializeAgentSquad();
+	
 	// Getter and Setter
 	UFUNCTION(BlueprintCallable)
 	APlayerCharacter* GetActiveAgent() const;
+
+	APlayerCharacter* GetSecondAgent() const;
+
+	APlayerCharacter* GetThirdAgent() const;
 
 	APlayerCharacter* GetTargetAgent(const int32 TargetIndex) const;
 
@@ -190,6 +292,11 @@ public:
 	FChainAttackWindowStatus GetChainAttackWindowStatus() const { return ChainAttackStatus; }
 	
 	FTransform CalculateUltimateCameraPosition(UCombatActionStep* Ultimate, const FTransform& AgentTransform);
+
+	void BuildHUDSquadSource(FHUDSquadSource& Source);
+
+	FSquadStatusSnapshot BuildSquadStatusSnapshot();
+	
 private:
 	// Switch Agent
 	// Todo: 运动状态下切换代理人, 应继承原运动状态(动画表现)
@@ -222,9 +329,6 @@ private:
 	void AgentQuickAssist(const int32 TargetIndex);
 
 	void AgentUltimateAttack();
-
-	// Squad 
-	void InitializeAgentSquad();
 		
 	void BindAgentLingeringDelegate(APlayerCharacter* Agent);
 

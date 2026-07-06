@@ -17,6 +17,7 @@
 #include "Utility/ZZZGameplayTag.h"
 #include "Character/Combat/ZZZCombatEventTypes.h"
 #include "Character/Component/CombatCameraDirectorComponent.h"
+#include "UI/UITypes.h"
 
 UCharacterCombatComponent::UCharacterCombatComponent()
 {
@@ -28,6 +29,7 @@ void UCharacterCombatComponent::BeginPlay()
 	Super::BeginPlay();
 	InitializeCombatStepList();
 
+	CachePointers();
 	// Bind Delegate
 	
 	if (IsValid(GetAgentAnimInstance()))
@@ -115,6 +117,12 @@ void UCharacterCombatComponent::DeactivateCombatCamera(const ECombatCameraMode C
 	}
 
 	DirectorComponent->DeactivateCameraSection(CameraMode, Agent);
+}
+
+void UCharacterCombatComponent::CachePointers()
+{
+	Super::CachePointers();
+	AgentCharacter = Cast<APlayerCharacter>(Character);
 }
 
 void UCharacterCombatComponent::ProcessInputAction(const FPlayerInputs& FrameInputs)
@@ -633,6 +641,10 @@ void UCharacterCombatComponent::PayActionCost(const UCombatActionStep* Step)
 
 UCombatActionStep* UCharacterCombatComponent::GetSpecialAction(const FGameplayTag& Tag) const
 {
+	if (Tag == Combat::SpecialAction::SpecialAttackEX)
+	{
+		return SpecialAttackActionEX;
+	}
 	if (Tag == Combat::SpecialAction::ChainAttack)
 	{
 		return ChainAttackAction;
@@ -711,6 +723,12 @@ void UCharacterCombatComponent::HandleIncomingDamage(const FAttackContext& Conte
 		return;
 	}
 
+	if (AbilitySystemComponent->HasMatchingGameplayTag(Combat::Status::Agent::Invulnerable))
+	{
+		Result.ResultType = EAttackResultType::Invalid;
+		return;
+	}
+	
 	// Apply Damage
 	ApplyImpactEffectOnTarget(SourceASC, TargetASC, Context);
 	
@@ -762,10 +780,11 @@ void UCharacterCombatComponent::InjectAndBindASC(UAgentAbilitySystemComponent* I
 	// Agent Attribute Set
 	if (AbilitySystemComponent->GetSet<UAgentAttributeSet>())
 	{
+		
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
-			UAgentAttributeSet::GetEnergyAttribute()).AddUObject(this, &UCharacterCombatComponent::OnEnergyChanged);
+			UAgentAttributeSet::GetEnergyAttribute()).AddUObject(this, &UCharacterCombatComponent::HandleEnergyChanged);
 		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(
-			UAgentAttributeSet::GetDecibelsAttribute()).AddUObject(this, &UCharacterCombatComponent::OnDecibelsChanged);
+			UAgentAttributeSet::GetDecibelsAttribute()).AddUObject(this, &UCharacterCombatComponent::HandleDecibelsChanged);
 	}
 }
 
@@ -792,10 +811,55 @@ int32 UCharacterCombatComponent::ExecuteSwitchAction(UCombatActionStep* Action, 
 	}
 }
 
-void UCharacterCombatComponent::OnEnergyChanged(const FOnAttributeChangeData& Data)
+void UCharacterCombatComponent::HandleEnergyChanged(const FOnAttributeChangeData& Data)
 {
+	RefreshActionStatus(EActionIconSlot::SpecialAttack, Combat::SpecialAction::SpecialAttackEX);
+
+	if (AgentCharacter && AgentCharacter->GetAgentAttributeSet())
+	{
+		float CurrentEnergy{Data.NewValue};
+		float MaxEnergy{AgentCharacter->GetAgentAttributeSet()->GetMaxEnergy()};
+		OnEnergyChanged.Broadcast(CurrentEnergy, MaxEnergy);
+	}
 }
 
-void UCharacterCombatComponent::OnDecibelsChanged(const FOnAttributeChangeData& Data)
+void UCharacterCombatComponent::HandleDecibelsChanged(const FOnAttributeChangeData& Data)
 {
+	RefreshActionStatus(EActionIconSlot::Ultimate, Combat::SpecialAction::Ultimate);
+
+	if (AgentCharacter && AgentCharacter->GetAgentAttributeSet())
+	{
+		float CurrentDecibels{Data.NewValue};
+		float MaxDecibels{AgentCharacter->GetAgentAttributeSet()->GetMaxDecibels()};
+		OnDecibelsChanged.Broadcast(CurrentDecibels, MaxDecibels);
+	}
+}
+
+void UCharacterCombatComponent::RefreshAllActionStatus()
+{
+	RefreshActionStatus(EActionIconSlot::SpecialAttack, Combat::SpecialAction::SpecialAttackEX);
+	RefreshActionStatus(EActionIconSlot::Ultimate, Combat::SpecialAction::Ultimate);
+}
+
+void UCharacterCombatComponent::RefreshActionStatus(const EActionIconSlot ActionSlot, const FGameplayTag& ActionTag)
+{
+	// Only Apply On SpecialAttack and Ultimate
+	if (ActionTag != Combat::SpecialAction::SpecialAttackEX && ActionTag != Combat::SpecialAction::Ultimate)
+	{
+		return;
+	}
+
+	if (ActionSlot != EActionIconSlot::SpecialAttack && ActionSlot != EActionIconSlot::Ultimate)
+	{
+		return;
+	}
+	
+	UCombatActionStep* Action{GetSpecialAction(ActionTag)};
+	if (!Action)
+	{
+		return;
+	}
+	
+	bool CanExecute{MeetsActionRequirements(Action)};
+	OnActionExecutableChanged.Broadcast(ActionSlot, CanExecute);
 }

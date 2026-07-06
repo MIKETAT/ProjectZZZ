@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
@@ -10,7 +8,6 @@
 class UQTEAgent;
 class UTextBlock;
 struct FCombatEventMessage;
-class UProgressBar;
 class UImage;
 
 UCLASS()
@@ -27,6 +24,7 @@ public:
 	void ResetAndCloseQTEWindow();
 
 	void InitializePtr(USquadManagerComponent* Squad) { SquadManager = Squad; }
+	
 protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void UpdateQTEVisuals();

@@ -99,6 +99,8 @@ struct FAttackDetectedTarget
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnCombatActionFinished, APlayerCharacter*, ECombatAnimRequestFinishReason)
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnHealthChanged, float CurrentHealth, float MaxHealth);
+
 UCLASS(Abstract)
 class PROJECTZZZ_API UCombatComponentBase : public UActorComponent
 {
@@ -168,15 +170,16 @@ public:
 	EHitReactionDirection CalculateHitReactionDirection(const FVector& AttackerLocation) const;
 
 	void ExecuteHitReaction(const AActor* Instigator, const EAttackStrength Strength);
+	
 protected:
-	void CachePointers();
+	virtual void CachePointers();
 	
 	virtual int32 ExecuteAction(const UCombatActionStep* ActionStep, const FCombatActionContext& Context);
 	
 	UFUNCTION()
 	virtual void HandleAnimFinished(int32 RequestID, ECombatAnimRequestFinishReason Reason);
 	
-	void OnHealthChanged(const FOnAttributeChangeData& Data);
+	void HandleHealthChanged(const FOnAttributeChangeData& Data);
 
 	void HandleDeath();
 
@@ -198,6 +201,8 @@ private:
 	
 public:
 	FOnCombatActionFinished OnCombatActionFinished;
+
+	FOnHealthChanged OnHealthChanged;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "HitReaction")
 	TMap<EAttackStrength, FDirectionalHitReactionActions> HitReactionMap;

@@ -8,6 +8,8 @@
 #include "Input/PlayerInputHandlerComponent.h"
 #include "ZZZPlayerController.generated.h"
 
+class UActionIconPreset;
+class UHUDWidget;
 class UCombatCameraDirectorComponent;
 class UPostProcessComponent;
 struct FPendingUltimateCutInRequest;
@@ -30,6 +32,8 @@ struct FCutInStencilData
 
 	int32 CustomStencilDepth{0};
 };
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnUltimateExecutionStatusChanged, bool);
 
 UCLASS()
 class PROJECTZZZ_API AZZZPlayerController : public APlayerController
@@ -92,10 +96,16 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetParryRadialBlurParams(const float BlurOffset, const float BlurIntensity);
+
+	UFUNCTION()
+	void HandleSquadActiveAgentChanged(APlayerCharacter* OldAgent, APlayerCharacter* NewAgent);
+	
 private:
 	void CreateQTEWidget();
+
+	void CreateHUDWidget();
 	
-	void BindUIDelegate();
+	void BindQTEDelegate();
 
 	void CreateQuickAssistWidget();
 
@@ -110,6 +120,8 @@ private:
 	void BindParrySucceedEvent();
 
 	void UnbindParrySucceededEvent();
+
+	void BindHUDDelegate();
 	
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -120,7 +132,14 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TSubclassOf<UQuickAssistWindow> QuickAssistWidgetClass;
-	
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UHUDWidget> HUDClass{nullptr};
+
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TObjectPtr<UActionIconPreset> ActionIconPreset;
+
+	FOnUltimateExecutionStatusChanged OnUltimateExecutionStatusChangedDelegate;
 protected:
 	UPROPERTY(VisibleAnywhere)
 	TObjectPtr<UPlayerInputHandlerComponent> PlayerInputHandlerComponent{nullptr};
@@ -139,6 +158,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UCombatCameraDirectorComponent> CameraDirectorComponent{nullptr};
+
+	UPROPERTY(Transient)
+	TObjectPtr<UHUDWidget> HUDWidget{nullptr};
 	
 	UPROPERTY()
 	TObjectPtr<UQTEWidget> QTEWidget{nullptr};

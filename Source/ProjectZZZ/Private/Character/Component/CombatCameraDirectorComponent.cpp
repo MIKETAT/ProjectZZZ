@@ -331,18 +331,23 @@ bool UCombatCameraDirectorComponent::CalculateActionFocusViewCameraTransform(FTr
 {
 	const FCombatCameraRequest& Request = ActiveCameraState.Request;
 
-	if (!Request.Agent.IsValid() || !Request.Enemy.IsValid())
+	if (!Request.Agent.IsValid())
 	{
 		return false;
 	}
 
-	const FVector AgentLocation{Request.Agent->GetActorLocation()};
-	const FVector EnemyLocation{Request.Enemy->GetActorLocation()};
+	FVector BasisForward{Request.Agent->GetActorForwardVector()};
+	FVector AgentLocation{Request.Agent->GetActorLocation()};
+	FVector EnemyLocation{AgentLocation};		// 如果没有有效敌人, 将敌人位置设置为角色位置, 相机看向角色(等价于AnchorAlpha/LookAtAlpha为0)
+	if (Request.Enemy.IsValid())
+	{
+		EnemyLocation = Request.Enemy->GetActorLocation();
+		BasisForward = FVector::VectorPlaneProject(EnemyLocation - AgentLocation, FVector::UpVector).GetSafeNormal();
+	}
 
-	const FVector BasisForward{FVector::VectorPlaneProject(EnemyLocation - AgentLocation, FVector::UpVector).GetSafeNormal()};
 	FVector Forward{FVector::ZeroVector};
 	FVector Right{FVector::ZeroVector};
-
+	
 	if (!BuildCameraBasis(BasisForward, Forward, Right))
 	{
 		return false;

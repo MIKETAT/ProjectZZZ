@@ -35,7 +35,7 @@ struct FPreparedCombatCameraContext
 	GENERATED_BODY()
 	
 public:
-	void Reset()
+	void Reset()  
 	{
 		bValid = false;
 		CameraMode = ECombatCameraMode::None;

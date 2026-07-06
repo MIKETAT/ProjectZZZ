@@ -40,18 +40,6 @@ void UBaseCombatAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeP
 void UBaseCombatAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
 	Super::PreAttributeChange(Attribute, NewValue);
-	// Adjust for max change
-
-	/*else if (Attribute == GetMaxHealthAttribute())
-	{
-		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxHealth());
-	}*/
-
-}
-
-void UBaseCombatAttributeSet::PostAttributeBaseChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) const
-{
-	Super::PostAttributeBaseChange(Attribute, OldValue, NewValue);
 
 	if (Attribute == GetHealthAttribute())
 	{
@@ -65,6 +53,11 @@ void UBaseCombatAttributeSet::PostAttributeBaseChange(const FGameplayAttribute& 
 	{
 		NewValue = FMath::Clamp(NewValue, 0.f, GetDefence());
 	}
+}
+
+void UBaseCombatAttributeSet::PostAttributeBaseChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) const
+{
+	Super::PostAttributeBaseChange(Attribute, OldValue, NewValue);
 }
 
 void UBaseCombatAttributeSet::PostGameplayEffectExecute(const struct FGameplayEffectModCallbackData& Data)

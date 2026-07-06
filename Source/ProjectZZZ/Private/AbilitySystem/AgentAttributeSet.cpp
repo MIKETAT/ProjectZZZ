@@ -7,13 +7,21 @@
 void UAgentAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
 	Super::PreAttributeChange(Attribute, NewValue);
-	// Adjust for max change
+	
+	if (Attribute == GetEnergyAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxEnergy());
+	}
+
+	if (Attribute == GetDecibelsAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.f, GetMaxDecibels());
+	}
 }
 
 void UAgentAttributeSet::PostAttributeBaseChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) const
 {
 	Super::PostAttributeBaseChange(Attribute, OldValue, NewValue);
-
 }
 
 void UAgentAttributeSet::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const

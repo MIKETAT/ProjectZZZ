@@ -14,8 +14,8 @@ const UAnimSequenceBase* UCharacterAnimInstance::FuncName() const \
 void UCharacterAnimInstance::NativeInitializeAnimation()
 {
 	Super::NativeInitializeAnimation();
-
-	EnterPivotDot = FMath::Cos(FMath::DegreesToRadians(PivotEnterAngleDegrees));
+	
+	PivotState.EnterPivotDot = FMath::Cos(FMath::DegreesToRadians(PivotState.PivotEnterAngleDegrees));
 }
 
 void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
@@ -24,7 +24,7 @@ void UCharacterAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 
 	if (Character)
 	{
-		bHasMovementInput = Character->bHasMovementInput;	
+		bHasMovementInput = Character->bHasMovementInput;
 	}
 
 	UpdatePivotState();
@@ -63,35 +63,7 @@ const UCharacterAnimationPreset_Locomotion* UCharacterAnimInstance::GetLocomotio
 
 void UCharacterAnimInstance::UpdatePivotState()
 {
-	bPivotActive = false;
-	PivotDot = 1.f;
+	double Dot{FVector::DotProduct(LocomotionAnimState.LocalVelocity2D, LocomotionAnimState.LocalAcceleration2D)};
 
-	const FVector WorldVelocity2D{LocomotionAnimState.WorldVelocity2D.GetSafeNormal2D()};
-	const FVector WorldAcceleration2D{LocomotionAnimState.WorldAcceleration2D.GetSafeNormal2D()};
-
-	
-	PivotDot = FVector::DotProduct(WorldVelocity2D, WorldAcceleration2D);
-	if (PivotDot > 0.f)
-	{
-		bCanTriggerPivot = true;
-	}
-	
-	if (!Character || !MovementComponent || !bHasMovementInput)
-	{
-		return;
-	}
-	
-	const float Speed{LocomotionAnimState.Speed2D};
-	const float PivotMinSpeed{MovementComponent->MaxWalkSpeed * PivotMinSpeedRatio};
-	if (Speed < PivotMinSpeed)
-	{
-		return;
-	}
-
-	if (bCanTriggerPivot && PivotDot < EnterPivotDot)
-	{
-		bPivotActive = true;
-		bCanTriggerPivot = false;
-	}
+	PivotState.bPivotActive = Dot < 0.f && Dot < PivotState.PivotEnterAngleDegrees;
 }
-

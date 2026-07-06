@@ -53,7 +53,7 @@ namespace Combat::Status::Agent
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Parry)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Dodge)
-	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Invulnerable)
 }
 
 namespace Combat::Status::Enemy
@@ -88,6 +88,7 @@ namespace Combat::Event
 
 namespace Combat::SpecialAction
 {
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SpecialAttackEX)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(ChainAttack)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(QuickAssist)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(DefensiveAssist)

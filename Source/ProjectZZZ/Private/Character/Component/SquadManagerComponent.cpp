@@ -44,7 +44,7 @@ USquadManagerComponent::USquadManagerComponent()
 void USquadManagerComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	InitializeAgentSquad();
+	//InitializeAgentSquad();
 	
 	if (UCombatEventBusSubSystem* EventBus = GetWorld()->GetSubsystem<UCombatEventBusSubSystem>())
 	{
@@ -86,6 +86,16 @@ APlayerCharacter* USquadManagerComponent::GetActiveAgent() const
 	return nullptr;
 }
 
+APlayerCharacter* USquadManagerComponent::GetSecondAgent() const
+{
+	return GetNextAgent() ? (GetNextAgent() != GetActiveAgent() ? GetNextAgent() : nullptr) : nullptr;
+}
+
+APlayerCharacter* USquadManagerComponent::GetThirdAgent() const
+{
+	return GetPreviousAgent() ? (GetPreviousAgent() != GetNextAgent() ? GetPreviousAgent() : nullptr) : nullptr;
+}
+
 APlayerCharacter* USquadManagerComponent::GetTargetAgent(const int32 TargetIndex) const
 {
 	if (Squad.IsValidIndex(TargetIndex))
@@ -116,7 +126,12 @@ void USquadManagerComponent::ExecuteAgentTransition(const FAgentTransitionReques
 	checkf(TargetAgent, TEXT("Switch In Invalid Agent"));
 	HandleAgentSwitchIn(TargetAgent, Request, Snapshot);
 	ActiveAgentIndex = Request.TargetAgentIndex;
+	
 	OnActiveAgentChanged.Broadcast(OldAgent, TargetAgent);
+	if (TargetAgent->GetAgentCombatComponent())
+	{
+		TargetAgent->GetAgentCombatComponent()->RefreshAllActionStatus();	
+	}
 	
 	if (OldAgent)
 	{
@@ -240,8 +255,18 @@ FAgentTransitionSnapshot USquadManagerComponent::GetInitialSnapshot()
 void USquadManagerComponent::HandleAgentSwitchIn(APlayerCharacter* NewAgent, const FAgentTransitionRequest& Request, const FAgentTransitionSnapshot& Snapshot)
 {
 	UCharacterCombatComponent* CombatComponent = NewAgent->GetAgentCombatComponent();
+	if (!CombatComponent)
+	{
+		return;
+	}
+	
 	OwnerController->Possess(NewAgent);
 
+	// Refresh UI
+	CombatComponent->RefreshAllActionStatus();
+	
+	// todo: Refresh Status Bar
+	
 	ApplyAgentActiveState(NewAgent);
 	
 	NewAgent->SetActorTransform(CalculateAgentSpawnTransform(Request));
@@ -488,8 +513,8 @@ ECombatEventHandleResult USquadManagerComponent::TriggerChainAttackWindow(const 
 		return ECombatEventHandleResult::UnHandled;
 	}
 	
-	UTexture2D* PreviousAgentHead{PreviousAgent->GetAgentHead()};
-	UTexture2D* NextAgentHead{NextAgent->GetAgentHead()};
+	UTexture2D* PreviousAgentHead{PreviousAgent->GetAgentSquareHead()};
+	UTexture2D* NextAgentHead{NextAgent->GetAgentSquareHead()};
 
 	if (!PreviousAgentHead || !NextAgentHead)
 	{
@@ -528,7 +553,7 @@ void USquadManagerComponent::InitializeAgentSquad()
 
 	for (TSubclassOf AgentClass : SquadPreset)
 	{
-		if (AgentClass)
+		if (AgentClass && Squad.Num() < 3)			// 3 agent at most 
 		{
 			APlayerCharacter* NewAgent = World->SpawnActorDeferred<APlayerCharacter>(
 				AgentClass,
@@ -549,6 +574,7 @@ void USquadManagerComponent::InitializeAgentSquad()
 			}
 		}
 	}
+	
 	FAgentTransitionRequest Request;
 	Request.TargetAgentIndex = 0;
 	Request.SwitchInMode = EAgentSwitchInMode::InitialIdle;
@@ -583,7 +609,7 @@ int32 USquadManagerComponent::GetPreviousAgentIndex() const
 
 	if (AgentNums == 1)
 	{
-		return ActiveAgentIndex;
+		return INDEX_NONE;
 	}
 	int32 TargetIndex{(ActiveAgentIndex - 1 + AgentNums) % AgentNums};
 	return Squad.IsValidIndex(TargetIndex) ? TargetIndex : INDEX_NONE; 
@@ -599,7 +625,7 @@ int32 USquadManagerComponent::GetNextAgentIndex() const
 
 	if (AgentNums == 1)
 	{
-		return ActiveAgentIndex;
+		return INDEX_NONE;
 	}
 
 	const int32 TargetIndex{(ActiveAgentIndex + 1) % AgentNums};
@@ -813,7 +839,7 @@ ECombatEventHandleResult USquadManagerComponent::TriggerQuickAssistWindow(const 
 			QuickAssistStatus.bQuickAssistWindowOpen = true;
 			QuickAssistStatus.TargetEnemy = Enemy;
 			QuickAssistStatus.QuickAssistRemainingTime = QuickAssistStatus.QuickAssistCountDownDuration;
-			OnTriggerQuickAssistWindow.Broadcast(Agent->GetAgentHead());
+			OnTriggerQuickAssistWindow.Broadcast(Agent->GetAgentSquareHead());
 
 			return ECombatEventHandleResult::Handled;
 		}
@@ -1134,4 +1160,52 @@ FTransform USquadManagerComponent::CalculateUltimateCameraPosition(UCombatAction
 	CameraTransform.SetRotation(CameraRotation.Quaternion());
 
 	return CameraTransform;
+}
+
+void USquadManagerComponent::BuildHUDSquadSource(FHUDSquadSource& Source)
+{
+	Source.SquadManager = this;
+	
+	if (GetActiveAgent())
+	{
+		Source.ActiveAgent.DisplaySlot = EHUDSquadDisplaySlot::Active;
+		Source.ActiveAgent.Agent = GetActiveAgent();
+		Source.ActiveAgent.CombatComponent = GetActiveAgent()->GetAgentCombatComponent();
+	}
+
+	if (GetSecondAgent())
+	{
+		Source.SecondAgent.DisplaySlot = EHUDSquadDisplaySlot::Second;
+		Source.SecondAgent.Agent = GetSecondAgent();
+		Source.SecondAgent.CombatComponent = GetSecondAgent()->GetAgentCombatComponent();
+	}
+
+	if (GetThirdAgent())
+	{
+		Source.ThirdAgent.DisplaySlot = EHUDSquadDisplaySlot::Third;
+		Source.ThirdAgent.Agent = GetThirdAgent();
+		Source.ThirdAgent.CombatComponent = GetThirdAgent()->GetAgentCombatComponent();
+	}
+}
+
+FSquadStatusSnapshot USquadManagerComponent::BuildSquadStatusSnapshot()
+{
+	FSquadStatusSnapshot Snapshot;
+
+	if (GetActiveAgent())
+	{
+		Snapshot.ActiveAgentStatus = GetActiveAgent()->BuildAgentStatusSnapshot();
+	}
+
+	if (GetSecondAgent())
+	{
+		Snapshot.SecondAgentStatus = GetSecondAgent()->BuildAgentStatusSnapshot();
+	}
+
+	if (GetThirdAgent())
+	{
+		Snapshot.ThirdAgentStatus = GetThirdAgent()->BuildAgentStatusSnapshot();
+	}
+	
+	return Snapshot;
 }

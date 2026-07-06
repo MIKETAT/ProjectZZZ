@@ -1,5 +1,5 @@
 ﻿#pragma once
-
+#include "BoneControllers/AnimNode_OffsetRootBone.h"
 #include "LocomotionAnimationState.generated.h"
 
 USTRUCT(BlueprintType)
@@ -40,6 +40,12 @@ struct PROJECTZZZ_API FLocomotionAnimationState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "State", meta = (ClampMin = 0))
 	float DisplacementSpeed{0.f};
 
+	/*UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category = "Loco State")
+	float YawDeltaSinceLastUpdate{0.f};
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category = "Loco State")
+	bool bIsFirstUpdate{false};*/
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category = "Loco State")
 	bool bIsMoving{false};
 };
@@ -66,3 +72,29 @@ struct FEnemyLocomotionAnimationState
 
 	
 };
+
+UENUM(BlueprintType)
+enum class ERootYawOffsetMode : uint8
+{
+	None,
+	Accumulate,
+	BlendOut,
+	Hold
+};
+
+USTRUCT(BlueprintType)
+struct FAgentPivotState
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Transient, Category = "State | Pivot")
+    uint8 bPivotActive : 1 {false};				// Allow Animation State Machine Transition
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting | Pivot")	//, meta=(ClampMin = )
+    float PivotEnterAngleDegrees{160.f};		// 进入Pivot所需的速度方向与加速度方向夹角
+
+    float EnterPivotDot{0.f};
+    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Setting | Pivot")
+    float PivotMinSpeedRatio{0.75f};			// 进入Pivot所需速度至少占MaxWalkSpeed比率
+}; 
