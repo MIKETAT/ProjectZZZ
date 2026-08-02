@@ -120,7 +120,7 @@ void UPlayerInputHandlerComponent::On_Input_Dodge(const FInputActionInstance& In
 #define DEFINE_INPUT_FUNCTION_SIMPLE_PRESSED(FuncName, EInputAction) \
 void UPlayerInputHandlerComponent::FuncName(const FInputActionInstance& Instance) \
 { \
-	if (const ETriggerEvent TriggerEvent{Instance.GetTriggerEvent()}; TriggerEvent == ETriggerEvent::Triggered) \
+	if (const ETriggerEvent TriggerEvent{Instance.GetTriggerEvent()}; TriggerEvent == ETriggerEvent::Started) \
 	{ \
 		PendingInputFrame.PlayerInputs.InputActionBitmask.Set(EInputAction, true); \
 	} else if (TriggerEvent == ETriggerEvent::Completed || TriggerEvent == ETriggerEvent::Canceled) \

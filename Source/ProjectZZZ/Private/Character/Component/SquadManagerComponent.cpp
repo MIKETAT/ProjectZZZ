@@ -177,7 +177,8 @@ void USquadManagerComponent::ApplyAgentActiveState(APlayerCharacter* Agent)
 	{
 		return;
 	}
-	
+
+	OwnerController->Possess(Agent);
 	Agent->SetAgentPresence(EAgentPresenceState::Active);
 	Agent->SetActorHiddenInGame(false);
 	Agent->SetActorEnableCollision(true);
@@ -190,6 +191,11 @@ void USquadManagerComponent::ApplyAgentLingeringState(APlayerCharacter* Agent)
 		return;
 	}
 
+	if (Agent->GetAgentPresence() == EAgentPresenceState::Active)
+	{
+		OwnerController->UnPossess();
+	}
+	
 	Agent->SetAgentPresence(EAgentPresenceState::Lingering);
 	Agent->SetActorEnableCollision(false);
 }
@@ -199,6 +205,11 @@ void USquadManagerComponent::ApplyAgentOffFieldState(APlayerCharacter* Agent)
 	if (!IsValid(Agent))
 	{
 		return;
+	}
+	
+	if (Agent->GetAgentPresence() == EAgentPresenceState::Active)
+	{
+		OwnerController->UnPossess();
 	}
 	
 	Agent->SetAgentPresence(EAgentPresenceState::OffField);
@@ -259,8 +270,6 @@ void USquadManagerComponent::HandleAgentSwitchIn(APlayerCharacter* NewAgent, con
 	{
 		return;
 	}
-	
-	OwnerController->Possess(NewAgent);
 
 	// Refresh UI
 	CombatComponent->RefreshAllActionStatus();

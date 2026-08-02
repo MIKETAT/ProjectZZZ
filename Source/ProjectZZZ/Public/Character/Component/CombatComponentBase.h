@@ -7,6 +7,7 @@
 #include "Components/ActorComponent.h"
 #include "CombatComponentBase.generated.h"
 
+struct FAttackShapeQueryGeometry;
 class USquadManagerComponent;
 class APlayerCharacter;
 class UCharacterCombatComponent;
@@ -124,9 +125,9 @@ public:
 
 	virtual bool ResolveAttackDetectionSegment(const FName& SegmentName, FResolvedAttackDetectionSegment& OutSegment);
 	
-	virtual void EnableAttackDetection(const FGameplayTag& Tag, const FName& SegmentName);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
+	virtual void EnableAttackDetection(const UAnimSequenceBase* SourceAnimation, const FName& SegmentName);// PURE_VIRTUAL(UCombatComponentBase::EnableAttackDetection, )
 
-	virtual void DisableAttackDetection(const FName& SegmentName);// PURE_VIRTUAL(UCombatComponentBase::DisableAttackDetection, )
+	virtual void DisableAttackDetection(const UAnimSequenceBase* SourceAnimation, const FName& SegmentName);// PURE_VIRTUAL(UCombatComponentBase::DisableAttackDetection, )
 
 	bool IsAnyActionActive() const;
 	
@@ -137,15 +138,12 @@ public:
 	void RefreshAttackDetection(float DeltaTime);
 
 	void RefreshWeaponSweep(const float DeltaTime);
-	
-	void SubStepAttackDetection(const FTransform& LastWeaponRootTransform, const FTransform& LastWeaponTipTransform,
-								const FTransform& CurrentWeaponRootTransform, const FTransform& CurrentWeaponTipTransform);
-	
+
 	void RefreshActorPathSweep();
 	
-	void TriggerAttackDetectionQuery(const FGameplayTag& Tag, const FName& SegmentName);
+	void TriggerAttackDetectionQuery(const UAnimSequenceBase* SourceAnimation, const FName& SegmentName);
 	
-	void RefreshShapeQuery();
+	void RefreshShapeQueryContinuous();
 
 	FAttackDetectedTarget MakeDetectedTargetFromHit(const FHitResult& HitResult);
 
@@ -183,10 +181,12 @@ protected:
 
 	void HandleDeath();
 
+	bool IsSourceAnimationFromCurrentActionMontage(const UAnimSequenceBase* SourceAnimation) const;
+
 private:
 	void DebugPrintCurrentActionState();
 
-	void DrawDebugAttackDetectionShape(const FSweepShapeConfig& ShapeConfig, const FTransform& TargetTransform);
+	void DrawDebugAttackDetectionShape(const FAttackShapeQueryGeometry& Geometry);
 
 	static void DrawDebugSweepShape(
 		const UWorld* World,

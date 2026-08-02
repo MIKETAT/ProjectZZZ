@@ -6,7 +6,7 @@
 class UCombatActionStep;
 
 UENUM(BlueprintType)
-enum class ESweepShapeType : uint8
+enum class EAttackDetectionShapeType : uint8
 {
 	Box					UMETA(DisplayName = "Box"),
 	Sphere				UMETA(DisplayName = "Sphere"),
@@ -14,7 +14,7 @@ enum class ESweepShapeType : uint8
 };
 
 USTRUCT(BlueprintType)
-struct FSweepShapeConfig
+struct FAttackDetectionShapeConfig
 {
 	GENERATED_BODY()
 
@@ -24,65 +24,55 @@ public:
 		FCollisionShape Shape;
 		switch (ShapeType)
 		{
-			case ESweepShapeType::Sphere:
+			case EAttackDetectionShapeType::Sphere:
 				Shape.SetSphere(SphereRadius);
 				break;
-			case ESweepShapeType::Box:
+			case EAttackDetectionShapeType::Box:
 				Shape.SetBox(FVector3f(BoxHalfExtents));
 				break;
-			case ESweepShapeType::Capsule:
+			case EAttackDetectionShapeType::Capsule:
 				Shape.SetCapsule(CapsuleRadius, CapsuleHalfHeight);
 				break;
 		}
 		return Shape;
 	}
-
-	bool IsValid() const
-	{
-		return bValidConfig;
-	}
 	
 	UPROPERTY(EditDefaultsOnly)
-	ESweepShapeType ShapeType{ESweepShapeType::Sphere};		// only support sphere for now
+	EAttackDetectionShapeType ShapeType{EAttackDetectionShapeType::Sphere};		// only support sphere for now
 
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType != ESweepShapeType::Sphere"))
-	FRotator ShapeRotation{FRotator{-90.f, 0.f, 0.f}};
-	
 	// Sphere Param
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType == ESweepShapeType::Sphere", EditConditionHides, ClampMin = "1.0"))
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType == EAttackDetectionShapeType::Sphere", EditConditionHides, ClampMin = "1.0"))
 	float SphereRadius{1.f};
 
 	// Capsule
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType == ESweepShapeType::Capsule", EditConditionHides, ClampMin = "1.0"))
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType == EAttackDetectionShapeType::Capsule", EditConditionHides, ClampMin = "1.0"))
 	float CapsuleRadius{1.f};
 
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType == ESweepShapeType::Capsule", EditConditionHides, ClampMin = "1.0"))
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType == EAttackDetectionShapeType::Capsule", EditConditionHides, ClampMin = "1.0"))
 	float CapsuleHalfHeight{1.f};
 
 	// Box Param
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType == ESweepShapeType::Box", EditConditionHides, ClampMin = "1.0"))
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "ShapeType == EAttackDetectionShapeType::Box", EditConditionHides, ClampMin = "1.0"))
 	FVector BoxHalfExtents{FVector::OneVector};
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
-	bool bValidConfig{false};
 };
 
 UENUM(BlueprintType)
 enum class EAttackDetectionMode : uint8
 {
-	None,
-	WeaponSweep,
-	ActorPathSweep,
-	ShapeQuery,
+	None						UMETA(DisplayName = "None"),
+	WeaponSweep					UMETA(DisplayName = "WeaponSweep"),
+	ActorPathSweep				UMETA(DisplayName = "ActorPathSweep"),
+	ShapeQueryInstant			UMETA(DisplayName = "ShapeQueryInstant"),
+	ShapeQueryContinuous		UMETA(DisplayName = "ShapeQueryContinuous"),
 };
 
-UENUM(BlueprintType)
+/*UENUM(BlueprintType)
 enum class EAttackDetectionTriggerMode : uint8
 {
 	None,
 	ContinuousWindow,
 	InstantQuery,
-};
+};*/
 
 UENUM(BlueprintType)
 enum class EHitDedupePolicy : uint8
@@ -100,12 +90,11 @@ enum class EAttackQueryReference : uint8
 	None,
 	Owner,
 	OwnerSocket,
-	CurrentTarget,
-	World
+	// UnSupported: CurrentTarget, World
 };
 
 UENUM(BlueprintType)
-enum class EActorPathSweepRotaionPolicy : uint8
+enum class EActorPathSweepRotationPolicy : uint8
 {
 	LockOnBegin,
 	FollowActor,
@@ -120,13 +109,18 @@ struct FAttackDetectionSpec
 	EAttackDetectionMode DetectionMode{EAttackDetectionMode::None};
 
 	UPROPERTY(EditDefaultsOnly)
-	EAttackDetectionTriggerMode TriggerMode{EAttackDetectionTriggerMode::None};
-
-	UPROPERTY(EditDefaultsOnly)
 	TEnumAsByte<ECollisionChannel> TraceChannel;
 
 	UPROPERTY(EditDefaultsOnly)
-	FSweepShapeConfig SweepShapeConfig;
+	FAttackDetectionShapeConfig ShapeConfig;
+
+	UPROPERTY(EditDefaultsOnly,
+		meta = (EditCondition = "DetectionMode != EAttackDetectionMode::WeaponSweep && DetectionMode != EAttackDetectionMode::None", EditConditionHides))
+	FVector ShapeLocalOffset{FVector::ZeroVector};
+
+	UPROPERTY(EditDefaultsOnly,
+		meta = (EditCondition = "DetectionMode != EAttackDetectionMode::None", EditConditionHides))
+	FRotator ShapeLocalRotation{FRotator::ZeroRotator};
 
 	// WeaponSweep
 	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep", EditConditionHides))
@@ -134,34 +128,35 @@ struct FAttackDetectionSpec
 
 	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep", EditConditionHides))
 	FName WeaponTipSocketName{FName("WeaponTip")};
+		
+	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "2", EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep", EditConditionHides))
+	int32 WeaponSampleCount{2};
 
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep || DetectionMode == EAttackDetectionMode::ActorPathSweep", EditConditionHides))
-	int32 MaxSubStepCount{1};
+	// Actor Path Sweep
+	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::ActorPathSweep", EditConditionHides))
+	EActorPathSweepRotationPolicy PathSweepRotationPolicy{EActorPathSweepRotationPolicy::LockOnBegin};
 
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep || DetectionMode == EAttackDetectionMode::ActorPathSweep", EditConditionHides))
-	float MaxSubStepTime{1 / 120.f};
-
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep", EditConditionHides))
-	int32 SampleCount{1};
+	// Sweep Detection, WeaponSweep only
+	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "1",
+	EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep", EditConditionHides))
+	int32 MaxSubStepCount{8};
 	
-	// ActorPathSweep / ShapeQuery / DelayedShapeQuery / AttachedShape
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::ShapeQuery", EditConditionHides))
-	EAttackQueryReference ReferenceType{EAttackQueryReference::None};
+	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "0.001",
+		EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep", EditConditionHides))
+	float MaxSubStepTime{1 / 120.f};		// 单子步时间跨度
 	
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::ShapeQuery && ReferenceType == EAttackQueryReference::OwnerSocket", EditConditionHides))
+	UPROPERTY(EditDefaultsOnly, meta = (ClampMin = "0.1",
+		EditCondition = "DetectionMode == EAttackDetectionMode::WeaponSweep", EditConditionHides))
+	float MaxSubStepAngle{10.f};			// 单子步旋转跨度
+	
+	// ShapeQuery/ShapeQueryContinuous.  ActorPath use Owner
+	UPROPERTY(EditDefaultsOnly,
+		meta = (EditCondition = "DetectionMode == EAttackDetectionMode::ShapeQueryInstant || DetectionMode == EAttackDetectionMode::ShapeQueryContinuous", EditConditionHides))
+	EAttackQueryReference ReferenceType{EAttackQueryReference::Owner};
+	
+	UPROPERTY(EditDefaultsOnly,
+		meta = (EditCondition = "(DetectionMode == EAttackDetectionMode::ShapeQueryInstant || DetectionMode == EAttackDetectionMode::ShapeQueryContinuous) && ReferenceType == EAttackQueryReference::OwnerSocket", EditConditionHides))
 	FName ReferenceSocketName{FName("Reference")};
-
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::ActorPathSweep", EditConditionHides))
-	FTransform SweepShapeLocalOffset{FTransform::Identity};
-
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::ActorPathSweep", EditConditionHides))
-	EActorPathSweepRotaionPolicy PathSweepRotationPolicy{EActorPathSweepRotaionPolicy::LockOnBegin};
-	
-	UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DetectionMode == EAttackDetectionMode::ShapeQuery", EditConditionHides))
-	FTransform QueryLocalOffset{FTransform::Identity};
-	
-	/*UPROPERTY(EditDefaultsOnly, meta = (EditCondition = "DedupePolicy == EHitDedupePolicy::MultiHitInterval", EditConditionHides))
-	float MultiHitInterval{0.2f};*/
 };
 
 UENUM(BlueprintType)
@@ -182,17 +177,20 @@ public:
 };
 
 USTRUCT(BlueprintType)
-struct FAttackDetectionSegmentBinding
+struct PROJECTZZZ_API FAttackDetectionSegmentBinding
 {
 	GENERATED_BODY()
 
+public:
+	bool ResolveDetectionSpec(FAttackDetectionSpec& OutSpec) const;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	FName SegmentName{FName("Segment")};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	EAttackDetectorSpecSource SpecSource{EAttackDetectorSpecSource::Preset};
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "SpecSource == EAttackDetectorSpecSource::Preset", EditConditionHides))
 	TObjectPtr<UAttackDetectionPreset> Preset{nullptr};
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta = (EditCondition = "SpecSource == EAttackDetectorSpecSource::Inline", EditConditionHides))
@@ -203,10 +201,15 @@ struct FAttackDetectionSegmentBinding
 };
 
 USTRUCT(BlueprintType)
-struct FAttackDetectionConfig
+struct PROJECTZZZ_API FAttackDetectionConfig
 {
 	GENERATED_BODY()
 
+public:
+	const FAttackDetectionSegmentBinding* FindSegmentBinding(const FName& InSegmentName) const;
+
+	int32 CountSegmentBindings(const FName& InSegmentName) const; 
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	bool bEnableDetection{false};
 
@@ -266,7 +269,7 @@ struct FAttackDetectionStatus
 	UPROPERTY()
 	bool bActive{false};
 
-	FResolvedAttackDetectionSegment DetectionSegment;
+	FResolvedAttackDetectionSegment DetectionSegment{};
 	
 	bool bIsFirstFrame{true};
 

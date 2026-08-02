@@ -1,14 +1,13 @@
 ﻿#include "Character/Component/CombatComponentBase.h"
-#include "KismetTraceUtils.h"
 #include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "AbilitySystem/EnemyAttributeSet.h"
 #include "Animation/AnimInstanceBase.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Character/CharacterBase.h"
 #include "Character/ZZZPlayerController.h"
+#include "Character/Combat/AttackDetectionGeometry.h"
 #include "Character/Component/SquadManagerComponent.h"
 #include "Engine/OverlapResult.h"
-#include "Kismet/KismetMathLibrary.h"
 #include "Player/PlayerCharacter.h"
 #include "Utility/ZZZGameplayTag.h"
 
@@ -16,6 +15,7 @@ UCombatComponentBase::UCombatComponentBase()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bWantsInitializeComponent = true;
+	DetectionStatus = FAttackDetectionStatus{};
 }
 
 void UCombatComponentBase::BeginPlay()
@@ -76,53 +76,49 @@ void UCombatComponentBase::ProcessHitEvent(ACharacterBase* Victim, const FHitRes
 
 bool UCombatComponentBase::ResolveAttackDetectionSegment(const FName& SegmentName, FResolvedAttackDetectionSegment& OutSegment)
 {
-	if (!CurrentExecutionState.CurrentStep.IsValid())
+	OutSegment = FResolvedAttackDetectionSegment{};
+	const UCombatActionStep* Action{CurrentExecutionState.CurrentStep.Get()};
+	if (!Action)
 	{
 		return false;
 	}
 
-	const FAttackDetectionConfig& Config{CurrentExecutionState.CurrentStep->AttackDetectionConfig};
-	if (!Config.bEnableDetection)
+	if (!Action->AttackDetectionConfig.bEnableDetection)
 	{
 		return false;
 	}
 
-	const FAttackDetectionSegmentBinding* Binding = Config.Segments.FindByPredicate(
-		[SegmentName](const FAttackDetectionSegmentBinding& SegmentBinding)
-		{
-			return SegmentBinding.SegmentName == SegmentName;
-		});
-
+	const int32 BindingCount = Action->AttackDetectionConfig.CountSegmentBindings(SegmentName);
+	if (BindingCount != 1)
+	{
+		return false;
+	}
+	
+	const FAttackDetectionSegmentBinding* Binding = Action->AttackDetectionConfig.FindSegmentBinding(SegmentName);
 	if (!Binding)
 	{
 		return false;
 	}
 
 	FAttackDetectionSpec Spec;
-	if (Binding->SpecSource == EAttackDetectorSpecSource::Preset)
+	bool bSpecValid = Binding->ResolveDetectionSpec(Spec);
+	if (!bSpecValid)
 	{
-		if (!IsValid(Binding->Preset))
-		{
-			return false;
-		}
-		Spec =  Binding->Preset->DetectionSpec;
-	} else
-	{
-		Spec = Binding->InlineSpec;
+		return false;
 	}
 
 	OutSegment.DetectionSpec = Spec;
 	OutSegment.SegmentName = SegmentName;
 	OutSegment.DedupePolicy = Binding->DedupePolicy;
-	OutSegment.SourceAction = CurrentExecutionState.CurrentStep.Get();
+	OutSegment.SourceAction = Action;
 	OutSegment.ActionRequestId = CurrentExecutionState.MontageInstanceId;
 
 	return true;
 }
 
-void UCombatComponentBase::EnableAttackDetection(const FGameplayTag& Tag, const FName& SegmentName)
+void UCombatComponentBase::EnableAttackDetection(const UAnimSequenceBase* SourceAnimation, const FName& SegmentName)
 {
-	if (!CurrentExecutionState.CurrentStep.IsValid() || Tag != CurrentExecutionState.CurrentStep->ActionTag)
+	if (!IsSourceAnimationFromCurrentActionMontage(SourceAnimation))
 	{
 		return;
 	}
@@ -133,9 +129,11 @@ void UCombatComponentBase::EnableAttackDetection(const FGameplayTag& Tag, const 
 		return;
 	}
 
-	if (Segment.DetectionSpec.TriggerMode != EAttackDetectionTriggerMode::ContinuousWindow)
+	if (Segment.DetectionSpec.DetectionMode != EAttackDetectionMode::WeaponSweep
+		&& Segment.DetectionSpec.DetectionMode != EAttackDetectionMode::ActorPathSweep
+		&& Segment.DetectionSpec.DetectionMode != EAttackDetectionMode::ShapeQueryContinuous)
 	{
-		UE_LOG(LogTemp, Error, TEXT("Detection TriggerMode is not ContinuousWindow. Should not trigger in NotifyState"));
+		UE_LOG(LogTemp, Error, TEXT("DetectionMode is not ContinuousWindow. Should not trigger in NotifyState"));
 		return;
 	}
 
@@ -153,15 +151,21 @@ void UCombatComponentBase::EnableAttackDetection(const FGameplayTag& Tag, const 
 	DetectionStatus.bIsFirstFrame = true;
 	DetectionStatus.LastOwnerTransform = Character->GetActorTransform();
 
-	if (Segment.DetectionSpec.PathSweepRotationPolicy == EActorPathSweepRotaionPolicy::LockOnBegin)
+	if (DetectionStatus.DetectionSegment.DetectionSpec.DetectionMode == EAttackDetectionMode::ActorPathSweep
+		&& Segment.DetectionSpec.PathSweepRotationPolicy == EActorPathSweepRotationPolicy::LockOnBegin)
 	{
 		DetectionStatus.LockedForward = Character->GetActorForwardVector();
 		DetectionStatus.LockedRotator = Character->GetActorRotation();
 	}
 }
 
-void UCombatComponentBase::DisableAttackDetection(const FName& SegmentName)
+void UCombatComponentBase::DisableAttackDetection(const UAnimSequenceBase* SourceAnimation, const FName& SegmentName)
 {
+	if (!IsSourceAnimationFromCurrentActionMontage(SourceAnimation))
+	{
+		return;
+	}
+	
 	if (!DetectionStatus.bActive)
 	{
 		return;
@@ -223,9 +227,9 @@ void UCombatComponentBase::RefreshAttackDetection(float DeltaTime)
 		case EAttackDetectionMode::ActorPathSweep:
 			RefreshActorPathSweep();
 			break;
-		case EAttackDetectionMode::ShapeQuery:
-		//	Continuous Query
-			RefreshShapeQuery();	
+		case EAttackDetectionMode::ShapeQueryInstant:
+		//	todo:Continuous Query
+			//RefreshShapeQueryContinuous();
 			break;
 		default:
 			break;
@@ -234,184 +238,197 @@ void UCombatComponentBase::RefreshAttackDetection(float DeltaTime)
 
 void UCombatComponentBase::RefreshWeaponSweep(const float DeltaTime)
 {
-	if (DetectionStatus.DetectionSegment.DetectionSpec.DetectionMode != EAttackDetectionMode::WeaponSweep)
+	if (!Mesh || !GetWorld())
 	{
 		return;
-	}	
-	
-	FTransform LastWeaponRootTransform{DetectionStatus.LastWeaponRootTransform};
-	FTransform LastWeaponTipTransform{DetectionStatus.LastWeaponTipTransform};
-	
-	FTransform CurrentWeaponRootTransform{Mesh->GetSocketTransform(DetectionStatus.DetectionSegment.DetectionSpec.WeaponRootSocketName)};
-	FTransform CurrentWeaponTipTransform{Mesh->GetSocketTransform(DetectionStatus.DetectionSegment.DetectionSpec.WeaponTipSocketName)};
+	}
 
-	// Update Weapon Socket Transform.
-	DetectionStatus.LastWeaponRootTransform = CurrentWeaponRootTransform;
-	DetectionStatus.LastWeaponTipTransform = CurrentWeaponTipTransform;
+	const FAttackDetectionSpec& Spec = DetectionStatus.DetectionSegment.DetectionSpec;
+	if (!Mesh->DoesSocketExist(Spec.WeaponRootSocketName) || !Mesh->DoesSocketExist(Spec.WeaponTipSocketName))
+	{
+		return;
+	}
 	
-	// Initialize Weapon Socket Transform In First Frame.
+	if (Spec.DetectionMode != EAttackDetectionMode::WeaponSweep)
+	{
+		return;
+	}
+
+	FTransform CurrentWeaponRootTransform{Mesh->GetSocketTransform(Spec.WeaponRootSocketName)};
+	FTransform CurrentWeaponTipTransform{Mesh->GetSocketTransform(Spec.WeaponTipSocketName)};
+
+	FTransform PreviousWeaponRootTransform;
+	FTransform PreviousWeaponTipTransform;
+	float GeometryDeltaTime = DeltaTime;
+	
 	if (DetectionStatus.bIsFirstFrame)
 	{
 		DetectionStatus.bIsFirstFrame = false;
+
+		// overlay for first frame
+		PreviousWeaponRootTransform = CurrentWeaponRootTransform;
+		PreviousWeaponTipTransform = CurrentWeaponTipTransform;
+		GeometryDeltaTime = 0.f;
+	} else
+	{
+		PreviousWeaponRootTransform = DetectionStatus.LastWeaponRootTransform;
+		PreviousWeaponTipTransform = DetectionStatus.LastWeaponTipTransform;
+	}
+	
+	DetectionStatus.LastWeaponRootTransform = CurrentWeaponRootTransform;
+	DetectionStatus.LastWeaponTipTransform = CurrentWeaponTipTransform;
+	
+	TArray<FAttackSweepGeometry> Sweeps;
+	if (!AttackDetectionGeometry::BuildWeaponSweepGeometry(
+		Spec, GeometryDeltaTime,
+		PreviousWeaponRootTransform, PreviousWeaponTipTransform,
+		CurrentWeaponRootTransform, CurrentWeaponTipTransform,
+		Sweeps))
+	{
 		return;
 	}
-	
-	FTransform LastSubStepWeaponRootTransform{LastWeaponRootTransform};
-	FTransform LastSubStepWeaponTipTransform{LastWeaponTipTransform};
 
-	// adjust SubStepCount by DeltaTime
-	const int32 Count{FMath::CeilToInt(DeltaTime / DetectionStatus.DetectionSegment.DetectionSpec.MaxSubStepTime)};
-	const int32 SubStepCount{FMath::Clamp(Count, 1, DetectionStatus.DetectionSegment.DetectionSpec.MaxSubStepCount)};
-	
-	// Sweep
-	for (int32 Step = 0; Step < SubStepCount; Step++)
-	{
-		float Alpha = (Step + 1) / static_cast<float>(SubStepCount);
-		FTransform CurrentSubStepWeaponRootTransform = UKismetMathLibrary::TLerp(LastWeaponRootTransform, CurrentWeaponRootTransform, Alpha);
-		FTransform CurrentSubStepWeaponTipTransform = UKismetMathLibrary::TLerp(LastWeaponTipTransform, CurrentWeaponTipTransform, Alpha);
-		
-		SubStepAttackDetection(LastSubStepWeaponRootTransform, LastSubStepWeaponTipTransform,
-			CurrentSubStepWeaponRootTransform, CurrentSubStepWeaponTipTransform);
-
-		LastSubStepWeaponRootTransform = CurrentSubStepWeaponRootTransform;
-		LastSubStepWeaponTipTransform = CurrentSubStepWeaponTipTransform;
-	}
-}
-
-void UCombatComponentBase::SubStepAttackDetection(const FTransform& LastWeaponRootTransform, const FTransform& LastWeaponTipTransform,
-													const FTransform& CurrentWeaponRootTransform, const FTransform& CurrentWeaponTipTransform)
-{
-	const FAttackDetectionSpec& Spec{DetectionStatus.DetectionSegment.DetectionSpec};
-	const int32 SampleCount{Spec.SampleCount};
-	
 	FCollisionQueryParams CollisionParams;
 	CollisionParams.AddIgnoredActor(Character);
 	CollisionParams.bTraceComplex = false;
-	
-	FCollisionShape Shape = Spec.SweepShapeConfig.GetCollisionShape();
-	
-	for (int32 i = 0; i < SampleCount; i++)
+
+	for (const auto& Geometry : Sweeps)
 	{
-		float Alpha = (SampleCount > 1) ? i / static_cast<float>(SampleCount - 1) : 0.f;
-
-		FVector LastSampleLocation{FMath::Lerp(LastWeaponRootTransform.GetLocation(), LastWeaponTipTransform.GetLocation(), Alpha)};
-		FVector CurrentSampleLocation{FMath::Lerp(CurrentWeaponRootTransform.GetLocation(), CurrentWeaponTipTransform.GetLocation(), Alpha)};
-
-		TArray<FHitResult> TempHits;
-		GetWorld()->SweepMultiByChannel(
-			TempHits,
-			LastSampleLocation,
-			CurrentSampleLocation,
-			FQuat::Identity,
-			Spec.TraceChannel,
-			Shape,
-			CollisionParams);
-
-		if (DebugConfig.bDrawDebug)
+		// Overlap
+		if (Geometry.Start.Equals(Geometry.End, UE_KINDA_SMALL_NUMBER))
 		{
-			bool bHit{false};
-			TArray<FHitResult> Hits;
-		
-			switch (Spec.SweepShapeConfig.ShapeType)
+			TArray<FOverlapResult> OverlapResults;
+			GetWorld()->OverlapMultiByChannel(
+				OverlapResults,
+				Geometry.End,
+				Geometry.Rotation,
+				Spec.TraceChannel,
+				Geometry.CollisionShape,
+				CollisionParams);
+
+			const FTransform QueryTransform{Geometry.Rotation, Geometry.End};
+			for (const FOverlapResult& OverlapResult : OverlapResults)
 			{
-				case ESweepShapeType::Sphere:
-					DrawDebugSphereTraceMulti(
-						GetWorld(),
-						LastSampleLocation,
-						CurrentSampleLocation,
-						Spec.SweepShapeConfig.SphereRadius,
-						EDrawDebugTrace::ForDuration,
-						bHit,
-						Hits,
-						DebugConfig.TraceColor,
-						DebugConfig.HitColor,
-						DebugConfig.DrawTime);
-				break;
-				case ESweepShapeType::Box:
-				case ESweepShapeType::Capsule:
-				default:
-				break;
+				ProcessDetectionResults(MakeDetectedTargetFromOverlap(OverlapResult, QueryTransform), DetectionStatus.DetectionSegment);
 			}
-		}
-
-		for (const FHitResult& HitResult : TempHits)
+		} else
 		{
-			ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment);	
+			// Sweep
+			TArray<FHitResult> HitResults;
+			GetWorld()->SweepMultiByChannel(
+				HitResults,
+				Geometry.Start,
+				Geometry.End,
+				Geometry.Rotation,
+				Spec.TraceChannel,
+				Geometry.CollisionShape,
+				CollisionParams
+			);
+		
+			for (const FHitResult& HitResult : HitResults)
+			{
+				ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment);	
+			}
 		}
 	}
 }
 
 void UCombatComponentBase::RefreshActorPathSweep()
 {
-	const FAttackDetectionSpec& Spec{DetectionStatus.DetectionSegment.DetectionSpec};
+	if (!GetWorld())
+	{
+		return;
+	}
 	
+	const FAttackDetectionSpec& Spec{DetectionStatus.DetectionSegment.DetectionSpec};
 	if (!DetectionStatus.bActive || Spec.DetectionMode != EAttackDetectionMode::ActorPathSweep)
 	{
 		return;
 	}
 
-	FTransform LastTransform{DetectionStatus.LastOwnerTransform};
+	// Enable 时已记录到LastOwnerTransform
+	FTransform LastTransform = DetectionStatus.LastOwnerTransform;
 	FTransform CurrentTransform{Character->GetActorTransform()};
-	
 	DetectionStatus.LastOwnerTransform = CurrentTransform;
+	DetectionStatus.bIsFirstFrame = false;
 
-	if (DetectionStatus.bIsFirstFrame)
-	{
-		DetectionStatus.bIsFirstFrame = false;
-		return;
-	}
-
-	if (Spec.PathSweepRotationPolicy == EActorPathSweepRotaionPolicy::LockOnBegin)
+	if (Spec.PathSweepRotationPolicy == EActorPathSweepRotationPolicy::LockOnBegin)
 	{
 		LastTransform.SetRotation(DetectionStatus.LockedRotator.Quaternion());
 		CurrentTransform.SetRotation(DetectionStatus.LockedRotator.Quaternion());
 	}
-
-	const FVector Start{LastTransform.TransformPosition(Spec.SweepShapeLocalOffset.GetLocation())};
-	const FVector End{CurrentTransform.TransformPosition(Spec.SweepShapeLocalOffset.GetLocation())};
-
-	const FQuat BaseRotation{Spec.PathSweepRotationPolicy == EActorPathSweepRotaionPolicy::LockOnBegin
-		? DetectionStatus.LockedRotator.Quaternion()
-		: Character->GetActorQuat()};
-
-	const FQuat TraceRotation{BaseRotation * Spec.SweepShapeConfig.ShapeRotation.Quaternion()};
+	
+	FAttackSweepGeometry Geometry;
+	if (!AttackDetectionGeometry::BuildActorPathSweepGeometry(Spec, LastTransform, CurrentTransform, Geometry))
+	{
+		return;
+	}
 	
 	FCollisionQueryParams CollisionParams;
 	CollisionParams.AddIgnoredActor(Character);
 	CollisionParams.bTraceComplex = false;
 
-	TArray<FHitResult> OutHitResult;
-	bool bHit = GetWorld()->SweepMultiByChannel(
-		OutHitResult,
-		Start,
-		End,
-		TraceRotation,
-		Spec.TraceChannel,
-		Spec.SweepShapeConfig.GetCollisionShape(),
-		CollisionParams);
+	// Overlap when zero length
+	if (Geometry.Start.Equals(Geometry.End, UE_KINDA_SMALL_NUMBER))
+	{	
+		TArray<FOverlapResult> OverlapResults;
+		GetWorld()->OverlapMultiByChannel(
+			OverlapResults,
+			Geometry.End,
+			Geometry.Rotation,
+			Spec.TraceChannel,
+			Geometry.CollisionShape,
+			CollisionParams);
 
-	if (DebugConfig.bDrawDebug)
+		const FTransform QueryTransform{Geometry.Rotation, Geometry.End};
+		for (const FOverlapResult& OverlapResult : OverlapResults)
+		{
+			ProcessDetectionResults(MakeDetectedTargetFromOverlap(OverlapResult, QueryTransform), DetectionStatus.DetectionSegment);
+		}
+		
+		if (DebugConfig.bDrawDebug)
+		{
+			FAttackShapeQueryGeometry DebugGeometry;
+			DebugGeometry.WorldTransform = FTransform(Geometry.Rotation, Geometry.End, FVector::OneVector);
+			DebugGeometry.CollisionShape = Geometry.CollisionShape;
+			DrawDebugAttackDetectionShape(DebugGeometry);
+		}
+	} else
 	{
-		DrawDebugSweepShape(
-			GetWorld(),
-			Start,
-			End,
-			TraceRotation,
-			Spec.SweepShapeConfig.GetCollisionShape(),
-			bHit,
+		// Sweep
+		TArray<FHitResult> OutHitResult;
+		bool bHit = GetWorld()->SweepMultiByChannel(
 			OutHitResult,
-			DebugConfig.DrawTime);
-	}
-	
-	for (const FHitResult& HitResult: OutHitResult)
-	{
-		ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment);
+			Geometry.Start,
+			Geometry.End,
+			Geometry.Rotation,
+			Spec.TraceChannel,
+			Geometry.CollisionShape,
+			CollisionParams);
+		
+		for (const FHitResult& HitResult: OutHitResult)
+		{
+			ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment);
+		}
+
+		if (DebugConfig.bDrawDebug)
+		{
+			DrawDebugSweepShape(
+				GetWorld(),
+				Geometry.Start,
+				Geometry.End,
+				Geometry.Rotation,
+				Geometry.CollisionShape,
+				bHit,
+				OutHitResult,
+				DebugConfig.DrawTime);
+		}
 	}
 }
 
-void UCombatComponentBase::TriggerAttackDetectionQuery(const FGameplayTag& Tag, const FName& SegmentName)
+void UCombatComponentBase::TriggerAttackDetectionQuery(const UAnimSequenceBase* SourceAnimation, const FName& SegmentName)
 {
-	if (!CurrentExecutionState.CurrentStep.IsValid() || Tag != CurrentExecutionState.CurrentStep->ActionTag)
+	if (!IsSourceAnimationFromCurrentActionMontage(SourceAnimation))
 	{
 		return;
 	}
@@ -424,22 +441,35 @@ void UCombatComponentBase::TriggerAttackDetectionQuery(const FGameplayTag& Tag, 
 
 	const FAttackDetectionSpec& Spec{Segment.DetectionSpec};
 	
-	if (Spec.DetectionMode != EAttackDetectionMode::ShapeQuery || Spec.TriggerMode != EAttackDetectionTriggerMode::InstantQuery)
+	if (Spec.DetectionMode != EAttackDetectionMode::ShapeQueryInstant)
 	{
 		return;
 	}
 
-	FTransform TargetTransform{FTransform::Identity};
-	if (Spec.ReferenceType == EAttackQueryReference::Owner)
+	FTransform ReferenceTransform = FTransform::Identity;
+	switch (Spec.ReferenceType)
 	{
-		FTransform BaseTransform{Character->GetActorTransform()};
-		TargetTransform.SetLocation(BaseTransform.TransformPosition(Spec.QueryLocalOffset.GetLocation()));
-		TargetTransform.SetRotation(BaseTransform.GetRotation() * Spec.QueryLocalOffset.GetRotation());
-	} else if (Spec.ReferenceType == EAttackQueryReference::OwnerSocket)
+		case EAttackQueryReference::Owner:
+			ReferenceTransform = Character->GetActorTransform();
+			break;
+		case EAttackQueryReference::OwnerSocket:
+			{
+				if (!Mesh || !Mesh->DoesSocketExist(Spec.ReferenceSocketName))
+				{
+					return;
+				}
+				ReferenceTransform = Mesh->GetSocketTransform(Spec.ReferenceSocketName);
+			}
+			break;
+		default:
+			UE_LOG(LogTemp, Warning, TEXT("Attack Detection Query, Invalid Reference Type."));
+			return;
+	}
+	
+	FAttackShapeQueryGeometry Geometry;
+	if (!AttackDetectionGeometry::BuildShapeQueryGeometry(Spec, ReferenceTransform, Geometry))
 	{
-		FTransform ReferenceTransform{Character->GetMesh()->GetSocketTransform(Spec.ReferenceSocketName)};
-		TargetTransform.SetLocation(ReferenceTransform.TransformPosition(Spec.QueryLocalOffset.GetLocation()));
-		TargetTransform.SetRotation(ReferenceTransform.TransformRotation(Spec.QueryLocalOffset.GetRotation() * Spec.SweepShapeConfig.ShapeRotation.Quaternion()));
+		return;
 	}
 
 	FCollisionQueryParams CollisionParams;
@@ -449,29 +479,25 @@ void UCombatComponentBase::TriggerAttackDetectionQuery(const FGameplayTag& Tag, 
 	TArray<FOverlapResult> OutHitResults;
 	GetWorld()->OverlapMultiByChannel(
 		OutHitResults,
-		TargetTransform.GetLocation(),
-		TargetTransform.GetRotation(),
+		Geometry.WorldTransform.GetLocation(),
+		Geometry.WorldTransform.GetRotation(),
 		Spec.TraceChannel,
-		Spec.SweepShapeConfig.GetCollisionShape(),
+		Geometry.CollisionShape,
 		CollisionParams);
 	
 	// Draw Debug
-	DrawDebugAttackDetectionShape(Spec.SweepShapeConfig, TargetTransform);
+	DrawDebugAttackDetectionShape(Geometry);
 	
-	TSet<TObjectKey<AActor>> InstantQueryHitActors;
 	for (const FOverlapResult& OverlapResult : OutHitResults)
 	{
-		ProcessDetectionResults(MakeDetectedTargetFromOverlap(OverlapResult, TargetTransform), Segment);
+		ProcessDetectionResults(MakeDetectedTargetFromOverlap(OverlapResult, Geometry.WorldTransform), Segment);
 	}
 }
 
 // todo: No need for persistent ShapeQuery Currently 
-void UCombatComponentBase::RefreshShapeQuery()
+void UCombatComponentBase::RefreshShapeQueryContinuous()
 {
-	if (DetectionStatus.DetectionSegment.DetectionSpec.TriggerMode != EAttackDetectionTriggerMode::ContinuousWindow)
-	{
-		return;
-	}
+	
 }
 
 FAttackDetectedTarget UCombatComponentBase::MakeDetectedTargetFromHit(const FHitResult& HitResult)
@@ -514,20 +540,14 @@ void UCombatComponentBase::ProcessDetectionResults(const FAttackDetectedTarget& 
 		return;
 	}
 
-	bool bPassHitDedupe{false};
-	if (Segment.DetectionSpec.TriggerMode == EAttackDetectionTriggerMode::InstantQuery)
+	if (Segment.DetectionSpec.DetectionMode != EAttackDetectionMode::None)
 	{
-		bPassHitDedupe = PassHitDedupe(HitActor, Segment);	
-	} else if (Segment.DetectionSpec.TriggerMode == EAttackDetectionTriggerMode::ContinuousWindow)
-	{
-		bPassHitDedupe = PassHitDedupe(HitActor, Segment);
+		if (!PassHitDedupe(HitActor, Segment))
+		{
+			return;
+		}
 	}
 	
-	if (!bPassHitDedupe)
-	{
-		return;
-	}
-
 	ACharacterBase* Victim{Cast<ACharacterBase>(HitActor)};
 	if (!Victim)
 	{
@@ -759,6 +779,16 @@ void UCombatComponentBase::HandleDeath()
 	Character->Die();
 }
 
+bool UCombatComponentBase::IsSourceAnimationFromCurrentActionMontage(const UAnimSequenceBase* SourceAnimation) const
+{
+	if (!SourceAnimation || !CurrentExecutionState.CurrentStep.IsValid())
+	{
+		return false;
+	}
+
+	return CurrentExecutionState.CurrentStep->Montage == SourceAnimation;
+}
+
 void UCombatComponentBase::DebugPrintCurrentActionState()
 {
 	if (!bShowActionDebugInfo)
@@ -838,48 +868,48 @@ void UCombatComponentBase::DebugPrintCurrentActionState()
 
 }
 
-void UCombatComponentBase::DrawDebugAttackDetectionShape(const FSweepShapeConfig& ShapeConfig, const FTransform& TargetTransform)
+void UCombatComponentBase::DrawDebugAttackDetectionShape(const FAttackShapeQueryGeometry& Geometry)
 {
 	if (DebugConfig.bDrawDebug)
 	{
-		switch (ShapeConfig.ShapeType)
+		const FCollisionShape& Shape = Geometry.CollisionShape;
+		const FTransform& Transform = Geometry.WorldTransform;
+
+		// Capsule
+		if (Shape.IsCapsule())
 		{
-		case ESweepShapeType::Capsule:
-			{
-				DrawDebugCapsule(
+			DrawDebugCapsule(
 					GetWorld(),
-					TargetTransform.GetLocation(),
-					ShapeConfig.CapsuleHalfHeight,
-					ShapeConfig.CapsuleRadius,
-					TargetTransform.GetRotation(),
+					Transform.GetLocation(),
+					Shape.GetCapsuleHalfHeight(),
+					Shape.GetCapsuleRadius(),
+					Transform.GetRotation(),
 					FColor::Green,
 					false,
 					DebugConfig.DrawTime);
-			}
-			break;
-		case ESweepShapeType::Box:
-			{
-				DrawDebugBox(
-					GetWorld(),
-					TargetTransform.GetLocation(),
-					ShapeConfig.BoxHalfExtents,
-					FColor::Green,
-					false,
-					DebugConfig.DrawTime);
-			}
-			break;
-		case ESweepShapeType::Sphere:
-			{
-				DrawDebugSphere(
-					GetWorld(),
-					TargetTransform.GetLocation(),
-					ShapeConfig.SphereRadius,
-					10,
-					FColor::Green,
-					false,
-					DebugConfig.DrawTime);
-			}
-			break;
+		}
+		// Box
+		else if (Shape.IsBox()) 
+		{
+			DrawDebugBox(
+				GetWorld(),
+				Transform.GetLocation(),
+				Shape.GetExtent(),
+				Transform.GetRotation(),
+				FColor::Green,
+				false,
+				DebugConfig.DrawTime);
+		}
+		else if (Shape.IsSphere())
+		{
+			DrawDebugSphere(
+				GetWorld(),
+				Transform.GetLocation(),
+				Shape.GetSphereRadius(),
+				10,
+				FColor::Green,
+				false,
+				DebugConfig.DrawTime);
 		}
 	}
 }

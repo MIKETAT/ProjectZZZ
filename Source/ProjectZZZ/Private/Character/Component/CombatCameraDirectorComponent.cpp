@@ -350,7 +350,7 @@ bool UCombatCameraDirectorComponent::CalculateActionFocusViewCameraTransform(FTr
 	
 	if (!BuildCameraBasis(BasisForward, Forward, Right))
 	{
-		return false;
+		return false; 
 	}
 
 	const FCombatCameraConfig& Config{Request.Config};

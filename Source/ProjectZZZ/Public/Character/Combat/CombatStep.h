@@ -217,7 +217,18 @@ class PROJECTZZZ_API UCombatActionStep : public UDataAsset
 public:
 	virtual UAnimMontage* GetAnimMontage(const FVector2D& MovementInput) const { return Montage; };
 
+#if WITH_EDITOR
+	virtual EDataValidationResult IsDataValid(class FDataValidationContext& Context) const override;
+	
+#endif
+	
 public:
+#if WITH_EDITORONLY_DATA
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<USkeletalMesh> PreviewSkeletalMesh{nullptr};
+	
+#endif
+	
 	UPROPERTY(EditDefaultsOnly)
 	TObjectPtr<UAnimMontage> Montage{nullptr};
 	

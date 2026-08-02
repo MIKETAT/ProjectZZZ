@@ -18,8 +18,10 @@ public:
 private:
 	UCombatComponentBase* GetCombatComponentBase(const USkeletalMeshComponent* MeshComp) const;
 public:
+	/*
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack Detection")
 	FGameplayTag ActionTag{FGameplayTag::EmptyTag};
+	*/
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack Detection")
 	FName SegmentName{FName("Default")};

@@ -132,6 +132,10 @@ AEnemyCharacterBase* APlayerCharacter::FindClosestEnemy(const float MaxDistance)
 
 void APlayerCharacter::ProcessFrameInput(const FCharacterFrameDataBus& DataBus)
 {
+	if (AgentPresenceState != EAgentPresenceState::Active)
+	{
+		return;
+	}
 	ProcessMovementInput(DataBus);
 	ProcessLookInput(DataBus);
 	ProcessCombatActionInput(DataBus);

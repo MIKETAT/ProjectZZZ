@@ -12,7 +12,7 @@ void UAnimNotify_TriggerAttackDetection::Notify(USkeletalMeshComponent* MeshComp
 
 	if (GetCombatComponentBase(MeshComp))
 	{
-		GetCombatComponentBase(MeshComp)->TriggerAttackDetectionQuery(ActionTag, SegmentName);	
+		GetCombatComponentBase(MeshComp)->TriggerAttackDetectionQuery(Animation, SegmentName);	
 	}
 }
 

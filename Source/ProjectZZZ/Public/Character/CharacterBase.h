@@ -53,7 +53,7 @@ public:
 	
 	virtual void PostInitializeComponents() override;
 	// ~Interface
-
+	
 	// GAS Interface
 public:
 	UAbilitySystemComponent* GetAbilitySystemComponent() const { return AgentAbilitySystemComponent.Get(); }

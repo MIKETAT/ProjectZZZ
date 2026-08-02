@@ -118,10 +118,6 @@ public:
 	
 	UAgentAttributeSet* GetAgentAttributeSet() const { return AgentAttributeSet; }
 
-	//const FCharacterFrameDataBus& GetCharacterFrameDataBus() const { return CharacterFrameDataBus; }
-
-	//void RefreshCharacterFrameInputData(const FCharacterFrameDataBus& DataBus) { CharacterFrameDataBus.PlayerInputs = DataBus.PlayerInputs; }
-
 	ECombatEventHandleResult HandleAgentDeath(const FCombatEventMessage& Msg);
 
 	void SwitchToOnField();
