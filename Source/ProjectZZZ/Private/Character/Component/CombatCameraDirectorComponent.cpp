@@ -439,7 +439,6 @@ void UCombatCameraDirectorComponent::SetActiveCameraState(const FCombatCameraReq
 	ActiveCameraState.Reset();
 	ActiveCameraState.bActive = true;
 	ActiveCameraState.Request = Request;
-
 	CurrentCameraMode = Request.Config.CameraMode;
 }
 

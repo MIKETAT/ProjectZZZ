@@ -99,10 +99,6 @@ public:
 	bool IsAnyActionActive() const { return AgentCombatComponent && AgentCombatComponent->IsAnyActionActive(); };
 
 	bool IsMoving() const;
-
-	bool IsActive() const { return bIsActive; }
-
-	void SetAgentActive(bool bActive) { bIsActive = bActive; }
 	
 	UTexture2D* GetAgentHead() const { return AgentHead; }
 

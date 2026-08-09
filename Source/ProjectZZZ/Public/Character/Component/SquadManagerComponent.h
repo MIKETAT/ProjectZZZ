@@ -136,7 +136,7 @@ struct FAgentTransitionRequest
 	EAgentSpawnPolicy SpawnPolicy{EAgentSpawnPolicy::InitialSpawn};
 	
 	UPROPERTY()
-	TObjectPtr<UCombatActionStep> SpecialActionToExecute;
+	TObjectPtr<UCombatActionStep> SpecialActionToExecute{nullptr};
 	
 	UPROPERTY()
 	TObjectPtr<AEnemyCharacterBase> Enemy{nullptr};
@@ -233,19 +233,6 @@ USTRUCT()
 struct FSquadStatusSnapshot
 {
 	GENERATED_BODY()
-	
-	/*UPROPERTY(Transient)
-	TWeakObjectPtr<APlayerCharacter> SecondAgent{nullptr};
-
-	UPROPERTY(Transient)
-	TWeakObjectPtr<APlayerCharacter> ThirdAgent{nullptr};
-
-
-	UPROPERTY(Transient)
-	TWeakObjectPtr<UTexture2D> SecondAgentHead{nullptr};
-
-	UPROPERTY(Transient)
-	TWeakObjectPtr<UTexture2D> ThirdAgentHead{nullptr};*/
 
 	FAgentStatusSnapShot ActiveAgentStatus;
 

@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Animation/AnimMontage.h"
@@ -8,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "CombatAnimSchedulerComponent.generated.h"
 
+struct FMontageBlendSettings;
 enum class ECombatActionPriority : uint8;
 class ACharacterBase;
 class UAnimInstanceBase;
@@ -37,11 +36,9 @@ struct FCombatAnimExecutionRequest
 	GENERATED_BODY()
 	
 public:
-	bool IsValid() const { return Montage != nullptr; }
+	bool IsValid() const { return Montage.IsValid() && PlayRate > 0.f; }
 
 	TWeakObjectPtr<UAnimMontage> Montage{nullptr};
-	
-	ECombatActionPriority Priority{ECombatActionPriority::None};
 	
 	float PlayRate{1.f};
 
@@ -50,7 +47,6 @@ public:
 	uint8 bIsFinished : 1 {false};
 
 	uint8 MontageEventFlags{0U};	// 记录这个动画底层状态
-
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCombatAnimFinished, int32, RequestID, ECombatAnimRequestFinishReason, Reason);
@@ -67,8 +63,6 @@ protected:
 	virtual void BeginPlay() override;
 	
 public:
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	
 	virtual void InitializeComponent() override;
 
 public:
@@ -76,20 +70,26 @@ public:
 
 	void CancelAnimRequest(const int32 RequestID);
 
-	bool RequestMontageSetNextSection(const int32 RequestID, const FName& LoopSectionName, const FName& NextSectionName);
+	void CancelAnimRequestWithBlendOutSetting(const int32 RequestID, const FMontageBlendSettings& BlendOutSetting);
 
+	bool RequestMontageSetNextSection(const int32 RequestID, const FName& LoopSectionName, const FName& NextSectionName);
+	
 private:
+	void CachePointers();
+	
 	bool IsRequestMontageBlendingOut(const FCombatAnimExecutionRequest* Request) const;
 
-	int32 CheckIfRequestMontageAlreadyPlaying(const FCombatAnimExecutionRequest& Request) const;
+	bool CheckIfRequestMontageAlreadyPlaying(const FCombatAnimExecutionRequest& Request) const;
 
-	bool CanExecuteCombatAnimRequest(const FCombatAnimExecutionRequest& Request, TArray<int32>& PendingStopRequestIDs) const;
+	void CollectConflictingAnimRequest(const FCombatAnimExecutionRequest& Request, TArray<int32>& OutConflictingRequestIDs) const;
 
 	void FinishRequest(const int32 RequestID, const ECombatAnimRequestFinishReason Reason);
 
-	FName GetMontageSlotName(const UAnimMontage* Montage) const;
+	FName GetMontageGroupName(const UAnimMontage* Montage) const;
 
 	FMontageBlendSettings GetMontageBlendInSetting(const UAnimMontage* Montage) const;
+
+	FMontageBlendSettings GetMontageBlendOutSetting(const UAnimMontage* Montage) const;
 
 	void BindMontageNativeDelegates(UAnimMontage* Montage, const int32 Id);
 	
@@ -102,8 +102,6 @@ private:
 	UFUNCTION()
 	void HandleMontageEnd(UAnimMontage* Montage, bool bInterrupted, int32 RequestID);
 
-	void RefreshProceedingRequest();
-
 public:
 	UPROPERTY(BlueprintAssignable)
 	FOnCombatAnimFinished OnAnimRequestFinished;
@@ -115,8 +113,8 @@ private:
 	int32 NextIDGenerator{-1};
 	
 	UPROPERTY()
-	TObjectPtr<UAnimInstanceBase> AnimInstance;
+	TObjectPtr<UAnimInstanceBase> AnimInstance{nullptr};
 
 	UPROPERTY()
-	TObjectPtr<ACharacterBase> Character;
+	TObjectPtr<ACharacterBase> Character{nullptr};
 };

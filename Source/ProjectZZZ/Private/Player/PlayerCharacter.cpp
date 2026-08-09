@@ -167,9 +167,7 @@ void APlayerCharacter::ProcessMovementInput(const FCharacterFrameDataBus& DataBu
 		return;
 	}
 
-	check(AgentCombatComponent);
-
-	if (AgentCombatComponent->IsAnyActionActive())
+	if (AgentCombatComponent && AgentCombatComponent->IsAnyActionActive())
 	{
 		if (AgentCombatComponent->IsAllowMovementInterruptAction())
 		{

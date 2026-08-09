@@ -56,14 +56,13 @@ int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep, 
 		return INDEX_NONE;
 	}
 
-	if (!IsAnyActionActive() || CanInterruptCurrentAction(ActionStep))
+	if (IsAnyActionActive() && !CanInterruptCurrentAction(ActionStep))
 	{
-		CombatAnimSchedulerComponent->CancelAnimRequest(CurrentExecutionState.MontageInstanceId);
+		return INDEX_NONE;
 	}
 	
 	FCombatAnimExecutionRequest Request;
 	Request.Montage = ActionStep->Montage;
-	Request.Priority = ActionStep->Priority;
 	if (ActionStep->bIsHitReaction)
 	{
 		Request.PlayRate = 2.f;
@@ -191,8 +190,6 @@ void UEnemyCombatComponent::EnterStunState()
 		&UEnemyCombatComponent::ExitStunState,
 		StunDuration,
 		false);
-
-	// Event Bus ?
 }
 
 void UEnemyCombatComponent::ExitStunState()

@@ -275,6 +275,11 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 		return INDEX_NONE;
 	}
 
+	if (IsAnyActionActive() && !CanInterruptCurrentAction(ActionStep))
+	{
+		return INDEX_NONE;
+	}
+	
 	AEnemyCharacterBase* Enemy{nullptr};
  	if (ActionStep->bIsAttackAction)
 	{
@@ -285,15 +290,9 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 	{
 		Enemy = Cast<AEnemyCharacterBase>(Context.Enemy.Get());
 	}
-	
-	if (IsAnyActionActive())
-	{
-		CombatAnimSchedulerComponent->CancelAnimRequest(CurrentExecutionState.MontageInstanceId);
-	}
-	
+
 	FCombatAnimExecutionRequest Request;
 	Request.Montage = ActionStep->Montage;
-	Request.Priority = ActionStep->Priority;
 	int32 InstanceID = CombatAnimSchedulerComponent->ExecuteAnimRequest(Request);
 	if (InstanceID != INDEX_NONE)
 	{
@@ -528,12 +527,6 @@ bool UCharacterCombatComponent::IsCurrentActionLogicFinished() const
 			&&	CurrentExecutionState.bActionLogicFinished
 			&&	CurrentExecutionState.MontageInstanceId == CurrentExecutionState.LogicFinishedActionRequestId;
 }
-
-/*void UCharacterCombatComponent::RefreshInputActionBitmask(const float DeltaTime)
-{
-	CurrentInputActionBitmask = InputActionBitmask;
-	InputActionBitmask.Reset();
-}*/
 
 void UCharacterCombatComponent::InitializeCombatStepList()
 {

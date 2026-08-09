@@ -132,16 +132,6 @@ void USquadManagerComponent::ExecuteAgentTransition(const FAgentTransitionReques
 	{
 		TargetAgent->GetAgentCombatComponent()->RefreshAllActionStatus();	
 	}
-	
-	if (OldAgent)
-	{
-		OldAgent->SetAgentActive(false);
-	}
-
-	if (TargetAgent)
-	{
-		TargetAgent->SetAgentActive(true);
-	}
 }
 
 bool USquadManagerComponent::CanExecuteAgentTransition(const FAgentTransitionRequest& Request)
@@ -273,8 +263,6 @@ void USquadManagerComponent::HandleAgentSwitchIn(APlayerCharacter* NewAgent, con
 
 	// Refresh UI
 	CombatComponent->RefreshAllActionStatus();
-	
-	// todo: Refresh Status Bar
 	
 	ApplyAgentActiveState(NewAgent);
 	
@@ -1079,11 +1067,6 @@ FTransform USquadManagerComponent::CalculateActionCameraPosition(const FAgentTra
 	FRotator CameraRotation{UKismetMathLibrary::FindLookAtRotation(CameraLocation, LookAtTarget)};
 	TargetCameraTransform.SetLocation(CameraLocation);
 	TargetCameraTransform.SetRotation(CameraRotation.Quaternion());
-
-	/*DrawDebugSphere(GetWorld(), CameraLocation, 10.f, 16, FColor::Purple, false, 10.f);
-	DrawDebugDirectionalArrow(GetWorld(), CameraLocation, CameraLocation + 200.f * CameraRotation.Quaternion().GetForwardVector(),
-		10.f, FColor::Purple, false, 10.f);
-		*/
 	
 	return TargetCameraTransform;
 }

@@ -73,7 +73,7 @@ void UPlayerInputHandlerComponent::InitializeComponent()
 
 const FCharacterFrameDataBus& UPlayerInputHandlerComponent::CommitFrameInput()
 {
-	CurrentInputFrame = PendingInputFrame;
+	Swap(PendingInputFrame, CurrentInputFrame);
 	ClearPendingInput();
 	return CurrentInputFrame;
 }

@@ -200,7 +200,7 @@ bool UCombatComponentBase::CanInterruptCurrentAction(const UCombatActionStep* St
 		return false;
 	}
 
-	// Allow HitReaction interrput self
+	// Allow HitReaction interrupt self
 	const bool bCurrentActionIsHitReaction{CurrentExecutionState.CurrentStep->bIsHitReaction};
 	const bool bNewActionIsHitReaction{Step->bIsHitReaction};
 	if (bCurrentActionIsHitReaction && bNewActionIsHitReaction)
@@ -311,6 +311,14 @@ void UCombatComponentBase::RefreshWeaponSweep(const float DeltaTime)
 			{
 				ProcessDetectionResults(MakeDetectedTargetFromOverlap(OverlapResult, QueryTransform), DetectionStatus.DetectionSegment);
 			}
+			// Draw Debug
+			if (DebugConfig.bDrawDebug)
+			{
+				FAttackShapeQueryGeometry DrawGeometry;
+				DrawGeometry.WorldTransform = FTransform(Geometry.Rotation, Geometry.End, FVector::OneVector);
+				DrawGeometry.CollisionShape = Geometry.CollisionShape;
+				DrawDebugAttackDetectionShape(DrawGeometry);
+			}
 		} else
 		{
 			// Sweep
@@ -328,6 +336,12 @@ void UCombatComponentBase::RefreshWeaponSweep(const float DeltaTime)
 			for (const FHitResult& HitResult : HitResults)
 			{
 				ProcessDetectionResults(MakeDetectedTargetFromHit(HitResult), DetectionStatus.DetectionSegment);	
+			}
+			// Draw Debug
+			if (DebugConfig.bDrawDebug)
+			{
+				bool bHit{!HitResults.IsEmpty()};
+				DrawDebugSweepShape(GetWorld(), Geometry.Start, Geometry.End, Geometry.Rotation, Geometry.CollisionShape, bHit, HitResults);
 			}
 		}
 	}
@@ -918,7 +932,7 @@ void UCombatComponentBase::DrawDebugSweepShape(const UWorld* World, const FVecto
 	const FQuat& TraceRotation, const FCollisionShape& Shape, const bool bHit, const TArray<FHitResult>& HitResults,
 	const float LifeTime, const float Thickness)
 {
-	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
     if (!World)
     {
         return;

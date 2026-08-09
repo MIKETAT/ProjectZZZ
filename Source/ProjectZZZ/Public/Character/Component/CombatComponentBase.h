@@ -229,7 +229,7 @@ protected:
 	// Attack Detection
 	FAttackDetectionStatus DetectionStatus;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Debug", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Debug", meta = (AllowPrivateAccess = "true"))
 	FDetectionDebugConfig DebugConfig;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Debug", meta = (AllowPrivateAccess = "true"))
