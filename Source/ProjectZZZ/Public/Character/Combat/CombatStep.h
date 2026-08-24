@@ -239,6 +239,9 @@ public:
 	ECombatActionPriority Priority{ECombatActionPriority::None};
 
 	UPROPERTY(EditDefaultsOnly)
+	bool bUseWeaponSweep{false};
+	
+	UPROPERTY(EditDefaultsOnly)
 	bool bIsAttackAction{false};		// Basic Attack / Special Attack / Ultimate / Chain Attack / Quick Assist / Dodge Attack / Rush Attack
 
 	UPROPERTY(EditDefaultsOnly)

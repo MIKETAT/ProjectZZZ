@@ -63,6 +63,7 @@ int32 UEnemyCombatComponent::ExecuteAction(const UCombatActionStep* ActionStep, 
 	
 	FCombatAnimExecutionRequest Request;
 	Request.Montage = ActionStep->Montage;
+	Request.bUseWeaponSweepDetection = ActionStep->bUseWeaponSweep;
 	if (ActionStep->bIsHitReaction)
 	{
 		Request.PlayRate = 2.f;

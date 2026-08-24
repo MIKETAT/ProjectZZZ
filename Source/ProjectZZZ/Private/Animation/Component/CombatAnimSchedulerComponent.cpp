@@ -1,6 +1,7 @@
 ﻿#include "Animation/Component/CombatAnimSchedulerComponent.h"
 #include "Animation/AnimInstanceBase.h"
 #include "Character/CharacterBase.h"
+#include "Character/Component/HitDetectionComponent.h"
 
 UCombatAnimSchedulerComponent::UCombatAnimSchedulerComponent()
 {
@@ -66,6 +67,12 @@ int32 UCombatAnimSchedulerComponent::ExecuteAnimRequest(const FCombatAnimExecuti
 	{
 		FinishRequest(Id, ERequestFinishReason_Interrupted);
 	}
+
+	FAnimMontageInstance* MontageInstance = AnimInstance->GetActiveInstanceForMontage(Request.Montage.Get());
+	if (Request.bUseWeaponSweepDetection && HitDetectionComponent.IsValid() && MontageInstance)
+	{
+		HitDetectionComponent->PrepareHitDetection(MontageInstance->GetInstanceID());
+	}
 	
 	return AddedRequest.RequestID;
 }
@@ -125,6 +132,8 @@ void UCombatAnimSchedulerComponent::CachePointers()
 	{
 		AnimInstance = Cast<UAnimInstanceBase>(CharacterBase->GetMesh()->GetAnimInstance());
 	}
+
+	HitDetectionComponent = CharacterBase->GetHitDetectionComponent();
 }
 
 bool UCombatAnimSchedulerComponent::IsRequestMontageBlendingOut(const FCombatAnimExecutionRequest* Request) const

@@ -4,6 +4,7 @@
 #include "AbilitySystem/AgentAttributeSet.h"
 #include "AbilitySystem/BaseCombatAttributeSet.h"
 #include "Animation/Component/CombatAnimSchedulerComponent.h"
+#include "Character/Component/HitDetectionComponent.h"
 #include "Character/Component/HitStopComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -42,6 +43,8 @@ ACharacterBase::ACharacterBase()
 	AgentAbilitySystemComponent->SetIsReplicated(true);
 
 	HitStopComponent = CreateDefaultSubobject<UHitStopComponent>(TEXT("HitStopComponent"));
+
+	HitDetectionComponent = CreateDefaultSubobject<UHitDetectionComponent>(TEXT("HitDetectionComponent"));
 	
 	BaseCombatAttribute = CreateDefaultSubobject<UBaseCombatAttributeSet>(TEXT("BaseCombatAttributeSet"));
 }

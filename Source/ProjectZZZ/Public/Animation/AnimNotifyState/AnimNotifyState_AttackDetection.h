@@ -1,10 +1,10 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
-#include "GameplayTagContainer.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
 #include "AnimNotifyState_AttackDetection.generated.h"
 
+class UHitDetectionComponent;
 class UAttackDetectionConfig;
 class UCombatActionStep;
 class UCombatComponentBase;
@@ -21,6 +21,8 @@ public:
 	
 private:
 	UCombatComponentBase* GetCombatComponentBase(const USkeletalMeshComponent* MeshComp) const;
+
+	UHitDetectionComponent* GetHitDetectionComponent(const USkeletalMeshComponent* MeshComp) const;
 	
 public:
 	/*UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack Detection")

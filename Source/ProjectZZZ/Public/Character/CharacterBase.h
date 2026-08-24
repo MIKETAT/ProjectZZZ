@@ -9,6 +9,7 @@
 #include "State/LocomotionState.h"
 #include "CharacterBase.generated.h"
 
+class UHitDetectionComponent;
 class UHitStopComponent;
 class UMotionWarpingComponent;
 class UCombatComponentBase;
@@ -75,6 +76,8 @@ public:
 	
 	virtual UHitStopComponent* GetHitStopComponent() const { return HitStopComponent.Get(); }
 
+	UHitDetectionComponent* GetHitDetectionComponent() const { return HitDetectionComponent.Get(); }
+
 	UFUNCTION(BlueprintCallable)
 	void AddTagToASC(FGameplayTag Tag);
 	
@@ -117,6 +120,9 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UCombatAnimSchedulerComponent> CombatAnimSchedulerComponent;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UHitDetectionComponent> HitDetectionComponent;
+	
 	UPROPERTY()
 	TObjectPtr<UHitStopComponent> HitStopComponent;
 	

@@ -293,6 +293,7 @@ int32 UCharacterCombatComponent::ExecuteAction(const UCombatActionStep* ActionSt
 
 	FCombatAnimExecutionRequest Request;
 	Request.Montage = ActionStep->Montage;
+	Request.bUseWeaponSweepDetection = ActionStep->bUseWeaponSweep;
 	int32 InstanceID = CombatAnimSchedulerComponent->ExecuteAnimRequest(Request);
 	if (InstanceID != INDEX_NONE)
 	{

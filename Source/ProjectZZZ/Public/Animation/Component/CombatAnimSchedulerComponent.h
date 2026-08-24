@@ -6,6 +6,7 @@
 #include "Components/ActorComponent.h"
 #include "CombatAnimSchedulerComponent.generated.h"
 
+class UHitDetectionComponent;
 struct FMontageBlendSettings;
 enum class ECombatActionPriority : uint8;
 class ACharacterBase;
@@ -47,6 +48,8 @@ public:
 	uint8 bIsFinished : 1 {false};
 
 	uint8 MontageEventFlags{0U};	// 记录这个动画底层状态
+
+	uint8 bUseWeaponSweepDetection : 1 {false};
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCombatAnimFinished, int32, RequestID, ECombatAnimRequestFinishReason, Reason);
@@ -117,4 +120,7 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ACharacterBase> Character{nullptr};
+
+	UPROPERTY()
+	TWeakObjectPtr<UHitDetectionComponent> HitDetectionComponent{nullptr};
 };
